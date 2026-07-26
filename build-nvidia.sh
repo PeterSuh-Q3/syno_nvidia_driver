@@ -47,6 +47,19 @@ KSRC="${KSRC:-/opt/${PLATFORM}/build}"
 [ -f "$KSRC/Module.symvers" ] || die "no Module.symvers at $KSRC - run inside dante90/syno-compiler:<DSM> (see run-on-vm.sh)"
 log "kernel tree: $KSRC"
 
+# --- toolchain (MUST match the kernel's compiler, else conftest silently fails
+#     and NVIDIA falls back to legacy code paths - e.g. the removed __flush_tlb).
+#     The Syno x86_64 toolchain lives at /opt/<platform>/bin and is NOT in PATH
+#     by default; put it there and pin CC/CROSS_COMPILE to it. ------------------
+TCBIN="/opt/${PLATFORM}/bin"
+if [ -d "$TCBIN" ] && [ -x "$TCBIN/x86_64-pc-linux-gnu-gcc" ]; then
+  export PATH="$TCBIN:$PATH"
+  : "${CROSS_COMPILE:=x86_64-pc-linux-gnu-}"
+fi
+: "${CC:=${CROSS_COMPILE:-}gcc}"
+: "${LD:=${CROSS_COMPILE:-}ld}"
+log "toolchain: CC=$CC ($($CC --version 2>/dev/null | head -1))"
+
 # --- locate the .run ----------------------------------------------------------
 RUN_FILE="${RUN_FILE:-$HERE/run/NVIDIA-Linux-${ARCH}-${DRV}.run}"
 [ -f "$RUN_FILE" ] || die "NVIDIA .run not found: $RUN_FILE"
