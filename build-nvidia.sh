@@ -75,13 +75,16 @@ SRC="$WORK/nv"
 # --- Synology-kernel compat patches ------------------------------------------
 # Synology's kernels are built with `# CONFIG_X86_PAT is not set`, which forces
 # NVIDIA's builtin-PAT path (nv-pat.c) instead of the kernel's PAT support. That
-# path calls __flush_tlb(), removed from the x86 TLB API in kernel 5.10. Map it
-# to __flush_tlb_all() (present; flushes the whole TLB - correct for the
-# cache-disable sequence). No-op on kernels with CONFIG_X86_PAT (path not built).
+# path calls __flush_tlb(), removed from the x86 TLB API in kernel 5.10.
+# Replace it with the local-TLB-flush inline that __flush_tlb() itself expanded
+# to - native_write_cr3(__native_read_cr3()) - which reloads CR3. Both are
+# static inlines (no exported symbol), so unlike __flush_tlb_all() (which is
+# EXPORT_SYMBOL_GPL and modpost-rejected for the proprietary nvidia.ko) this
+# links cleanly. No-op on kernels with CONFIG_X86_PAT (path not built).
 PATC="$SRC/kernel/nvidia/nv-pat.c"
 if [ -f "$PATC" ] && grep -q '__flush_tlb()' "$PATC"; then
-  sed -i 's/__flush_tlb()/__flush_tlb_all()/g' "$PATC"
-  log "compat: nv-pat.c __flush_tlb() -> __flush_tlb_all() (Syno CONFIG_X86_PAT off)"
+  sed -i 's/__flush_tlb()/native_write_cr3(__native_read_cr3())/g' "$PATC"
+  log "compat: nv-pat.c __flush_tlb() -> native_write_cr3(__native_read_cr3()) (Syno CONFIG_X86_PAT off)"
 fi
 
 # =============================================================================
