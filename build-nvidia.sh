@@ -86,6 +86,15 @@ if [ -f "$PATC" ] && grep -q '__flush_tlb()' "$PATC"; then
   sed -i 's/__flush_tlb()/native_write_cr3(__native_read_cr3())/g' "$PATC"
   log "compat: nv-pat.c __flush_tlb() -> native_write_cr3(__native_read_cr3()) (Syno CONFIG_X86_PAT off)"
 fi
+# Same builtin-PAT path toggles CR4.PGE via NV_WRITE_CR4 -> __write_cr4 ->
+# native_write_cr4(), which is a real (non-inline) function NOT exported to
+# modules -> "native_write_cr4 undefined" at modpost. Emit the CR4 write as raw
+# inline asm (what native_write_cr4 does internally) so no symbol is referenced.
+NVLINUX="$SRC/kernel/common/inc/nv-linux.h"
+if [ -f "$NVLINUX" ] && grep -q '__write_cr4(cr4)' "$NVLINUX"; then
+  sed -i 's|__write_cr4(cr4)|asm volatile("mov %0,%%cr4" :: "r"((unsigned long)(cr4)) : "memory")|' "$NVLINUX"
+  log "compat: nv-linux.h NV_WRITE_CR4 -> inline asm (native_write_cr4 not exported)"
+fi
 
 # =============================================================================
 # LAYER 1 - kernel modules (.ko), platform-specific
