@@ -72,6 +72,18 @@ log "extracting $(basename "$RUN_FILE")"
 sh "$RUN_FILE" --extract-only --target "$WORK/nv" >/dev/null
 SRC="$WORK/nv"
 
+# --- Synology-kernel compat patches ------------------------------------------
+# Synology's kernels are built with `# CONFIG_X86_PAT is not set`, which forces
+# NVIDIA's builtin-PAT path (nv-pat.c) instead of the kernel's PAT support. That
+# path calls __flush_tlb(), removed from the x86 TLB API in kernel 5.10. Map it
+# to __flush_tlb_all() (present; flushes the whole TLB - correct for the
+# cache-disable sequence). No-op on kernels with CONFIG_X86_PAT (path not built).
+PATC="$SRC/kernel/nvidia/nv-pat.c"
+if [ -f "$PATC" ] && grep -q '__flush_tlb()' "$PATC"; then
+  sed -i 's/__flush_tlb()/__flush_tlb_all()/g' "$PATC"
+  log "compat: nv-pat.c __flush_tlb() -> __flush_tlb_all() (Syno CONFIG_X86_PAT off)"
+fi
+
 # =============================================================================
 # LAYER 1 - kernel modules (.ko), platform-specific
 # =============================================================================
