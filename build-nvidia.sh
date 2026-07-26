@@ -122,8 +122,13 @@ done
 
 # self-check: nvidia.ko must EXPORT the uvm/modeset interface, else the
 # dependent modules get 'Unknown symbol' at load time (the issue-#77 failure).
-if ! "${CROSS_COMPILE:-}nm" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -q ' [TR] nvUvmInterface'; then
+# EXPORT_SYMBOL emits __ksymtab_<name>; that (not just a 'T' definition) is what
+# lets nvidia-uvm resolve the interface at load. Check for the ksymtab entries.
+if ! "${CROSS_COMPILE:-}nm" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -q '__ksymtab_nvUvmInterface'; then
   log "WARN: nvidia.ko does not export nvUvmInterface* - uvm would fail with 'Unknown symbol' (issue #77 class)"
+else
+  n=$("${CROSS_COMPILE:-}nm" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -c '__ksymtab_nvUvmInterface')
+  log "ok: nvidia.ko exports $n nvUvmInterface* symbols (uvm will resolve)"
 fi
 
 echo "$DRV" > "$KO_STAGE/VERSION"; echo "$KVER" > "$KO_STAGE/KVER"
