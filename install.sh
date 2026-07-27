@@ -105,6 +105,7 @@ fi
 step "Step 5/8  Choose driver version"
 V535="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("535."))) | .[0] // empty' "$IDX")"
 V550="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("550."))) | .[0] // empty' "$IDX")"
+V470="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("470."))) | .[0] // empty' "$IDX")"
 tag_of(){ # $1 version -> "(verified)"/"(build-ok)"/"" for this GPU
   [ -n "$GPUID" ] || { echo ""; return; }
   [ "$(jq -r --arg g "$GPUID" --arg v "$1" '(.gpus[$g].verified // [])|index($v)' "$SUP" 2>/dev/null)" != "null" ] && { echo "${GRN}(verified)${R}"; return; }
@@ -112,19 +113,20 @@ tag_of(){ # $1 version -> "(verified)"/"(build-ok)"/"" for this GPU
   echo ""
 }
 mark(){ [ "${REC_BRANCH}" = "$1" ] && printf "%b" " ${MAG}<= recommended for your GPU${R}"; }
-say "  ${B}1)${R} 535 : ${WHT}${V535:-N/A}${R} $(tag_of "$V535")$(mark 535)"
-say "  ${B}2)${R} 550 : ${WHT}${V550:-N/A}${R} $(tag_of "$V550")$(mark 550)"
-DEF=1; [ "${REC_BRANCH}" = "550" ] && DEF=2
+say "  ${B}1)${R} 535 : ${WHT}${V535:-N/A}${R} $(tag_of "$V535")$(mark 535)  ${DIM}(Production/LTS, Maxwell..Ada)${R}"
+say "  ${B}2)${R} 550 : ${WHT}${V550:-N/A}${R} $(tag_of "$V550")$(mark 550)  ${DIM}(newest)${R}"
+say "  ${B}3)${R} 470 : ${WHT}${V470:-N/A}${R} $(tag_of "$V470")$(mark 470)  ${DIM}(legacy LTSB, Kepler..Ampere; for older GPUs)${R}"
+DEF=1; [ "${REC_BRANCH}" = "550" ] && DEF=2; [ "${REC_BRANCH}" = "470" ] && DEF=3
 DRV=""
 while :; do
-  printf "%b" "  ${B}Select [1=535 / 2=550] (default ${DEF}): ${R}"
+  printf "%b" "  ${B}Select [1=535 / 2=550 / 3=470] (default ${DEF}): ${R}"
   ask ans; ans="${ans:-$DEF}"
   case "$ans" in
-    1) DRV="$V535" ;; 2) DRV="$V550" ;;
-    *) warn "enter 1 or 2"; continue ;;
+    1) DRV="$V535" ;; 2) DRV="$V550" ;; 3) DRV="$V470" ;;
+    *) warn "enter 1, 2 or 3"; continue ;;
   esac
   [ -n "$DRV" ] && [ "$DRV" != "null" ] && break
-  warn "that version is not available for ${PLATFORM}; pick the other one"
+  warn "that version is not available for ${PLATFORM}; pick another"
 done
 ok "selected driver ${WHT}${DRV}${R}"
 

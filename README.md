@@ -18,7 +18,7 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/i
 ```
 
 It walks you through 8 steps — platform check → GPU detection → **version choice
-(1=535 / 2=550)** → optional NVENC ffmpeg for the Jellyfin package — then
+(1=535 / 2=550 / 3=470)** → optional NVENC ffmpeg for the Jellyfin package — then
 downloads, installs, loads the driver and verifies with `nvidia-smi`.
 
 <p align="center">
@@ -195,7 +195,7 @@ vGPU · 라이선스 서버 없음**(pdbear의 폐쇄 SPK와 다름). GPU마다 
 curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
 ```
 
-8단계로 안내합니다 — 플랫폼 확인 → GPU 감지 → **버전 선택(1=535 / 2=550)** → (선택)
+8단계로 안내합니다 — 플랫폼 확인 → GPU 감지 → **버전 선택(1=535 / 2=550 / 3=470)** → (선택)
 Jellyfin 패키지용 NVENC ffmpeg → 이후 다운로드·설치·드라이버 로드 후 `nvidia-smi`로 검증.
 
 > **Synology SA6400(epyc7002) · Quadro P620 · DSM 7.4.1** 실기 검증 — 2026-07-27.
