@@ -1,6 +1,113 @@
 # syno_nvidia_driver
 
-Builds a **no-auth NVIDIA driver** (2-layer package) for Synology DSM kver5
+No-auth NVIDIA driver for Synology DSM — **physical / passthrough GPUs only, no
+vGPU / license server** (unlike pdbear's closed SPK). Multiple driver versions
+per GPU, auto-matched to your platform + DSM kernel.
+
+---
+
+## 🚀 Install (on a running DSM)
+
+**Requirements:** root/`sudo`, internet, a **supported kver5 platform**
+(`epyc7002` / `geminilakenk` — e.g. SA6400) with an NVIDIA GPU (physical or
+passthrough). The installer auto-detects your platform + GPU and refuses to run
+on anything it can't support.
+
+```bash
+sudo curl -skLO https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh
+sudo bash install.sh
+```
+
+It walks you through 8 steps — platform check → GPU detection → **version choice
+(1=535 / 2=550)** → optional NVENC ffmpeg for the Jellyfin package — then
+downloads, installs, loads the driver and verifies with `nvidia-smi`.
+
+<details open>
+<summary><b>Example run</b> (SA6400 / epyc7002 · Quadro P620 · verified 2026-07-27)</summary>
+
+```text
+  ╔══════════════════════════════════════════════════════════╗
+  ║        NVIDIA driver for Synology DSM  (no-auth)          ║
+  ║        physical / passthrough GPU · installer            ║
+  ╚══════════════════════════════════════════════════════════╝
+
+▶ Step 1/8  Privilege check
+  ✔ running as root
+▶ Step 2/8  Fetching driver catalog
+  ✔ catalog loaded
+▶ Step 3/8  Platform support check
+  platform : epyc7002   kernel: 5.10.55+
+  ✔ supported (kver 5.10.55)
+▶ Step 4/8  NVIDIA GPU detection
+  ✔ detected: Quadro P620  (10de:1cb6, Pascal GP107)
+  compatible driver branches: 535, 550, 525   recommended: 535
+▶ Step 5/8  Choose driver version
+  1) 535 : 535.230.02 (verified) <= recommended for your GPU
+  2) 550 : 550.163.01 (build-ok)
+  Select [1=535 / 2=550] (default 1): 1
+  ✔ selected driver 535.230.02
+▶ Step 6/8  NVENC ffmpeg (for SynoCommunity Jellyfin package)
+  Also install NVENC ffmpeg? [y/N]: n
+  ✔ skipping ffmpeg
+  About to install:  driver 535.230.02 for epyc7002, ffmpeg=false
+  Proceed? [Y/n]: y
+▶ Step 7/8  Downloading layers
+  ↓ kernel modules
+  ↓ userspace libraries
+  ✔ download complete
+▶ Step 8/8  Installing
+  ✔ kernel modules -> /usr/lib/modules
+  ✔ userspace -> /usr/local/nvidia/lib  (+ /usr/lib symlinks)
+  ✔ boot hook installed (/usr/local/etc/rc.d/nvidia.sh)
+  ✔ SUCCESS  driver 535.230.02 installed and GPU is live:
+    +---------------------------------------------------------------------------------------+
+    | NVIDIA-SMI 535.230.02             Driver Version: 535.230.02   CUDA Version: 12.2     |
+    |-----------------------------------------+----------------------+----------------------+
+    |   0  Quadro P620                    Off | 00000000:06:00.0 Off |                  N/A |
+    | 46%   51C    P0              N/A /  N/A |      0MiB /  2048MiB |      2%      Default |
+    +---------------------------------------------------------------------------------------+
+  run nvidia-smi anytime · uninstall with sudo ./uninstall.sh
+```
+</details>
+
+A boot hook (`/usr/local/etc/rc.d/nvidia.sh`) is installed so the driver reloads
+automatically after a reboot. Run `nvidia-smi` any time to check the GPU.
+
+### NVENC ffmpeg (Jellyfin package)
+Answer **y** at Step 6 to also install an NVENC-capable `ffmpeg` at
+`/usr/local/nvidia/bin/ffmpeg`. Then in Jellyfin set **Dashboard → Playback →
+FFmpeg path** to that binary. (Plex has its own transcoder and does not need this.)
+
+## 🧹 Uninstall
+
+```bash
+sudo bash uninstall.sh
+```
+
+<details>
+<summary><b>Example run</b></summary>
+
+```text
+▶ Step 1/5  Privilege check
+  ✔ running as root
+▶ Step 3/5  Unloading kernel modules
+  ✔ unloaded nvidia_drm
+  ✔ unloaded nvidia_uvm
+  ✔ unloaded nvidia
+  ✔ all nvidia modules unloaded
+▶ Step 5/5  Removing driver files
+  ✔ removed 110 /usr/lib symlinks
+  ✔ removed nvidia*.ko from /usr/lib/modules
+  ✔ removed /usr/local/nvidia
+  ✔ Uninstall complete.  No NVIDIA driver remains.
+```
+</details>
+
+---
+
+## About (build / producer side)
+
+Builds the **no-auth NVIDIA driver** (2-layer package) for Synology DSM kver5
 platforms. Physical / passthrough GPUs only — **no vGPU / license server**
 (unlike pdbear's closed SPK). Multiple driver versions per GPU.
 
