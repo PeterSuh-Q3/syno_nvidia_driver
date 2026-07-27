@@ -109,7 +109,12 @@ make -C "$SRC/kernel" modules \
      -j"$(nproc)"
 
 KO_STAGE="$WORK/ko"; mkdir -p "$KO_STAGE"
-STRIP="${CROSS_COMPILE:-}strip"; MODINFO="${CROSS_COMPILE:-}modinfo"
+STRIP="${CROSS_COMPILE:-}strip"
+# vermagic/symtab checks: the .ko are native x86_64, so use plain kmod/binutils.
+# The CROSS_COMPILE-prefixed modinfo/nm often don't exist (toolchain ships gcc/ld/
+# nm/strip but not modinfo) -> would emit false "vermagic ?" / "no export" WARNs.
+command -v modinfo >/dev/null 2>&1 && MODINFO="modinfo" || MODINFO="${CROSS_COMPILE:-}modinfo"
+command -v nm      >/dev/null 2>&1 && NM="nm"           || NM="${CROSS_COMPILE:-}nm"
 found=0
 for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm nvidia-peermem; do
   f="$SRC/kernel/$m.ko"; [ -f "$f" ] || continue
@@ -124,10 +129,10 @@ done
 # dependent modules get 'Unknown symbol' at load time (the issue-#77 failure).
 # EXPORT_SYMBOL emits __ksymtab_<name>; that (not just a 'T' definition) is what
 # lets nvidia-uvm resolve the interface at load. Check for the ksymtab entries.
-if ! "${CROSS_COMPILE:-}nm" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -q '__ksymtab_nvUvmInterface'; then
+if ! "$NM" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -q '__ksymtab_nvUvmInterface'; then
   log "WARN: nvidia.ko does not export nvUvmInterface* - uvm would fail with 'Unknown symbol' (issue #77 class)"
 else
-  n=$("${CROSS_COMPILE:-}nm" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -c '__ksymtab_nvUvmInterface')
+  n=$("$NM" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -c '__ksymtab_nvUvmInterface')
   log "ok: nvidia.ko exports $n nvUvmInterface* symbols (uvm will resolve)"
 fi
 

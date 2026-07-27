@@ -158,8 +158,9 @@ Outputs land in `out/` with a printed `nvidia-index.json` fragment (incl. sha256
 
 - `.ko` are unsigned → DSM logs `module verification failed … tainting` — benign
   (`MODULE_SIG_FORCE` not set, modules still load).
-- Target is **kver5 (5.10.55)** where 525/535/550 build fine. On kver4 (4.4.x)
-  newer branches may not compile — use a legacy branch (470).
+- Target is **kver5 (5.10.55)** where 470/535/550 build fine (470.256.02 PoC
+  verified — vermagic matches, `nvUvmInterface` exported). On kver4 (4.4.x) the
+  newer 535/550 branches may not compile — the legacy 470 branch is the fallback.
 - R515+ branches load **GSP firmware**; if a branch needs it, add the firmware
   blob to the userspace layer.
 
@@ -319,8 +320,9 @@ curl -kLo run/NVIDIA-Linux-x86_64-535.183.06.run \
 
 - `.ko`는 서명되지 않아 DSM이 `module verification failed … tainting`을 남깁니다 —
   무해합니다(`MODULE_SIG_FORCE` 미설정, 모듈은 정상 로드).
-- 타깃은 525/535/550이 정상 빌드되는 **kver5(5.10.55)**입니다. kver4(4.4.x)에서는 신규
-  브랜치가 컴파일되지 않을 수 있으니 레거시 브랜치(470)를 사용하세요.
+- 타깃은 470/535/550이 정상 빌드되는 **kver5(5.10.55)**입니다(470.256.02 PoC 검증 —
+  vermagic 일치, `nvUvmInterface` export 확인). kver4(4.4.x)에서는 신규 535/550 브랜치가
+  컴파일되지 않을 수 있으며, 레거시 470 브랜치가 대안입니다.
 - R515+ 브랜치는 **GSP 펌웨어**를 로드합니다. 필요한 브랜치라면 펌웨어 blob을 userspace
   레이어에 추가하세요.
 
