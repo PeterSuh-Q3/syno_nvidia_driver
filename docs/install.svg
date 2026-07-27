@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="748" height="1191" viewBox="0 0 748 1191" font-family="SFMono-Regular,Consolas,Menlo,monospace" font-size="12.5">
+<rect x="0" y="0" width="748" height="1191" rx="10" fill="#0d1117"/>
+<rect x="0" y="0" width="748" height="30" rx="10" fill="#161b22"/>
+<rect x="0" y="14" width="748" height="16" fill="#161b22"/>
+<circle cx="18" cy="15" r="6" fill="#ff5f56"/>
+<circle cx="36" cy="15" r="6" fill="#ffbd2e"/>
+<circle cx="54" cy="15" r="6" fill="#27c93f"/>
+<text x="374.0" y="19" fill="#636e7b" text-anchor="middle" font-size="11">install.sh — Synology SA6400 · Quadro P620</text>
+<text x="16.0" y="44.0" fill="#39c5cf" font-weight="bold" xml:space="preserve">  ╔══════════════════════════════════════════════════════════╗</text>
+<text x="16.0" y="63.5" fill="#39c5cf" font-weight="bold" xml:space="preserve">  ║        NVIDIA driver for Synology DSM  (no-auth)          ║</text>
+<text x="16.0" y="83.0" fill="#39c5cf" font-weight="bold" xml:space="preserve">  ║        physical / passthrough GPU · installer            ║</text>
+<text x="16.0" y="102.5" fill="#39c5cf" font-weight="bold" xml:space="preserve">  ╚══════════════════════════════════════════════════════════╝</text>
+<text x="16.0" y="141.5" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 1/8  Privilege check</text>
+<text x="16.0" y="161.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="161.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="161.0" fill="#adbac7" xml:space="preserve"> running as root</text>
+<text x="16.0" y="200.0" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 2/8  Fetching driver catalog</text>
+<text x="16.0" y="219.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="219.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="219.5" fill="#adbac7" xml:space="preserve"> catalog loaded</text>
+<text x="16.0" y="258.5" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 3/8  Platform support check</text>
+<text x="16.0" y="278.0" fill="#adbac7" xml:space="preserve">  platform : </text>
+<text x="116.1" y="278.0" fill="#adbac7" font-weight="bold" xml:space="preserve">epyc7002</text>
+<text x="177.7" y="278.0" fill="#adbac7" xml:space="preserve">   kernel: </text>
+<text x="262.4" y="278.0" fill="#adbac7" font-weight="bold" xml:space="preserve">5.10.55+</text>
+<text x="16.0" y="297.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="297.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="297.5" fill="#adbac7" xml:space="preserve"> supported (kver 5.10.55)</text>
+<text x="16.0" y="336.5" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 4/8  NVIDIA GPU detection</text>
+<text x="16.0" y="356.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="356.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="356.0" fill="#adbac7" xml:space="preserve"> detected: </text>
+<text x="123.8" y="356.0" fill="#e6edf3" font-weight="bold" xml:space="preserve">Quadro P620</text>
+<text x="208.5" y="356.0" fill="#adbac7" xml:space="preserve">  (10de:1cb6, Pascal GP107)</text>
+<text x="16.0" y="375.5" fill="#adbac7" xml:space="preserve">  compatible driver branches: </text>
+<text x="247.0" y="375.5" fill="#39c5cf" font-weight="bold" xml:space="preserve">535, 550, 525</text>
+<text x="347.1" y="375.5" fill="#adbac7" xml:space="preserve">   recommended: </text>
+<text x="470.3" y="375.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">535</text>
+<text x="16.0" y="414.5" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 5/8  Choose driver version</text>
+<text x="16.0" y="434.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="434.0" fill="#adbac7" font-weight="bold" xml:space="preserve">1)</text>
+<text x="46.8" y="434.0" fill="#adbac7" xml:space="preserve"> 535 : </text>
+<text x="100.7" y="434.0" fill="#e6edf3" font-weight="bold" xml:space="preserve">535.230.02</text>
+<text x="177.7" y="434.0" fill="#adbac7" xml:space="preserve"> </text>
+<text x="185.4" y="434.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">(verified)</text>
+<text x="262.4" y="434.0" fill="#adbac7" xml:space="preserve"> </text>
+<text x="270.1" y="434.0" fill="#dcbdfb" font-weight="bold" xml:space="preserve">&lt;= recommended for your GPU</text>
+<text x="16.0" y="453.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="453.5" fill="#adbac7" font-weight="bold" xml:space="preserve">2)</text>
+<text x="46.8" y="453.5" fill="#adbac7" xml:space="preserve"> 550 : </text>
+<text x="100.7" y="453.5" fill="#e6edf3" font-weight="bold" xml:space="preserve">550.163.01</text>
+<text x="177.7" y="453.5" fill="#adbac7" xml:space="preserve"> </text>
+<text x="185.4" y="453.5" fill="#e3b341" font-weight="bold" xml:space="preserve">(build-ok)</text>
+<text x="16.0" y="473.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="473.0" fill="#adbac7" font-weight="bold" xml:space="preserve">Select [1=535 / 2=550] (default 1): </text>
+<text x="308.6" y="473.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="324.0" y="473.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="331.7" y="473.0" fill="#adbac7" xml:space="preserve"> selected driver </text>
+<text x="462.6" y="473.0" fill="#e6edf3" font-weight="bold" xml:space="preserve">535.230.02</text>
+<text x="16.0" y="512.0" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 6/8  NVENC ffmpeg (for SynoCommunity Jellyfin package)</text>
+<text x="16.0" y="531.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="531.5" fill="#636e7b" xml:space="preserve">Plex has its own transcoder and does NOT need this.</text>
+<text x="16.0" y="551.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="551.0" fill="#636e7b" xml:space="preserve">The Jellyfin *package* bundles a non-NVENC ffmpeg; this adds an NVENC one.</text>
+<text x="16.0" y="570.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="570.5" fill="#adbac7" font-weight="bold" xml:space="preserve">Also install NVENC ffmpeg? [y/N]: </text>
+<text x="293.2" y="570.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="308.6" y="570.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="316.3" y="570.5" fill="#adbac7" xml:space="preserve"> skipping ffmpeg</text>
+<text x="16.0" y="590.0" fill="#636e7b" xml:space="preserve">------------------------------------------------------------</text>
+<text x="16.0" y="609.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="609.5" fill="#adbac7" font-weight="bold" xml:space="preserve">About to install:</text>
+<text x="162.3" y="609.5" fill="#adbac7" xml:space="preserve">  driver </text>
+<text x="231.6" y="609.5" fill="#e6edf3" font-weight="bold" xml:space="preserve">535.230.02</text>
+<text x="308.6" y="609.5" fill="#adbac7" xml:space="preserve"> for </text>
+<text x="347.1" y="609.5" fill="#e6edf3" font-weight="bold" xml:space="preserve">epyc7002</text>
+<text x="408.7" y="609.5" fill="#adbac7" xml:space="preserve">, ffmpeg=false</text>
+<text x="16.0" y="629.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="629.0" fill="#adbac7" font-weight="bold" xml:space="preserve">Proceed? [Y/n]: </text>
+<text x="16.0" y="648.5" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 7/8  Downloading layers</text>
+<text x="16.0" y="668.0" fill="#adbac7" xml:space="preserve">  ↓ kernel modules</text>
+<text x="16.0" y="707.0" fill="#adbac7" xml:space="preserve">  ↓ userspace libraries</text>
+<text x="16.0" y="746.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="746.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="746.0" fill="#adbac7" xml:space="preserve"> download complete</text>
+<text x="16.0" y="785.0" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 8/8  Installing</text>
+<text x="16.0" y="804.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="804.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="804.5" fill="#adbac7" xml:space="preserve"> kernel modules -&gt; /usr/lib/modules</text>
+<text x="16.0" y="824.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="824.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="824.0" fill="#adbac7" xml:space="preserve"> userspace -&gt; /usr/local/nvidia/lib  (+ /usr/lib symlinks)</text>
+<text x="16.0" y="843.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="843.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="843.5" fill="#adbac7" xml:space="preserve"> boot hook installed (/usr/local/etc/rc.d/nvidia.sh)</text>
+<text x="16.0" y="863.0" fill="#636e7b" xml:space="preserve">------------------------------------------------------------</text>
+<text x="16.0" y="882.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">  ✔ SUCCESS</text>
+<text x="100.7" y="882.5" fill="#adbac7" xml:space="preserve">  driver </text>
+<text x="170.0" y="882.5" fill="#e6edf3" font-weight="bold" xml:space="preserve">535.230.02</text>
+<text x="247.0" y="882.5" fill="#adbac7" xml:space="preserve"> installed and GPU is live:</text>
+<text x="16.0" y="902.0" fill="#636e7b" xml:space="preserve">    Mon Jul 27 12:02:26 2026       </text>
+<text x="16.0" y="921.5" fill="#adbac7" xml:space="preserve">    +---------------------------------------------------------------------------------------+</text>
+<text x="16.0" y="941.0" fill="#adbac7" xml:space="preserve">    | NVIDIA-SMI 535.230.02             Driver Version: 535.230.02   CUDA Version: 12.2     |</text>
+<text x="16.0" y="960.5" fill="#adbac7" xml:space="preserve">    |-----------------------------------------+----------------------+----------------------+</text>
+<text x="16.0" y="980.0" fill="#adbac7" xml:space="preserve">    | GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |</text>
+<text x="16.0" y="999.5" fill="#adbac7" xml:space="preserve">    | Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |</text>
+<text x="16.0" y="1019.0" fill="#adbac7" xml:space="preserve">    |                                         |                      |               MIG M. |</text>
+<text x="16.0" y="1038.5" fill="#adbac7" xml:space="preserve">    |=========================================+======================+======================|</text>
+<text x="16.0" y="1058.0" fill="#adbac7" xml:space="preserve">    |   0  Quadro P620                    Off | 00000000:06:00.0 Off |                  N/A |</text>
+<text x="16.0" y="1077.5" fill="#adbac7" xml:space="preserve">    | 46%   51C    P0              N/A /  N/A |      0MiB /  2048MiB |      2%      Default |</text>
+<text x="16.0" y="1097.0" fill="#adbac7" xml:space="preserve">    |                                         |                      |                  N/A |</text>
+<text x="16.0" y="1116.5" fill="#adbac7" xml:space="preserve">    +-----------------------------------------+----------------------+----------------------+</text>
+<text x="16.0" y="1136.0" fill="#636e7b" xml:space="preserve">------------------------------------------------------------</text>
+<text x="16.0" y="1155.5" fill="#adbac7" xml:space="preserve">  run </text>
+<text x="62.2" y="1155.5" fill="#e6edf3" font-weight="bold" xml:space="preserve">nvidia-smi</text>
+<text x="139.2" y="1155.5" fill="#adbac7" xml:space="preserve"> anytime · uninstall with </text>
+<text x="339.4" y="1155.5" fill="#e6edf3" font-weight="bold" xml:space="preserve">sudo ./uninstall.sh</text>
+</svg>

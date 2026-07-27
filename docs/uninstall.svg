@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="617" height="664" viewBox="0 0 617 664" font-family="SFMono-Regular,Consolas,Menlo,monospace" font-size="12.5">
+<rect x="0" y="0" width="617" height="664" rx="10" fill="#0d1117"/>
+<rect x="0" y="0" width="617" height="30" rx="10" fill="#161b22"/>
+<rect x="0" y="14" width="617" height="16" fill="#161b22"/>
+<circle cx="18" cy="15" r="6" fill="#ff5f56"/>
+<circle cx="36" cy="15" r="6" fill="#ffbd2e"/>
+<circle cx="54" cy="15" r="6" fill="#27c93f"/>
+<text x="308.5" y="19" fill="#636e7b" text-anchor="middle" font-size="11">uninstall.sh — Synology SA6400</text>
+<text x="16.0" y="44.0" fill="#39c5cf" font-weight="bold" xml:space="preserve">  ╔══════════════════════════════════════════════════════════╗</text>
+<text x="16.0" y="63.5" fill="#39c5cf" font-weight="bold" xml:space="preserve">  ║        NVIDIA driver for Synology DSM · uninstaller       ║</text>
+<text x="16.0" y="83.0" fill="#39c5cf" font-weight="bold" xml:space="preserve">  ╚══════════════════════════════════════════════════════════╝</text>
+<text x="16.0" y="122.0" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 1/5  Privilege check</text>
+<text x="16.0" y="141.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="141.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="141.5" fill="#adbac7" xml:space="preserve"> running as root</text>
+<text x="16.0" y="161.0" fill="#636e7b" xml:space="preserve">------------------------------------------------------------</text>
+<text x="16.0" y="180.5" fill="#adbac7" xml:space="preserve">  This will unload the NVIDIA modules and remove </text>
+<text x="393.3" y="180.5" fill="#e6edf3" font-weight="bold" xml:space="preserve">/usr/local/nvidia</text>
+<text x="524.2" y="180.5" fill="#adbac7" xml:space="preserve">, the boot</text>
+<text x="16.0" y="200.0" fill="#adbac7" xml:space="preserve">  hook, /usr/lib symlinks, device nodes and the nvidia-smi wrapper.</text>
+<text x="16.0" y="219.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="219.5" fill="#e3b341" font-weight="bold" xml:space="preserve">!</text>
+<text x="39.1" y="219.5" fill="#adbac7" xml:space="preserve"> stop any GPU users first (Plex/Jellyfin transcodes) or unload may fail.</text>
+<text x="16.0" y="239.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="239.0" fill="#adbac7" font-weight="bold" xml:space="preserve">Continue? [y/N]: </text>
+<text x="16.0" y="258.5" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 2/5  Removing boot hook &amp; wrapper</text>
+<text x="16.0" y="278.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="278.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="278.0" fill="#adbac7" xml:space="preserve"> removed rc.d/nvidia.sh</text>
+<text x="16.0" y="297.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="297.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="297.5" fill="#adbac7" xml:space="preserve"> removed /usr/bin/nvidia-smi wrapper</text>
+<text x="16.0" y="336.5" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 3/5  Unloading kernel modules</text>
+<text x="16.0" y="356.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="356.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="356.0" fill="#adbac7" xml:space="preserve"> unloaded nvidia_drm</text>
+<text x="16.0" y="375.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="375.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="375.5" fill="#adbac7" xml:space="preserve"> unloaded nvidia_uvm</text>
+<text x="16.0" y="395.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="395.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="395.0" fill="#adbac7" xml:space="preserve"> unloaded nvidia</text>
+<text x="16.0" y="414.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="414.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="414.5" fill="#adbac7" xml:space="preserve"> all nvidia modules unloaded</text>
+<text x="16.0" y="453.5" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 4/5  Removing device nodes</text>
+<text x="16.0" y="473.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="473.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="473.0" fill="#adbac7" xml:space="preserve"> removed /dev/nvidia*</text>
+<text x="16.0" y="512.0" fill="#6cb6ff" font-weight="bold" xml:space="preserve">▶ Step 5/5  Removing driver files</text>
+<text x="16.0" y="531.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="531.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="531.5" fill="#adbac7" xml:space="preserve"> removed 110 /usr/lib symlinks</text>
+<text x="16.0" y="551.0" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="551.0" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="551.0" fill="#adbac7" xml:space="preserve"> removed nvidia*.ko from /usr/lib/modules</text>
+<text x="16.0" y="570.5" fill="#adbac7" xml:space="preserve">  </text>
+<text x="31.4" y="570.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">✔</text>
+<text x="39.1" y="570.5" fill="#adbac7" xml:space="preserve"> removed /usr/local/nvidia</text>
+<text x="16.0" y="590.0" fill="#636e7b" xml:space="preserve">------------------------------------------------------------</text>
+<text x="16.0" y="609.5" fill="#57ab5a" font-weight="bold" xml:space="preserve">  ✔ Uninstall complete.</text>
+<text x="193.1" y="609.5" fill="#adbac7" xml:space="preserve">  No NVIDIA driver remains.</text>
+<text x="16.0" y="629.0" fill="#636e7b" xml:space="preserve">------------------------------------------------------------</text>
+</svg>
