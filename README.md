@@ -39,6 +39,7 @@ FFmpeg path** to that binary. (Plex has its own transcoder and does not need thi
 ## 🧹 Uninstall
 
 ```bash
+sudo curl -skLO https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/uninstall.sh
 sudo bash uninstall.sh
 ```
 

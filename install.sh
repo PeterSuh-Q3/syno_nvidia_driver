@@ -32,6 +32,7 @@ banner(){
 }
 
 # --------------------------------------------------------- data / constants --
+REPO_RAW="https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main"
 IDX_URL="https://raw.githubusercontent.com/PeterSuh-Q3/tcrp-addons/main/nvidiadriver/src/nvidia-index.json"
 SUP_URL="https://raw.githubusercontent.com/PeterSuh-Q3/tcrp-addons/main/nvidiadriver/src/nvidia-gpu-support.json"
 IDX=/tmp/nvi-index.json
@@ -220,7 +221,8 @@ else
   say "  If no GPU is attached (passthrough), attach it and reboot."
 fi
 hr
-say "  run ${WHT}nvidia-smi${R} anytime · uninstall with ${WHT}sudo ./uninstall.sh${R}"
+say "  run ${WHT}nvidia-smi${R} anytime"
+say "  to uninstall: ${WHT}sudo curl -skLO ${REPO_RAW}/uninstall.sh && sudo bash uninstall.sh${R}"
 say ""
 rm -rf "$DL" /tmp/nvsmi.out 2>/dev/null
 exit 0
