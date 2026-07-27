@@ -192,7 +192,8 @@ case "$1" in start|"")
     [ -f "/usr/lib/modules/$m.ko" ] && /sbin/insmod "/usr/lib/modules/$m.ko" 2>/dev/null
   done
   major=$(awk '$2=="nvidia-frontend"||$2=="nvidia"{print $1}' /proc/devices | head -1)
-  [ -n "$major" ] && { [ -e /dev/nvidiactl ] || mknod -m 666 /dev/nvidiactl c "$major" 255; n=0; while [ $n -lt 8 ]; do [ -e /dev/nvidia$n ] || mknod -m 666 /dev/nvidia$n c "$major" $n; n=$((n+1)); done; }
+  ngpu=$(ls -d /proc/driver/nvidia/gpus/* 2>/dev/null | wc -l); [ "$ngpu" -ge 1 ] || ngpu=1
+  [ -n "$major" ] && { [ -e /dev/nvidiactl ] || mknod -m 666 /dev/nvidiactl c "$major" 255; n=0; while [ "$n" -lt "$ngpu" ]; do [ -e /dev/nvidia$n ] || mknod -m 666 /dev/nvidia$n c "$major" $n; n=$((n+1)); done; }
   umajor=$(awk '$2=="nvidia-uvm"{print $1}' /proc/devices | head -1)
   [ -n "$umajor" ] && { [ -e /dev/nvidia-uvm ] || mknod -m 666 /dev/nvidia-uvm c "$umajor" 0; }
   for so in /usr/local/nvidia/lib/*.so*; do [ -e "$so" ] && ln -sf "$so" "/usr/lib/$(basename "$so")"; done
