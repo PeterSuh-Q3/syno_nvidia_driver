@@ -8,7 +8,7 @@
 # SynoCommunity Jellyfin package.
 #
 #   sudo bash install.sh                 # after downloading
-#   curl -sL <this-url> | sudo bash      # one-liner (reconnects tty below)
+#   curl -sL <this-url> | sudo bash      # one-liner (prompts read from tty)
 #
 set -u
 # Read a prompt from the terminal, NOT from stdin. With `curl -sL URL | sudo

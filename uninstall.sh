@@ -4,11 +4,10 @@
 # Unloads the NVIDIA modules and removes everything install.sh placed.
 #
 #   sudo bash uninstall.sh
-#   curl -sL <this-url> | sudo bash      # one-liner (reconnects tty below)
+#   curl -sL <this-url> | sudo bash      # one-liner (prompts read from tty)
 #
 set -u
 ask(){ eval "$1=''"; IFS= read -r "$1" </dev/tty 2>/dev/null || true; }
-# Support `curl -sL URL | sudo bash`: reconnect stdin to the terminal for prompts.
 
 R='\033[0m'; B='\033[1m'; DIM='\033[2m'
 RED='\033[1;31m'; GRN='\033[1;32m'; YEL='\033[1;33m'; BLU='\033[1;34m'; CYN='\033[1;36m'; WHT='\033[1;37m'
