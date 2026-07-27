@@ -8,10 +8,10 @@ per GPU, auto-matched to your platform + DSM kernel.
 
 ## 🚀 Install (on a running DSM)
 
-**Requirements:** root/`sudo`, internet, a **supported kver5 platform**
-(`epyc7002` / `geminilakenk` — e.g. SA6400) with an NVIDIA GPU (physical or
-passthrough). The installer auto-detects your platform + GPU and refuses to run
-on anything it can't support.
+**Requirements:** root/`sudo`, internet, a **supported kver5 (5.10.55) platform**
+(all 7 — see the [support matrix](#supported-platforms--driver-versions) below)
+with an NVIDIA GPU (physical or passthrough). The installer auto-detects your
+platform + GPU and refuses to run on anything it can't support.
 
 ```bash
 curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
@@ -44,6 +44,51 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/u
 <p align="center">
   <img src="docs/uninstall.svg" alt="uninstall.sh run" width="660">
 </p>
+
+---
+
+## Supported platforms & driver versions
+
+All **kver5 (kernel 5.10.55)** Synology platforms are supported. Each cell is a
+prebuilt `.ko` on the [`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/nvidia)
+Release; the shared userspace layer (`nv-userspace-<ver>.tgz`) is identical per
+driver version across every platform.
+
+| Platform | Example models | 535.230.02 | 550.163.01 |
+|---|---|:---:|:---:|
+| `epyc7002`      | SA6400                         | ✅ | ✅ |
+| `epyc7003`      | FS6420                         | ✅ | ✅ |
+| `epyc7003ntb`   | PAS7700                        | ✅ | ✅ |
+| `icelaked`      | FS3420 / RS3626xs / RS4826xs+  | ✅ | ✅ |
+| `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ |
+| `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ |
+| `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ |
+
+- **535.230.02** — verified live on a **Quadro P620** (epyc7002 / DSM 7.4.1). NVENC
+  12.0, pairs with the Jellyfin package's `jellyfin-ffmpeg 6.0.1-8`.
+- **550.163.01** — newer branch (NVENC 12.1). Both branches cover Maxwell → Ada.
+- One `.ko` per platform covers **DSM 7.1–7.4** because `CONFIG_MODVERSIONS` is off
+  and the vermagic (`5.10.55+ SMP mod_unload`) is identical across those DSM
+  releases — only the vermagic gates module load.
+
+### Why kver5 only?
+
+The driver ships as a kernel module (`.ko`) that must match the **exact Synology
+kernel** it loads into. Two hard constraints make kver5 the practical target:
+
+1. **Kernel API vs. driver branch.** NVIDIA's open kernel-interface glue tracks
+   modern kernel APIs. The **535 / 550** branches compile cleanly against
+   **5.10.55**, but on the older **kver4 (4.4.x, ~2016)** and **kver3 (3.10.x)**
+   Synology kernels the same glue fails to build — those kernels would need a
+   *legacy* driver branch (470 / 390), which in turn drops support for newer GPUs
+   (Ampere / Ada). So "one modern branch for every platform" only holds on kver5.
+2. **Toolchain + kernel tree availability.** Builds run against the per-platform
+   `/opt/<platform>/build` kernel tree inside the `dante90/syno-compiler`
+   container. The kver5 trees are the ones wired up and validated here.
+
+kver4 / kver3 platforms are therefore **out of scope for the 535/550 line**. They
+are technically buildable with a legacy branch, but that is a separate matrix
+(different branch, different GPU coverage) and is not currently shipped.
 
 ---
 
