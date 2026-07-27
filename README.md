@@ -14,8 +14,7 @@ passthrough). The installer auto-detects your platform + GPU and refuses to run
 on anything it can't support.
 
 ```bash
-sudo curl -skLO https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh
-sudo bash install.sh
+curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
 ```
 
 It walks you through 8 steps — platform check → GPU detection → **version choice
@@ -39,8 +38,7 @@ FFmpeg path** to that binary. (Plex has its own transcoder and does not need thi
 ## 🧹 Uninstall
 
 ```bash
-sudo curl -skLO https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/uninstall.sh
-sudo bash uninstall.sh
+curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/uninstall.sh | sudo bash
 ```
 
 <p align="center">

@@ -7,9 +7,14 @@
 # box's platform + DSM kernel, with an optional NVENC ffmpeg layer for the
 # SynoCommunity Jellyfin package.
 #
-#   sudo ./install.sh
+#   sudo bash install.sh                 # after downloading
+#   curl -sL <this-url> | sudo bash      # one-liner (reconnects tty below)
 #
 set -u
+# Support the `curl -sL URL | sudo bash` one-liner: when stdin is a pipe (the
+# script text), reconnect it to the controlling terminal so the interactive
+# prompts (read) work.
+[ -t 0 ] || { [ -e /dev/tty ] && exec </dev/tty; }
 
 # ------------------------------------------------------------------ colours --
 R='\033[0m'; B='\033[1m'; DIM='\033[2m'
