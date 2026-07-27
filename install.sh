@@ -11,10 +11,11 @@
 #   curl -sL <this-url> | sudo bash      # one-liner (reconnects tty below)
 #
 set -u
-# Support the `curl -sL URL | sudo bash` one-liner: when stdin is a pipe (the
-# script text), reconnect it to the controlling terminal so the interactive
-# prompts (read) work.
-[ -t 0 ] || { [ -e /dev/tty ] && exec </dev/tty; }
+# Read a prompt from the terminal, NOT from stdin. With `curl -sL URL | sudo
+# bash` bash reads the *script* from stdin, so prompts must come from /dev/tty;
+# a global `exec </dev/tty` would break that (bash would read the rest of the
+# script from the tty). No tty (non-interactive) -> empty -> caller's default.
+ask(){ eval "$1=''"; IFS= read -r "$1" </dev/tty 2>/dev/null || true; }
 
 # ------------------------------------------------------------------ colours --
 R='\033[0m'; B='\033[1m'; DIM='\033[2m'
@@ -117,7 +118,7 @@ DEF=1; [ "${REC_BRANCH}" = "550" ] && DEF=2
 DRV=""
 while :; do
   printf "%b" "  ${B}Select [1=535 / 2=550] (default ${DEF}): ${R}"
-  read -r ans; ans="${ans:-$DEF}"
+  ask ans; ans="${ans:-$DEF}"
   case "$ans" in
     1) DRV="$V535" ;; 2) DRV="$V550" ;;
     *) warn "enter 1 or 2"; continue ;;
@@ -135,7 +136,7 @@ if [ -n "$FFF" ]; then
   say "  ${DIM}Plex has its own transcoder and does NOT need this.${R}"
   say "  ${DIM}The Jellyfin *package* bundles a non-NVENC ffmpeg; this adds an NVENC one.${R}"
   printf "%b" "  ${B}Also install NVENC ffmpeg? [y/N]: ${R}"
-  read -r a; case "$a" in y|Y) WANT_FF=true; ok "will install ffmpeg layer" ;; *) ok "skipping ffmpeg" ;; esac
+  ask a; case "$a" in y|Y) WANT_FF=true; ok "will install ffmpeg layer" ;; *) ok "skipping ffmpeg" ;; esac
 else
   warn "no ffmpeg layer published for ${DRV}; skipping"
 fi
@@ -145,7 +146,7 @@ KOF="$(jq -r --arg p "$PLATFORM" --arg d "$DRV" '.platforms[$p].drivers[$d].ko.f
 USF="$(jq -r --arg p "$PLATFORM" --arg d "$DRV" '.platforms[$p].drivers[$d].userspace.file' "$IDX")"
 hr
 say "  ${B}About to install:${R}  driver ${WHT}${DRV}${R} for ${WHT}${PLATFORM}${R}, ffmpeg=${WANT_FF}"
-printf "%b" "  ${B}Proceed? [Y/n]: ${R}"; read -r go; case "$go" in n|N) die "aborted by user" ;; esac
+printf "%b" "  ${B}Proceed? [Y/n]: ${R}"; ask go; case "$go" in n|N) die "aborted by user" ;; esac
 
 step "Step 7/8  Downloading layers"
 rm -rf "$DL"; mkdir -p "$DL"

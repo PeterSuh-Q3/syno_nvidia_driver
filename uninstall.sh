@@ -7,8 +7,8 @@
 #   curl -sL <this-url> | sudo bash      # one-liner (reconnects tty below)
 #
 set -u
+ask(){ eval "$1=''"; IFS= read -r "$1" </dev/tty 2>/dev/null || true; }
 # Support `curl -sL URL | sudo bash`: reconnect stdin to the terminal for prompts.
-[ -t 0 ] || { [ -e /dev/tty ] && exec </dev/tty; }
 
 R='\033[0m'; B='\033[1m'; DIM='\033[2m'
 RED='\033[1;31m'; GRN='\033[1;32m'; YEL='\033[1;33m'; BLU='\033[1;34m'; CYN='\033[1;36m'; WHT='\033[1;37m'
@@ -39,7 +39,7 @@ hr
 say "  This will unload the NVIDIA modules and remove ${WHT}$NVDIR${R}, the boot"
 say "  hook, /usr/lib symlinks, device nodes and the nvidia-smi wrapper."
 warn "stop any GPU users first (Plex/Jellyfin transcodes) or unload may fail."
-printf "%b" "  ${B}Continue? [y/N]: ${R}"; read -r go; case "$go" in y|Y) ;; *) die "aborted by user" ;; esac
+printf "%b" "  ${B}Continue? [y/N]: ${R}"; ask go; case "$go" in y|Y) ;; *) die "aborted by user" ;; esac
 
 # ------------------------------------------------- 2) boot hook + wrapper --
 step "Step 2/5  Removing boot hook & wrapper"
