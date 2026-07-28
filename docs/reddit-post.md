@@ -164,13 +164,13 @@ driver version across every platform.
 
 | Platform | Example models | 470.256.02 | 535.230.02 | 550.163.01 | **580.173.02** |
 |---|---|:---:|:---:|:---:|:---:|
-| `epyc7002`      | SA6400                         | ✅ | ✅ | ✅ | **✅** |
-| `epyc7003`      | FS6420                         | ✅ | ✅ | ✅ | — |
-| `epyc7003ntb`   | PAS7700                        | ✅ | ✅ | ✅ | — |
-| `icelaked`      | FS3420 / RS3626xs / RS4826xs+  | ✅ | ✅ | ✅ | — |
-| `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | — |
-| `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | — |
-| `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | — |
+| `epyc7002`      | SA6400                         | ✅ | ✅ | ✅ | ✅ |
+| `epyc7003`      | FS6420                         | ✅ | ✅ | ✅ | ✅ |
+| `epyc7003ntb`   | PAS7700                        | ✅ | ✅ | ✅ | ✅ |
+| `icelaked`      | FS3420 / RS3626xs / RS4826xs+  | ✅ | ✅ | ✅ | ✅ |
+| `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | ✅ |
+| `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |
+| `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | ✅ |
 
 | Branch | GPU coverage | Native CUDA | Notes |
 |---|---|:---:|---|

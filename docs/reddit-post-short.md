@@ -89,7 +89,7 @@ prebuilt `.ko` on the [`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driv
 Release; the shared userspace layer (`nv-userspace-VERSION.tgz`) is identical per
 driver version across every platform.
 
-**Platforms:** all 7 kver5 ones — `epyc7002` (SA6400), `epyc7003`, `epyc7003ntb`, `icelaked`, `v1000nk`, `r1000nk`, `geminilakenk` (DS225+/DS425+). 470/535/550 are built for all of them; **580 is epyc7002 only so far**.
+**Platforms:** all 7 kver5 ones — `epyc7002` (SA6400), `epyc7003`, `epyc7003ntb`, `icelaked`, `v1000nk`, `r1000nk`, `geminilakenk` (DS225+/DS425+). 470/535/550 are built for all of them; **580 now builds for all 7 kver5 platforms**.
 
 | Branch | GPU coverage | Native CUDA | Notes |
 |---|---|:---:|---|
