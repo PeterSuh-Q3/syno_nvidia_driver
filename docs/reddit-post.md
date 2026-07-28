@@ -176,8 +176,8 @@ driver version across every platform.
 |---|---|:---:|---|
 | **470.256.02** | Kepler … Ampere | 11.4 | Legacy LTSB — for old GPUs 535+ dropped. ffmpeg layer pinned to `jellyfin-ffmpeg 5.1.2-9` (NVENC API 11.1); never pair it with the 535/550 ffmpeg. |
 | **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. Verified on P620. ffmpeg `6.0.1-8` (NVENC 12.0). |
-| **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9` (NVENC 12.1). |
-| **580.173.02** | Maxwell … **Blackwell** | **13.0** | Newest, and the **last branch supporting Maxwell/Pascal/Volta**. Verified on P620 incl. Plex HW transcoding. Turing+ needs GSP firmware (**not shipped yet**). No ffmpeg layer yet. |
+| **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9` (NVENC SDK 12.0, same pin as 535). |
+| **580.173.02** | Maxwell … **Blackwell** | **13.0** | Newest, and the **last branch supporting Maxwell/Pascal/Volta**. Verified on P620 incl. Plex HW transcoding. Turing+ needs GSP firmware (**not shipped yet**). ffmpeg `7.1.4-3`. |
 
 - **580 is the recommended branch for most GPUs.** It supersedes 535/550 (same
   Maxwell→Ada coverage, plus Blackwell) and raises what Pascal can run from CUDA

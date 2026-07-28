@@ -95,8 +95,8 @@ driver version across every platform.
 |---|---|:---:|---|
 | **470.256.02** | Kepler … Ampere | 11.4 | Legacy LTSB, for GPUs 535+ dropped |
 | **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS, verified on P620 |
-| **550.163.01** | Maxwell … Ada | 12.4 | — |
-| **580.173.02** | Maxwell … **Blackwell** | **13.0** | Newest; **last branch with Maxwell/Pascal/Volta**. Turing+ needs GSP (not shipped) |
+| **550.163.01** | Maxwell … Ada | 12.4 | superseded by 580 |
+| **580.173.02** | Maxwell … **Blackwell** | **13.0** | Newest; **last branch with Maxwell/Pascal/Volta**. Turing+ needs GSP (not shipped); ffmpeg 7.1.4-3 |
 
 - **580 is the recommended branch for most GPUs.** It supersedes 535/550 (same
   Maxwell→Ada coverage, plus Blackwell) and raises what Pascal can run from CUDA

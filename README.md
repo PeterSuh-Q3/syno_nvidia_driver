@@ -123,8 +123,8 @@ driver version across every platform.
 |---|---|:---:|---|
 | **470.256.02** | Kepler … Ampere | 11.4 | Legacy LTSB — for old GPUs 535+ dropped. ffmpeg layer pinned to `jellyfin-ffmpeg 5.1.2-9` (NVENC API 11.1); never pair it with the 535/550 ffmpeg. |
 | **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. Verified on P620. ffmpeg `6.0.1-8` (NVENC 12.0). |
-| **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9` (NVENC 12.1). |
-| **580.173.02** | Maxwell … **Blackwell** | **13.0** | Newest, and the **last branch supporting Maxwell/Pascal/Volta**. Verified on P620 incl. Plex HW transcoding. Turing+ needs GSP firmware (**not shipped yet**). No ffmpeg layer yet. |
+| **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9` (NVENC SDK 12.0, same pin as 535). |
+| **580.173.02** | Maxwell … **Blackwell** | **13.0** | Newest, and the **last branch supporting Maxwell/Pascal/Volta**. Verified on P620 incl. Plex HW transcoding. Turing+ needs GSP firmware (**not shipped yet**). ffmpeg `7.1.4-3`. |
 
 - **580 is the recommended branch for most GPUs.** It supersedes 535/550 (same
   Maxwell→Ada coverage, plus Blackwell) and raises what Pascal can run from CUDA
@@ -434,8 +434,8 @@ Release에 올라간 사전 빌드 `.ko`이며, 공유 userspace 레이어
 |---|---|:---:|---|
 | **470.256.02** | Kepler … Ampere | 11.4 | 레거시 LTSB — 535 이상이 버린 구형 GPU용. ffmpeg 레이어는 `jellyfin-ffmpeg 5.1.2-9`(NVENC API 11.1) 고정이며 535/550용 ffmpeg와 절대 섞으면 안 됩니다. |
 | **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. P620 검증. ffmpeg `6.0.1-8`(NVENC 12.0). |
-| **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9`(NVENC 12.1). |
-| **580.173.02** | Maxwell … **Blackwell** | **13.0** | 최신이자 **Maxwell/Pascal/Volta를 지원하는 마지막 브랜치**. P620에서 Plex 하드웨어 트랜스코딩까지 검증. Turing 이상은 GSP 펌웨어 필요(**아직 미배포**). ffmpeg 레이어 미발행. |
+| **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9`(NVENC SDK 12.0, 535 와 동일 핀). |
+| **580.173.02** | Maxwell … **Blackwell** | **13.0** | 최신이자 **Maxwell/Pascal/Volta를 지원하는 마지막 브랜치**. P620에서 Plex 하드웨어 트랜스코딩까지 검증. Turing 이상은 GSP 펌웨어 필요(**아직 미배포**). ffmpeg `7.1.4-3`. |
 
 - **대부분의 GPU에는 580이 권장 브랜치입니다.** 535/550을 대체하며(동일한 Maxwell→Ada
   커버리지 + Blackwell), Pascal이 실행할 수 있는 CUDA를 12.4에서 **12.9**로 올려줍니다.
