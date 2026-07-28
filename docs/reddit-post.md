@@ -16,9 +16,7 @@ run, which trips up a lot of people.
 with an NVIDIA GPU (physical or passthrough). The installer auto-detects your
 platform + GPU and refuses to run on anything it can't support.
 
-```bash
-curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
-```
+    curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
 
 It walks you through 8 steps — platform check → GPU detection → **version choice
 (1=535 / 2=550 / 3=470 / 4=580)** → optional NVENC ffmpeg for the Jellyfin package
@@ -26,7 +24,57 @@ It walks you through 8 steps — platform check → GPU detection → **version 
 The installer highlights the branch recommended for the GPU it found and tells you
 the **highest CUDA version that GPU can actually run**.
 
-📷 **[install.sh installing driver 580.173.02 on an SA6400 with a Quadro P620](https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/docs/install-580.png)** — click to view the real terminal output
+      ╔══════════════════════════════════════════════════════════╗
+      ║        NVIDIA driver for Synology DSM  (no-auth)          ║
+      ║        physical / passthrough GPU · installer            ║
+      ╚══════════════════════════════════════════════════════════╝
+    ▶ Step 1/8  Privilege check
+      ✔ running as root
+    ▶ Step 2/8  Fetching driver catalog
+      ✔ catalog loaded
+    ▶ Step 3/8  Platform support check
+      platform : epyc7002   kernel: 5.10.55+
+      ✔ supported (kver 5.10.55)
+    ▶ Step 4/8  NVIDIA GPU detection
+      ✔ detected: Quadro P620  (10de:1cb6, Pascal GP107)
+      compatible driver branches: 580, 535, 550, 470   recommended: 580
+    ▶ Step 5/8  Choose driver version
+      1) 535 : 535.230.02 (verified)  (Production/LTS, Maxwell..Ada)
+      2) 550 : 550.163.01 (build-ok)  (newest)
+      3) 470 : 470.256.02   (legacy LTSB, Kepler..Ampere; for older GPUs)
+      4) 580 : 580.173.02  <= recommended for your GPU  (newest branch, Maxwell..Blackwell; highest CUDA)
+      Your GPU tops out at CUDA 12.9 - set by its compute capability, not by the driver.
+      Select [1=535 / 2=550 / 3=470 / 4=580] (default 4):   ✔ selected driver 580.173.02
+    ▶ Step 6/8  NVENC ffmpeg (for SynoCommunity Jellyfin package)
+      ! no ffmpeg layer published for 580.173.02; skipping
+      About to install:  driver 580.173.02 for epyc7002, ffmpeg=false
+      Proceed? [Y/n]: 
+    ▶ Step 7/8  Downloading layers
+      ↓ kernel modules
+      ############################################################ 100%
+      ↓ userspace libraries
+      ############################################################ 100%
+      ✔ download complete
+    ▶ Step 8/8  Installing
+      ✔ kernel modules -> /usr/lib/modules
+      ✔ userspace -> /usr/local/nvidia/lib  (+ /usr/lib symlinks)
+      ✔ boot hook installed (/usr/local/etc/rc.d/nvidia.sh)
+      ✔ SUCCESS  driver 580.173.02 installed and GPU is live:
+        Tue Jul 28 23:17:18 2026
+        +-----------------------------------------------------------------------------------------+
+        | NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
+        +-----------------------------------------+------------------------+----------------------+
+        | GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+        | Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+        |                                         |                        |               MIG M. |
+        |=========================================+========================+======================|
+        |   0  Quadro P620                    Off |   00000000:06:00.0 Off |                  N/A |
+        | 34%   46C    P0            N/A  /  N/A  |       0MiB /   2048MiB |      0%      Default |
+        |                                         |                        |                  N/A |
+        +-----------------------------------------+------------------------+----------------------+
+      run nvidia-smi anytime
+
+*(colored version of the same run: [PNG](https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/docs/install-580.png))*
 
 > Real run on **Synology SA6400 (epyc7002) · Quadro P620 · DSM 7.4** installing
 > **580.173.02** — verified 2026-07-28, including Plex hardware transcoding.
@@ -50,12 +98,27 @@ automatically after a reboot. Run `nvidia-smi` any time to check the GPU.
 The driver creates its device nodes on load. Checking them is the quickest way to
 confirm a healthy install — and the first thing to look at if an app cannot see the GPU:
 
-```bash
-sudo ls -l /dev/nvidia*
-lsmod | grep nvidia
-```
+    $ sudo ls -l /dev/nvidia*
+    crw-rw-rw- 1 root root  240,   0 Jul 28 23:17 /dev/nvidia-uvm   # CUDA unified memory - required by CUDA
+    crw-rw-rw- 1 root root  240,   1 Jul 28 23:17 /dev/nvidia-uvm-tools
+    crw-rw-rw- 1 root root  195,   0 Jul 28 23:17 /dev/nvidia0   # one node per GPU
+    crw-rw-rw- 1 root root  195, 255 Jul 28 23:17 /dev/nvidiactl   # driver control node
 
-📷 **[post-install verification — device nodes, modules, compute capability](https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/docs/verify-580.png)** — click to view the real terminal output
+    /dev/nvidia-caps:
+    total 0
+    cr-------- 1 root root  243,   1 Jul 28 23:17 nvidia-cap1
+    cr--r--r-- 1 root root  243,   2 Jul 28 23:17 nvidia-cap2   # MIG capabilities (unused on consumer GPUs)
+
+    $ lsmod | grep nvidia
+    nvidia_drm             16384  0
+    nvidia_uvm           1454080  4
+    nvidia              103940096  168 nvidia_uvm
+
+    $ sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
+    name, compute_cap, driver_version
+    Quadro P620, 6.1, 580.173.02      # cc 6.1 = Pascal -> CUDA 12.9 max
+
+*(colored version: [PNG](https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/docs/verify-580.png))*
 
 | Node | Major | What it is |
 |---|:---:|---|
@@ -86,11 +149,9 @@ FFmpeg path** to that binary. (Plex has its own transcoder and does not need thi
 
 ## 🧹 Uninstall
 
-```bash
-curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/uninstall.sh | sudo bash
-```
+    curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/uninstall.sh | sudo bash
 
-📷 **[uninstall.sh run](https://github.com/PeterSuh-Q3/syno_nvidia_driver/blob/main/docs/uninstall.svg)** — click to view the real terminal output
+*(what the uninstaller prints: [screenshot](https://github.com/PeterSuh-Q3/syno_nvidia_driver/blob/main/docs/uninstall.svg))*
 
 ---
 
@@ -159,13 +220,10 @@ Higher-capability cards also run every lower CUDA version.
 
 ### How to check your GPU's real CUDA ceiling
 
-```bash
-sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
-```
-```
-name, compute_cap, driver_version
-Quadro P620, 6.1, 580.173.02      →  cc 6.1 = Pascal  →  CUDA 12.9 max
-```
+    sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
+
+    name, compute_cap, driver_version
+    Quadro P620, 6.1, 580.173.02      →  cc 6.1 = Pascal  →  CUDA 12.9 max
 
 > **Do not read the CUDA version off the `nvidia-smi` header.** On the P620 above it
 > prints `CUDA Version: 13.0`, but that is only the *driver's* maximum — the GPU
@@ -177,10 +235,8 @@ in the table above.
 
 To check what an application actually gets, query it from inside your container:
 
-```bash
-python3 -c "import torch; print(torch.version.cuda, torch.cuda.get_device_capability(), torch.cuda.is_available())"
-# e.g. 12.4 (6, 1) True   →  toolkit 12.4, compute capability 6.1, usable
-```
+    python3 -c "import torch; print(torch.version.cuda, torch.cuda.get_device_capability(), torch.cuda.is_available())"
+    # e.g. 12.4 (6, 1) True   →  toolkit 12.4, compute capability 6.1, usable
 
 ### CUDA is irrelevant for transcoding
 
