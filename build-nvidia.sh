@@ -148,10 +148,18 @@ done
 # dependent modules get 'Unknown symbol' at load time (the issue-#77 failure).
 # EXPORT_SYMBOL emits __ksymtab_<name>; that (not just a 'T' definition) is what
 # lets nvidia-uvm resolve the interface at load. Check for the ksymtab entries.
-if ! "$NM" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -q '__ksymtab_nvUvmInterface'; then
-  log "WARN: nvidia.ko does not export nvUvmInterface* - uvm would fail with 'Unknown symbol' (issue #77 class)"
+#
+# Use `grep -c` (which consumes all of nm's output), NEVER `grep -q`: under
+# `set -o pipefail` grep -q exits at the first match, nm then dies of SIGPIPE,
+# and the whole pipeline reports failure - which made this check emit a false
+# "does not export" WARN on every build with a large nvidia.ko (580 = 113MB),
+# even though the symbols were present. Verified: grep -c finds 76, grep -q
+# path reports failure.
+if ! "$NM" --version >/dev/null 2>&1; then
+  log "WARN: '$NM' unavailable - nvUvmInterface export self-check SKIPPED (not a build failure)"
 else
-  n=$("$NM" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -c '__ksymtab_nvUvmInterface')
+  n=$("$NM" "$KO_STAGE/nvidia.ko" 2>/dev/null | grep -c '__ksymtab_nvUvmInterface' || true)
+  [ "${n:-0}" -ge 1 ] || die "nvidia.ko exports no nvUvmInterface* symbols - nvidia-uvm would fail with 'Unknown symbol' at load (issue #77 class) and CUDA would be broken"
   log "ok: nvidia.ko exports $n nvUvmInterface* symbols (uvm will resolve)"
 fi
 
