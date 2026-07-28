@@ -106,6 +106,11 @@ step "Step 5/8  Choose driver version"
 V535="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("535."))) | .[0] // empty' "$IDX")"
 V550="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("550."))) | .[0] // empty' "$IDX")"
 V470="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("470."))) | .[0] // empty' "$IDX")"
+V580="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("580."))) | .[0] // empty' "$IDX")"
+# 580 needs GSP firmware on Turing+ (compute capability >= 7.5); we do not ship
+# it yet, so such a GPU would install a driver that cannot initialise.
+NEEDS_GSP="$(jq -r --arg g "$GPUID" '.gpus[$g].needs_gsp // false' "$SUP" 2>/dev/null)"
+CUDA_MAX="$(jq -r --arg g "$GPUID" '.gpus[$g].cuda_max // empty' "$SUP" 2>/dev/null)"
 tag_of(){ # $1 version -> "(verified)"/"(build-ok)"/"" for this GPU
   [ -n "$GPUID" ] || { echo ""; return; }
   [ "$(jq -r --arg g "$GPUID" --arg v "$1" '(.gpus[$g].verified // [])|index($v)' "$SUP" 2>/dev/null)" != "null" ] && { echo "${GRN}(verified)${R}"; return; }
@@ -116,18 +121,30 @@ mark(){ [ "${REC_BRANCH}" = "$1" ] && printf "%b" " ${MAG}<= recommended for you
 say "  ${B}1)${R} 535 : ${WHT}${V535:-N/A}${R} $(tag_of "$V535")$(mark 535)  ${DIM}(Production/LTS, Maxwell..Ada)${R}"
 say "  ${B}2)${R} 550 : ${WHT}${V550:-N/A}${R} $(tag_of "$V550")$(mark 550)  ${DIM}(newest)${R}"
 say "  ${B}3)${R} 470 : ${WHT}${V470:-N/A}${R} $(tag_of "$V470")$(mark 470)  ${DIM}(legacy LTSB, Kepler..Ampere; for older GPUs)${R}"
-DEF=1; [ "${REC_BRANCH}" = "550" ] && DEF=2; [ "${REC_BRANCH}" = "470" ] && DEF=3
+say "  ${B}4)${R} 580 : ${WHT}${V580:-N/A}${R} $(tag_of "$V580")$(mark 580)  ${DIM}(newest branch, Maxwell..Blackwell; highest CUDA)${R}"
+[ -n "$CUDA_MAX" ] && say "  ${DIM}Your GPU tops out at ${WHT}CUDA ${CUDA_MAX}${R}${DIM} - set by its compute capability, not by the driver.${R}"
+DEF=1; [ "${REC_BRANCH}" = "550" ] && DEF=2; [ "${REC_BRANCH}" = "470" ] && DEF=3; [ "${REC_BRANCH}" = "580" ] && DEF=4
 DRV=""
 while :; do
-  printf "%b" "  ${B}Select [1=535 / 2=550 / 3=470] (default ${DEF}): ${R}"
+  printf "%b" "  ${B}Select [1=535 / 2=550 / 3=470 / 4=580] (default ${DEF}): ${R}"
   ask ans; ans="${ans:-$DEF}"
   case "$ans" in
-    1) DRV="$V535" ;; 2) DRV="$V550" ;; 3) DRV="$V470" ;;
-    *) warn "enter 1, 2 or 3"; continue ;;
+    1) DRV="$V535" ;; 2) DRV="$V550" ;; 3) DRV="$V470" ;; 4) DRV="$V580" ;;
+    *) warn "enter 1, 2, 3 or 4"; continue ;;
   esac
   [ -n "$DRV" ] && [ "$DRV" != "null" ] && break
   warn "that version is not available for ${PLATFORM}; pick another"
 done
+# Guard: 580 on a GSP-requiring GPU would install but fail to initialise.
+case "$DRV" in
+  580.*) if [ "$NEEDS_GSP" = "true" ]; then
+           warn "${WHT}${GNAME:-Your GPU}${R} is Turing or newer and needs ${B}GSP firmware${R} on 580,"
+           warn "which is ${B}not shipped yet${R} - the driver would load but fail to initialise."
+           warn "Pick ${B}1 (535)${R} or ${B}2 (550)${R} instead until GSP support lands."
+           printf "%b" "  ${B}Continue with 580 anyway? [y/N]: ${R}"
+           ask g; case "$g" in y|Y) ;; *) die "aborted - re-run and choose 535 or 550" ;; esac
+         fi ;;
+esac
 ok "selected driver ${WHT}${DRV}${R}"
 
 # ==================================================== 6) optional ffmpeg ==
