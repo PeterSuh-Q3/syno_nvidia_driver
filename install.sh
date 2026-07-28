@@ -248,6 +248,76 @@ fi
 hr
 say "  run ${WHT}nvidia-smi${R} anytime"
 say "  to uninstall: ${WHT}sudo curl -skLO ${REPO_RAW}/uninstall.sh && sudo bash uninstall.sh${R}"
+
+# ============================================ 9) optional: container runtime ==
+CMPKG=/var/packages/ContainerManager
+CRDIR=/usr/local/nvidia-runtime
+if [ -d "$CMPKG" ]; then
+  hr
+  step "Step 9 (optional)  Container Manager (Docker) integration"
+  say "  ${DIM}Lets 'docker run --runtime=nvidia --gpus all ...' containers see this GPU.${R}"
+  printf "%b" "  ${B}Also set up the container runtime? [y/N]: ${R}"
+  ask cr
+  case "$cr" in
+    y|Y)
+      CRF="$(jq -r '.container_runtime.file' "$IDX")"
+      CRSHA="$(jq -r '.container_runtime.sha256' "$IDX")"
+      if [ -z "$CRF" ] || [ "$CRF" = "null" ]; then
+        warn "no container_runtime layer published in the index; skipping"
+      else
+        mkdir -p "$DL"
+        say "  ↓ container runtime layer"
+        curl -kL# "$REL/$CRF" -o "$DL/$CRF" || die "download failed: $CRF"
+        [ -s "$DL/$CRF" ] || die "empty download: $CRF"
+        GOTSHA="$(sha256sum "$DL/$CRF" 2>/dev/null | cut -d' ' -f1)"
+        [ -z "$GOTSHA" ] || [ "$GOTSHA" = "$CRSHA" ] || die "sha256 mismatch for $CRF"
+
+        # extract straight to its final, exec-permitted home - /tmp is noexec on DSM
+        rm -rf "$CRDIR"; mkdir -p "$CRDIR"
+        tar -xzf "$DL/$CRF" -C "$CRDIR"
+        chmod +x "$CRDIR"/bin/* "$CRDIR"/tools/* 2>/dev/null
+        ok "runtime -> $CRDIR"
+
+        # DSM ships no ldconfig/ld.so.cache; nvidia-container-cli needs one to
+        # locate the driver's libs. Build our own with the bundled static ldconfig.
+        "$CRDIR/tools/ldconfig" -C "$CRDIR/ld.so.cache" \
+          /usr/lib "$NVDIR/lib" "$CRDIR/lib" 2>/dev/null
+        mkdir -p /etc/nvidia-container-runtime
+        cat > /etc/nvidia-container-runtime/config.toml <<TOML
+[nvidia-container-cli]
+root = "/"
+path = "$CRDIR/bin/nvidia-container-cli"
+ldcache = "$CRDIR/ld.so.cache"
+
+[nvidia-container-runtime]
+runtimes = ["/var/packages/ContainerManager/target/usr/bin/runc"]
+TOML
+        ok "ld.so.cache built, config.toml written"
+
+        # register the 'nvidia' runtime in Container Manager's daemon.json -
+        # merge, never overwrite: DSM already has bip/data-root/etc in there.
+        DJ="$CMPKG/etc/dockerd.json"
+        if [ -f "$DJ" ]; then
+          cp "$DJ" "$DJ.pre-nvidia.bak"
+          NEWDJ="$(jq --arg p "$CRDIR/bin/nvidia-container-runtime" \
+            '.runtimes.nvidia = {"path": $p, "runtimeArgs": []}' "$DJ")"
+          if [ -n "$NEWDJ" ]; then
+            echo -E "$NEWDJ" > "$DJ"
+            ok "daemon.json: 'nvidia' runtime registered (backup: $DJ.pre-nvidia.bak)"
+            warn "restart Container Manager to apply: sudo /usr/syno/bin/synopkg restart ContainerManager"
+          else
+            warn "failed to update daemon.json (jq error) - left untouched"
+          fi
+        else
+          warn "daemon.json not found at $DJ - register the 'nvidia' runtime manually"
+        fi
+        say "  ${DIM}test after restart: docker run --rm --runtime=nvidia --gpus all nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi${R}"
+      fi
+      ;;
+    *) ok "skipping container runtime setup" ;;
+  esac
+fi
+
 say ""
 rm -rf "$DL" /tmp/nvsmi.out 2>/dev/null
 exit 0
