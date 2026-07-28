@@ -1,0 +1,103 @@
+# Build the NVIDIA 580-branch 2-layer package for a DSM kver5 platform,
+# using the same dante90/syno-compiler container + build-nvidia.sh flow as
+# run-on-vm.sh, but on GitHub Actions instead of the build VM.
+#
+# Default target: 580.159.03 / epyc7002 (SA6400) / DSM 7.4 / kernel 5.10.55.
+# 580 is the last branch covering Maxwell/Pascal/Volta AND Blackwell (RTX 50).
+#
+# NOTE (Turing+ GPUs): the 580 proprietary kernel module can drive Turing+
+# with GSP firmware. build-nvidia.sh does not package firmware/, so this
+# workflow additionally emits nv-firmware-<ver>.tgz (gsp_*.bin) for later use
+# by install.sh. Pascal and older (e.g. Quadro P620) do not need it.
+
+name: build-nvidia-580
+
+on:
+  workflow_dispatch:
+    inputs:
+      driver_ver:
+        description: "NVIDIA driver version (display .run from download.nvidia.com/XFree86)"
+        required: true
+        default: "580.159.03"
+      platform:
+        description: "DSM platform (kver5)"
+        required: true
+        default: "epyc7002"
+      dsm_ver:
+        description: "dante90/syno-compiler image tag (DSM version)"
+        required: true
+        default: "7.4"
+      kver:
+        description: "kernel version"
+        required: true
+        default: "5.10.55"
+      upload_release:
+        description: "upload the .tgz layers to the Release tagged 'nvidia'"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # only used when upload_release=true (gh release upload)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download NVIDIA .run
+        run: |
+          mkdir -p run
+          curl -fL --retry 3 -o "run/NVIDIA-Linux-x86_64-${{ inputs.driver_ver }}.run" \
+            "https://us.download.nvidia.com/XFree86/Linux-x86_64/${{ inputs.driver_ver }}/NVIDIA-Linux-x86_64-${{ inputs.driver_ver }}.run"
+          ls -la run/
+
+      - name: Build 2-layer package inside syno-compiler
+        run: |
+          set -o pipefail
+          docker run --rm -t -u 0 \
+            -v "$PWD":/work \
+            "dante90/syno-compiler:${{ inputs.dsm_ver }}" \
+            bash /work/build-nvidia.sh "${{ inputs.driver_ver }}" "${{ inputs.platform }}" "${{ inputs.kver }}" \
+            | tee index-fragment.txt
+          sudo chown -R "$(id -u):$(id -g)" out
+
+      - name: Package GSP firmware layer (Turing+ only, harmless extra)
+        run: |
+          sh "run/NVIDIA-Linux-x86_64-${{ inputs.driver_ver }}.run" --extract-only --target nvext >/dev/null
+          if compgen -G "nvext/firmware/*.bin" >/dev/null; then
+            tar -C nvext/firmware -czf "out/nv-firmware-${{ inputs.driver_ver }}.tgz" .
+            sha256sum "out/nv-firmware-${{ inputs.driver_ver }}.tgz"
+          else
+            echo "no firmware/ in this .run - skipping"
+          fi
+          rm -rf nvext
+
+      - name: Job summary (nvidia-index.json fragment + checksums)
+        run: |
+          {
+            echo '## Artifacts'
+            echo '```'
+            (cd out && sha256sum *.tgz)
+            echo '```'
+            echo '## nvidia-index.json fragment'
+            echo '```json'
+            sed -n '/=== paste under/,$p' index-fragment.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nv-${{ inputs.driver_ver }}-${{ inputs.platform }}-dsm${{ inputs.dsm_ver }}
+          path: |
+            out/*.tgz
+            index-fragment.txt
+          if-no-files-found: error
+
+      - name: Upload to 'nvidia' Release
+        if: ${{ inputs.upload_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload nvidia out/*.tgz --clobber
