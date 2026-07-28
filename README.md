@@ -24,7 +24,7 @@ The installer highlights the branch recommended for the GPU it found and tells y
 the **highest CUDA version that GPU can actually run**.
 
 <p align="center">
-  <img src="docs/install.svg" alt="install.sh installing driver 580.173.02 on an SA6400 with a Quadro P620" width="820">
+  <img src="docs/install-580.svg" alt="install.sh installing driver 580.173.02 on an SA6400 with a Quadro P620" width="820">
 </p>
 
 > Real run on **Synology SA6400 (epyc7002) · Quadro P620 · DSM 7.4** installing
