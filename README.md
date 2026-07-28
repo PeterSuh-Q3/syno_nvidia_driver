@@ -19,9 +19,12 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/i
 
 It walks you through 8 steps — platform check → GPU detection → **version choice
 (1=535 / 2=550 / 3=470 / 4=580)** → optional NVENC ffmpeg for the Jellyfin package
-— then downloads, installs, loads the driver and verifies with `nvidia-smi`.
-The installer highlights the branch recommended for the GPU it found and tells you
-the **highest CUDA version that GPU can actually run**.
+— then downloads, installs, loads the driver and verifies with `nvidia-smi`. A
+**9th, optional step** sets up GPU access for Container Manager (Docker) if it's
+installed — see [Container Manager (Docker) GPU access](#container-manager-docker-gpu-access)
+below. The installer highlights the branch recommended for the GPU it found and
+tells you the **highest CUDA version that GPU can actually run**, and deploys
+**GSP firmware automatically** for GPUs that need it (Turing / Ampere so far).
 
 <p align="center">
   <img src="docs/install-580.svg" alt="install.sh installing driver 580.173.02 on an SA6400 with a Quadro P620" width="820">
@@ -90,6 +93,45 @@ Answer **y** at Step 6 to also install an NVENC-capable `ffmpeg` at
 `/usr/local/nvidia/bin/ffmpeg`. Then in Jellyfin set **Dashboard → Playback →
 FFmpeg path** to that binary. (Plex has its own transcoder and does not need this.)
 
+## Container Manager (Docker) GPU access
+
+If Container Manager is installed, `install.sh` offers an optional **Step 9**
+that lets `docker run` containers use this GPU too (Ollama, PyTorch, vLLM, …).
+It downloads a small runtime layer (`nvidia-container-cli` + friends, built from
+NVIDIA's official upstream binaries — no compiling needed), registers a
+**`nvidia`** runtime in Container Manager's `daemon.json` by **merging** (your
+existing `bip`/`data-root`/etc. are preserved, and a backup is kept at
+`dockerd.json.pre-nvidia.bak`), and builds an `ld.so.cache` for it (DSM ships
+neither `ldconfig` nor a cache file, so a static one is bundled and used).
+
+After it runs, restart Container Manager once:
+
+```bash
+sudo /usr/syno/bin/synopkg restart ContainerManager
+```
+
+Then test with:
+
+```bash
+docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
+  nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi
+```
+
+> **Use `--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all`, not `--gpus all`.** The
+> `--gpus` flag needs Docker 25+ CDI support; Synology's Container Manager (24.0.2
+> as of this writing) doesn't have it and Synology controls that version, not you.
+> The legacy `--runtime=nvidia` + env-var path works on any Docker version and is
+> what NVIDIA's own `cuda`/`pytorch` images already expect (they set
+> `NVIDIA_VISIBLE_DEVICES` themselves in many cases).
+
+`uninstall.sh` reverses all of this — it restores `daemon.json` from the backup
+(or strips just the `nvidia` key if the backup is missing) and removes the
+runtime files. See [docs/container-runtime-design.md](docs/container-runtime-design.md)
+for the full design notes, including five non-obvious gotchas found while getting
+this working (noexec `/tmp`, no system `ldconfig`, hook paths, …) — all fixed and
+verified end-to-end on real hardware (`nvidia-smi` running correctly inside a
+container talking to a Quadro P620).
+
 ## 🧹 Uninstall
 
 ```bash
@@ -124,14 +166,19 @@ driver version across every platform.
 | **470.256.02** | Kepler … Ampere | 11.4 | Legacy LTSB — for old GPUs 535+ dropped. ffmpeg layer pinned to `jellyfin-ffmpeg 5.1.2-9` (NVENC API 11.1); never pair it with the 535/550 ffmpeg. |
 | **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. Verified on P620. ffmpeg `6.0.1-8` (NVENC 12.0). |
 | **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9` (NVENC SDK 12.0, same pin as 535). |
-| **580.173.02** | Maxwell … **Blackwell** | **13.0** | Newest, and the **last branch supporting Maxwell/Pascal/Volta**. Verified on P620 incl. Plex HW transcoding. Turing+ needs GSP firmware (**not shipped yet**). ffmpeg `7.1.4-3`. |
+| **580.173.02** | Maxwell … Ampere (Turing/GA10x) | **13.0** | Newest, and the **last branch supporting Maxwell/Pascal/Volta**. Verified on P620 incl. Plex HW transcoding. GSP firmware for Turing/Ampere(GA10x) is shipped and **auto-deployed by the installer**; Ada(RTX 40)/Blackwell(RTX 50) still need GSP firmware NVIDIA does not bundle in this `.run` — those chips hit a warning gate. ffmpeg `7.1.4-3`. |
 
 - **580 is the recommended branch for most GPUs.** It supersedes 535/550 (same
-  Maxwell→Ada coverage, plus Blackwell) and raises what Pascal can run from CUDA
-  12.4 to **12.9**. Only Kepler-era cards still need 470.
-- ⚠️ **580 on Turing or newer** (RTX 20/30/40/50, T4, A10, L4 …) requires GSP
-  firmware, which is not packaged yet — the installer warns and stops. Use 535/550
-  on those GPUs for now.
+  Maxwell→Ada coverage on the driver side) and raises what Pascal can run from
+  CUDA 12.4 to **12.9**. Only Kepler-era cards still need 470.
+- **GSP firmware for Turing / Ampere (GA10x)** — RTX 20xx, T4, GTX 16xx, RTX 30xx,
+  A10 — is bundled (`nv-gsp-580.173.02.tgz`, extracted from the official `.run`)
+  and the installer deploys it to `/lib/firmware/nvidia/580.173.02/` automatically,
+  before the driver loads. No action needed beyond picking 580.
+- ⚠️ **Ada (RTX 40) / Blackwell (RTX 50)** also require GSP firmware, but NVIDIA's
+  580.173.02 `.run` does **not** bundle `gsp_ad10x.bin` or a Blackwell blob — the
+  installer detects this and warns before letting you proceed (the driver would
+  load but fail to initialise). Use 535/550 on those GPUs for now.
 - One `.ko` per platform covers **DSM 7.1–7.4** because `CONFIG_MODVERSIONS` is off
   and the vermagic (`5.10.55+ SMP mod_unload`) is identical across those DSM
   releases — only the vermagic gates module load.
@@ -301,11 +348,17 @@ Outputs land in `out/` with a printed `nvidia-index.json` fragment (incl. sha256
   with a different argument shape. The patcher therefore searches the tree and
   **aborts the build if any call site survives** — a silently skipped patch used
   to surface only as an unrelated `native_write_cr4 undefined` modpost error.
-- R515+ branches load **GSP firmware** on Turing and newer. It is **not packaged
-  yet**, so 580 is currently validated for pre-Turing GPUs only; `install.sh`
-  detects `needs_gsp` GPUs and stops rather than installing a driver that would
-  fail to initialise. Adding `gsp_*.bin` under `/lib/firmware/nvidia/<ver>/` is
-  the prerequisite for RTX / Tesla support on 580.
+- R515+ branches load **GSP firmware** on Turing and newer. Extracted from the
+  official `.run` (it ships `gsp_tu10x.bin` + `gsp_ga10x.bin` only — no Ada/
+  Blackwell blob), packaged as `nv-gsp-<ver>.tgz`, and deployed by `install.sh` to
+  `/lib/firmware/nvidia/<ver>/` **before** the kernel module loads (GSP is
+  requested via `request_firmware()` at probe time, so order matters).
+  `/lib/firmware` lives on the same rw root as everything else here, so this
+  persists across reboots with no redeploy needed. GPUs needing GSP with no
+  bundled blob (Ada/Blackwell) still hit `install.sh`'s warning gate.
+  **Caveat: wired up and unit-tested (download/sha256/placement), but not yet
+  validated against real Turing/Ampere hardware** — the only box available this
+  session has a Pascal GPU, which skips the GSP path entirely.
 
 ## Workflow rule
 
@@ -340,8 +393,10 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/i
 
 8단계로 안내합니다 — 플랫폼 확인 → GPU 감지 → **버전 선택(1=535 / 2=550 / 3=470 / 4=580)**
 → (선택) Jellyfin 패키지용 NVENC ffmpeg → 이후 다운로드·설치·드라이버 로드 후 `nvidia-smi`로
-검증. 감지된 GPU에 권장되는 브랜치를 표시하고, **그 GPU가 실제로 사용할 수 있는 최대 CUDA
-버전**까지 알려줍니다.
+검증. **선택 9단계**는 Container Manager(Docker)가 설치돼 있으면 그 안에서도 GPU를 쓸 수
+있게 설정합니다 — 아래 [Container Manager(Docker) GPU 연동](#container-managerdocker-gpu-연동)
+참고. 감지된 GPU에 권장되는 브랜치를 표시하고, **그 GPU가 실제로 사용할 수 있는 최대 CUDA
+버전**까지 알려주며, 필요한 GPU(현재는 Turing/Ampere)에는 **GSP 펌웨어를 자동 배치**합니다.
 
 > **Synology SA6400(epyc7002) · Quadro P620 · DSM 7.4**에서 **580.173.02** 설치 실기 검증
 > — 2026-07-28, Plex 하드웨어 트랜스코딩까지 확인.
@@ -405,6 +460,46 @@ lsmod | grep nvidia
 설치됩니다. 이후 Jellyfin의 **대시보드 → 재생 → FFmpeg 경로**를 해당 바이너리로 지정하세요.
 (Plex는 자체 트랜스코더가 있어 필요 없습니다.)
 
+## Container Manager(Docker) GPU 연동
+
+Container Manager가 설치돼 있으면 `install.sh`가 **선택 9단계**로 `docker run`
+컨테이너도 이 GPU를 쓸 수 있게 설정할지 물어봅니다(Ollama, PyTorch, vLLM 등).
+작은 런타임 레이어(`nvidia-container-cli` 등, NVIDIA 공식 upstream 바이너리로
+빌드 — 직접 컴파일 불필요)를 내려받고, Container Manager의 `daemon.json`에
+**`nvidia` 런타임을 병합**으로 등록하며(기존 `bip`/`data-root` 등은 그대로
+유지되고, 백업이 `dockerd.json.pre-nvidia.bak`에 남습니다), `ld.so.cache`도
+직접 만들어 줍니다(DSM에는 `ldconfig`도 캐시 파일도 없어 정적 바이너리를
+동봉해 사용합니다).
+
+실행 후 Container Manager를 한 번 재시작하세요:
+
+```bash
+sudo /usr/syno/bin/synopkg restart ContainerManager
+```
+
+그다음 테스트:
+
+```bash
+docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
+  nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi
+```
+
+> **`--gpus all`이 아니라 `--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all`을
+> 쓰세요.** `--gpus` 플래그는 Docker 25+의 CDI 지원이 필요한데, Synology
+> Container Manager(이 글 작성 시점 24.0.2)는 이를 갖고 있지 않고 그 버전은
+> Synology가 정합니다(사용자가 올릴 수 없음). 레거시 `--runtime=nvidia` +
+> 환경변수 방식은 Docker 버전과 무관하게 동작하며, NVIDIA의 `cuda`/`pytorch`
+> 이미지들이 이미 기대하는 방식이기도 합니다(다수가 `NVIDIA_VISIBLE_DEVICES`를
+> 이미지 자체에 설정해 둡니다).
+
+`uninstall.sh`가 이 모든 것을 역순으로 되돌립니다 — 백업이 있으면 `daemon.json`을
+그걸로 복원하고(없으면 `nvidia` 키만 제거), 런타임 파일을 삭제합니다. 전체
+설계 내용과, 작업 중 발견한 다섯 가지 비직관적인 함정(`/tmp` noexec, 시스템
+`ldconfig` 부재, 훅 경로 등 — 전부 수정하고 실기에서 왕복 검증 완료)은
+[docs/container-runtime-design.md](docs/container-runtime-design.md)에 정리돼
+있습니다. 실제로 Quadro P620과 통신하는 컨테이너 안에서 `nvidia-smi`가 정상
+동작하는 것까지 확인했습니다.
+
 ## 🧹 제거
 
 ```bash
@@ -423,26 +518,31 @@ Release에 올라간 사전 빌드 `.ko`이며, 공유 userspace 레이어
 | 플랫폼 | 예시 모델 | 470.256.02 | 535.230.02 | 550.163.01 | **580.173.02** |
 |---|---|:---:|:---:|:---:|:---:|
 | `epyc7002`      | SA6400                          | ✅ | ✅ | ✅ | ✅ |
-| `epyc7003`      | FS6420                          | ✅ | ✅ | ✅ | — |
-| `epyc7003ntb`   | PAS7700                         | ✅ | ✅ | ✅ | — |
-| `icelaked`      | FS3420 / RS3626xs / RS4826xs+   | ✅ | ✅ | ✅ | — |
-| `v1000nk`       | (Ryzen Embedded V1000, no-key)  | ✅ | ✅ | ✅ | — |
-| `r1000nk`       | (Ryzen Embedded R1000, no-key)  | ✅ | ✅ | ✅ | — |
-| `geminilakenk`  | DS225+ / DS425+                 | ✅ | ✅ | ✅ | — |
+| `epyc7003`      | FS6420                          | ✅ | ✅ | ✅ | ✅ |
+| `epyc7003ntb`   | PAS7700                         | ✅ | ✅ | ✅ | ✅ |
+| `icelaked`      | FS3420 / RS3626xs / RS4826xs+   | ✅ | ✅ | ✅ | ✅ |
+| `v1000nk`       | (Ryzen Embedded V1000, no-key)  | ✅ | ✅ | ✅ | ✅ |
+| `r1000nk`       | (Ryzen Embedded R1000, no-key)  | ✅ | ✅ | ✅ | ✅ |
+| `geminilakenk`  | DS225+ / DS425+                 | ✅ | ✅ | ✅ | ✅ |
 
 | 브랜치 | GPU 커버리지 | 네이티브 CUDA | 비고 |
 |---|---|:---:|---|
 | **470.256.02** | Kepler … Ampere | 11.4 | 레거시 LTSB — 535 이상이 버린 구형 GPU용. ffmpeg 레이어는 `jellyfin-ffmpeg 5.1.2-9`(NVENC API 11.1) 고정이며 535/550용 ffmpeg와 절대 섞으면 안 됩니다. |
 | **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. P620 검증. ffmpeg `6.0.1-8`(NVENC 12.0). |
 | **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9`(NVENC SDK 12.0, 535 와 동일 핀). |
-| **580.173.02** | Maxwell … **Blackwell** | **13.0** | 최신이자 **Maxwell/Pascal/Volta를 지원하는 마지막 브랜치**. P620에서 Plex 하드웨어 트랜스코딩까지 검증. Turing 이상은 GSP 펌웨어 필요(**아직 미배포**). ffmpeg `7.1.4-3`. |
+| **580.173.02** | Maxwell … Ampere(Turing/GA10x) | **13.0** | 최신이자 **Maxwell/Pascal/Volta를 지원하는 마지막 브랜치**. P620에서 Plex 하드웨어 트랜스코딩까지 검증. Turing/Ampere(GA10x)용 GSP 펌웨어는 확보되어 **설치 스크립트가 자동 배치**합니다. Ada(RTX 40)/Blackwell(RTX 50)은 이 `.run`에 해당 펌웨어가 없어 여전히 경고 게이트가 적용됩니다. ffmpeg `7.1.4-3`. |
 
-- **대부분의 GPU에는 580이 권장 브랜치입니다.** 535/550을 대체하며(동일한 Maxwell→Ada
-  커버리지 + Blackwell), Pascal이 실행할 수 있는 CUDA를 12.4에서 **12.9**로 올려줍니다.
-  Kepler 세대 카드만 여전히 470이 필요합니다.
-- ⚠️ **Turing 이상에서의 580**(RTX 20/30/40/50, T4, A10, L4 …)은 GSP 펌웨어가 필요한데
-  아직 패키징되지 않았습니다 — 설치 스크립트가 경고하고 중단합니다. 해당 GPU는 당분간
-  535/550을 사용하세요.
+- **대부분의 GPU에는 580이 권장 브랜치입니다.** 535/550을 대체하며(드라이버 측에서는
+  동일한 Maxwell→Ada 커버리지), Pascal이 실행할 수 있는 CUDA를 12.4에서 **12.9**로
+  올려줍니다. Kepler 세대 카드만 여전히 470이 필요합니다.
+- **Turing / Ampere(GA10x)용 GSP 펌웨어**(RTX 20xx, T4, GTX 16xx, RTX 30xx, A10)는
+  공식 `.run`에서 추출해 동봉했으며(`nv-gsp-580.173.02.tgz`), 설치 스크립트가 드라이버
+  로드 전에 `/lib/firmware/nvidia/580.173.02/`에 자동으로 배치합니다. 580을 선택하는
+  것 외에 별도 조치가 필요 없습니다.
+- ⚠️ **Ada(RTX 40)/Blackwell(RTX 50)** 도 GSP 펌웨어가 필요하지만, NVIDIA의
+  580.173.02 `.run`에는 `gsp_ad10x.bin`이나 Blackwell용 blob이 **들어있지 않습니다** —
+  설치 스크립트가 이를 감지해 진행 전 경고합니다(드라이버는 설치되지만 초기화에
+  실패함). 해당 GPU는 당분간 535/550을 사용하세요.
 - 플랫폼당 하나의 `.ko`가 **DSM 7.1–7.4**를 모두 커버합니다 — `CONFIG_MODVERSIONS`가
   꺼져 있고 vermagic(`5.10.55+ SMP mod_unload`)이 해당 DSM 릴리즈 전체에서 동일해,
   모듈 로드를 오직 vermagic만 판정하기 때문입니다.
@@ -601,10 +701,17 @@ curl -kLo run/NVIDIA-Linux-x86_64-535.183.06.run \
   580은 `nvidia/nv-pat.c`에서 다른 인자 형태로 직접 호출합니다. 그래서 패처는 트리를
   탐색하며, **호출부가 하나라도 남으면 빌드를 중단합니다** — 조용히 건너뛴 패치는 예전에
   무관해 보이는 `native_write_cr4 undefined` modpost 에러로만 드러났기 때문입니다.
-- R515+ 브랜치는 Turing 이상에서 **GSP 펌웨어**를 로드합니다. 아직 패키징되지 않아
-  580은 현재 pre-Turing GPU에서만 검증되었으며, `install.sh`가 `needs_gsp` GPU를 감지해
-  초기화에 실패할 드라이버를 설치하는 대신 중단합니다. `/lib/firmware/nvidia/<ver>/`에
-  `gsp_*.bin`을 배치하는 것이 580의 RTX / Tesla 지원 선결 조건입니다.
+- R515+ 브랜치는 Turing 이상에서 **GSP 펌웨어**를 로드합니다. 공식 `.run`에서
+  추출했으며(`gsp_tu10x.bin` + `gsp_ga10x.bin`만 존재 — Ada/Blackwell용 blob은
+  없음), `nv-gsp-<ver>.tgz`로 패키징해 `install.sh`가 커널 모듈 로드 **전에**
+  `/lib/firmware/nvidia/<ver>/`에 배치합니다(GSP는 probe 시점에
+  `request_firmware()`로 요청되므로 순서가 중요합니다). `/lib/firmware`는 다른
+  파일들과 같은 rw 루트에 있어 재부팅 후에도 유지되고 재배치가 필요 없습니다.
+  펌웨어가 없는 GSP 필요 GPU(Ada/Blackwell)는 여전히 `install.sh`의 경고
+  게이트에 걸립니다.
+  **한계: 다운로드/sha256/배치까지 단위 검증은 했으나, 실제 Turing/Ampere
+  하드웨어로는 아직 검증하지 못했습니다** — 이번 세션에 접근 가능한 유일한
+  박스가 Pascal GPU라 GSP 경로 자체가 스킵됩니다.
 
 ### 작업 규칙
 
