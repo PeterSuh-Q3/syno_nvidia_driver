@@ -307,12 +307,23 @@ glibc 하위호환 가설(§4)과 "2개 라이브러리만 동봉하면 된다"�
 
 ## 8. 다음 단계
 
-1. ~~§7-4 실제 실행 검증~~ → 완료 (성공, 위 참고)
-2. 레이어 tgz 빌드(§6-1, `tools/ldconfig` 포함) → Release 업로드 →
-   `nvidia-index.json` 최상위 `container_runtime` 키 등록
-3. `install.sh` Step 9(선택) 구현 — 런타임 배치 + `ldconfig -C` 캐시 생성 +
-   daemon.json jq 병합 로직 (noexec 제약을 반영한 스테이징 경로 사용)
-4. §7-2(cgroup v1) 검증 겸, 실제 컨테이너(`nvidia/cuda:12.9-base` 등)로
-   `docker run --runtime=nvidia --gpus all nvidia-smi` 성공까지 확인 후 릴리즈
-5. §7-1(daemon.json 영속성), §7-3(`synopkg status` 이상 현상) 은 여전히
-   미검증 — 4번 진행과 함께 재확인
+1. ~~§7-4 실제 실행 검증~~ → **완료** (성공, §7-4 참고)
+2. ~~레이어 tgz 빌드 → Release 업로드 → `nvidia-index.json` 등록~~ → **완료**
+   (`nv-container-runtime-1.19.1.tgz`, 10.6MB, sha256
+   `5c39123aa2cc2a2539828aa557f812b14a789fc865ce2cf242e625381de0257e`,
+   최상위 `container_runtime` 키로 platforms 매트릭스와 독립 관리)
+3. ~~`install.sh` Step 9(선택) 구현~~ → **완료** — Container Manager 감지 →
+   런타임 레이어 다운로드/sha 검증 → `/usr/local/nvidia-runtime` 로 직접
+   압축 해제(§7-4 의 noexec 교훈 반영, `/tmp` 를 거치지 않음) →
+   `tools/ldconfig` 로 `ld.so.cache` 생성 → `config.toml` 작성 →
+   daemon.json 을 jq 로 **병합**(백업 `.pre-nvidia.bak` 생성) →
+   Container Manager 재시작 안내 + 테스트 커맨드 출력까지 한 흐름.
+4. **다음 남은 것 — 실제 컨테이너 실행 검증(§7-2 cgroup v1 겸용).**
+   지금까지는 `nvidia-container-cli info` 로 "드라이버를 인식하는가"만
+   확인했다. 아직 확인 못 한 것: `install.sh` 의 Step 9 를 박스 89에서
+   실제로 실행해 daemon.json 병합이 되는지, Container Manager 재시작 후
+   `docker run --runtime=nvidia --gpus all nvidia/cuda:12.9.0-base-ubuntu24.04
+   nvidia-smi` 가 컨테이너 안에서 GPU 를 보여주는지 — 이게 cgroup v1 디바이스
+   화이트리스팅이 실제로 동작하는지를 가르는 지점이다.
+5. 4번 진행과 함께 §7-1(daemon.json 영속성 — Container Manager 자체
+   업데이트 시), §7-3(`synopkg status` 이상 현상) 재확인.
