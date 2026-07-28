@@ -337,7 +337,7 @@ TOML
           warn "daemon.json not found at $DJ - register the 'nvidia' runtime manually"
         fi
         say "  ${DIM}test after restart:${R}"
-        say "  ${DIM}  docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \\${R}"
+        say "  ${DIM}  docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all${R} \\"
         say "  ${DIM}    nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi${R}"
         say "  ${DIM}(the plain '--gpus all' flag needs Docker 25+ CDI support, which this${R}"
         say "  ${DIM}Container Manager version does not have - use --runtime=nvidia instead.)${R}"
