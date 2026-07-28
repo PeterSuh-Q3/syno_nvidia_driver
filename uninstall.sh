@@ -80,6 +80,11 @@ rm -f /usr/lib/modules/nvidia.ko /usr/lib/modules/nvidia-uvm.ko \
 ok "removed nvidia*.ko from /usr/lib/modules"
 # userspace tree
 rm -rf "$NVDIR" && ok "removed $NVDIR"
+# GSP firmware (Turing/Ampere) - /lib/firmware/nvidia is an NVIDIA-specific
+# namespace only this driver populates, safe to remove wholesale.
+if [ -d /lib/firmware/nvidia ]; then
+  rm -rf /lib/firmware/nvidia && ok "removed /lib/firmware/nvidia (GSP firmware)"
+fi
 # ld.so.conf.d entry (if any) + refresh
 rm -f /etc/ld.so.conf.d/nvidia.conf 2>/dev/null
 sed -i '\#/usr/local/nvidia/lib#d' /etc/ld.so.conf 2>/dev/null

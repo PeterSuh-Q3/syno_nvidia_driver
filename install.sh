@@ -107,9 +107,13 @@ V535="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(st
 V550="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("550."))) | .[0] // empty' "$IDX")"
 V470="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("470."))) | .[0] // empty' "$IDX")"
 V580="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("580."))) | .[0] // empty' "$IDX")"
-# 580 needs GSP firmware on Turing+ (compute capability >= 7.5); we do not ship
-# it yet, so such a GPU would install a driver that cannot initialise.
+# 580 needs GSP firmware on Turing+ (compute capability >= 7.5). We ship it
+# for chips the index has a matching blob for (gsp_fw name -> gsp_firmware.
+# <driver>.chips); GPUs needing GSP but with no available blob (currently
+# Ada/RTX 40, Blackwell/RTX 50 - NVIDIA's .run doesn't bundle their firmware)
+# still hit the hard warning gate below.
 NEEDS_GSP="$(jq -r --arg g "$GPUID" '.gpus[$g].needs_gsp // false' "$SUP" 2>/dev/null)"
+GSP_FW="$(jq -r --arg g "$GPUID" '.gpus[$g].gsp_fw // empty' "$SUP" 2>/dev/null)"
 CUDA_MAX="$(jq -r --arg g "$GPUID" '.gpus[$g].cuda_max // empty' "$SUP" 2>/dev/null)"
 tag_of(){ # $1 version -> "(verified)"/"(build-ok)"/"" for this GPU
   [ -n "$GPUID" ] || { echo ""; return; }
@@ -121,7 +125,7 @@ mark(){ [ "${REC_BRANCH}" = "$1" ] && printf "%b" " ${MAG}<= recommended for you
 say "  ${B}1)${R} 535 : ${WHT}${V535:-N/A}${R} $(tag_of "$V535")$(mark 535)  ${DIM}(Production/LTS, Maxwell..Ada)${R}"
 say "  ${B}2)${R} 550 : ${WHT}${V550:-N/A}${R} $(tag_of "$V550")$(mark 550)  ${DIM}(newest)${R}"
 say "  ${B}3)${R} 470 : ${WHT}${V470:-N/A}${R} $(tag_of "$V470")$(mark 470)  ${DIM}(legacy LTSB, Kepler..Ampere; for older GPUs)${R}"
-say "  ${B}4)${R} 580 : ${WHT}${V580:-N/A}${R} $(tag_of "$V580")$(mark 580)  ${DIM}(newest branch, Maxwell..Blackwell; highest CUDA)${R}"
+say "  ${B}4)${R} 580 : ${WHT}${V580:-N/A}${R} $(tag_of "$V580")$(mark 580)  ${DIM}(newest branch, Maxwell..Ampere w/ GSP fw, highest CUDA)${R}"
 [ -n "$CUDA_MAX" ] && say "  ${DIM}Your GPU tops out at ${WHT}CUDA ${CUDA_MAX}${R}${DIM} - set by its compute capability, not by the driver.${R}"
 DEF=1; [ "${REC_BRANCH}" = "550" ] && DEF=2; [ "${REC_BRANCH}" = "470" ] && DEF=3; [ "${REC_BRANCH}" = "580" ] && DEF=4
 DRV=""
@@ -135,14 +139,25 @@ while :; do
   [ -n "$DRV" ] && [ "$DRV" != "null" ] && break
   warn "that version is not available for ${PLATFORM}; pick another"
 done
-# Guard: 580 on a GSP-requiring GPU would install but fail to initialise.
+# Guard: 580 on a GSP-requiring GPU with no available firmware would install
+# but fail to initialise. If we DO have a matching blob, just note it - Step 8
+# deploys it automatically, no confirmation needed.
+GSP_AVAIL=""
+if [ -n "$GSP_FW" ] && [ "$GSP_FW" != "null" ]; then
+  GSP_AVAIL="$(jq -r --arg d "$DRV" --arg f "$GSP_FW" '.gsp_firmware[$d].chips // [] | index($f) // empty' "$IDX" 2>/dev/null)"
+fi
 case "$DRV" in
   580.*) if [ "$NEEDS_GSP" = "true" ]; then
-           warn "${WHT}${GNAME:-Your GPU}${R} is Turing or newer and needs ${B}GSP firmware${R} on 580,"
-           warn "which is ${B}not shipped yet${R} - the driver would load but fail to initialise."
-           warn "Pick ${B}1 (535)${R} or ${B}2 (550)${R} instead until GSP support lands."
-           printf "%b" "  ${B}Continue with 580 anyway? [y/N]: ${R}"
-           ask g; case "$g" in y|Y) ;; *) die "aborted - re-run and choose 535 or 550" ;; esac
+           if [ -n "$GSP_AVAIL" ]; then
+             say "  ${DIM}${GNAME:-this GPU} needs GSP firmware (${GSP_FW}) - will be installed automatically.${R}"
+           else
+             warn "${WHT}${GNAME:-Your GPU}${R} is Turing or newer and needs ${B}GSP firmware${R} on 580,"
+             warn "and ${B}no firmware blob is available yet${R} for this chip - the driver would"
+             warn "load but fail to initialise."
+             warn "Pick ${B}1 (535)${R} or ${B}2 (550)${R} instead until GSP support lands for it."
+             printf "%b" "  ${B}Continue with 580 anyway? [y/N]: ${R}"
+             ask g; case "$g" in y|Y) ;; *) die "aborted - re-run and choose 535 or 550" ;; esac
+           fi
          fi ;;
 esac
 ok "selected driver ${WHT}${DRV}${R}"
@@ -185,6 +200,25 @@ mkdir -p /usr/lib/modules
 rm -rf "$DL/ko"; mkdir -p "$DL/ko"; tar -xzf "$DL/$KOF" -C "$DL/ko"
 for ko in "$DL"/ko/*.ko; do [ -f "$ko" ] && cp -f "$ko" "/usr/lib/modules/$(basename "$ko")"; done
 ok "kernel modules -> /usr/lib/modules"
+
+# GSP firmware -> /lib/firmware/nvidia/<driver_ver>/ (must exist BEFORE the
+# nvidia module is loaded below - it's requested via request_firmware() at
+# probe time). Persistent: /lib/firmware lives on the same rw root (/dev/md0)
+# as everything else here, no re-deploy needed on later boots.
+if [ -n "$GSP_AVAIL" ]; then
+  GFF="$(jq -r --arg d "$DRV" '.gsp_firmware[$d].file' "$IDX")"
+  GFSHA="$(jq -r --arg d "$DRV" '.gsp_firmware[$d].sha256' "$IDX")"
+  say "  ↓ GSP firmware"
+  curl -kL# "$REL/$GFF" -o "$DL/$GFF" || die "download failed: $GFF"
+  [ -s "$DL/$GFF" ] || die "empty download: $GFF"
+  GGOT="$(sha256sum "$DL/$GFF" 2>/dev/null | cut -d' ' -f1)"
+  [ -z "$GGOT" ] || [ "$GGOT" = "$GFSHA" ] || die "sha256 mismatch for $GFF"
+  FWDIR="/lib/firmware/nvidia/$DRV"
+  mkdir -p "$FWDIR"
+  tar -xzf "$DL/$GFF" -C "$DL" firmware
+  cp -f "$DL/firmware/$GSP_FW" "$FWDIR/$GSP_FW"
+  ok "GSP firmware -> $FWDIR/$GSP_FW"
+fi
 
 # userspace -> /usr/local/nvidia
 rm -rf "$NVDIR"; mkdir -p "$NVDIR"
