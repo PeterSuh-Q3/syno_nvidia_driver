@@ -45,6 +45,40 @@ automatically after a reboot. Run `nvidia-smi` any time to check the GPU.
 > This is by far the most common "the driver is installed but transcoding doesn't
 > work" cause. It is **not** a driver/CUDA incompatibility.
 
+### Verifying the install
+
+The driver creates its device nodes on load. Checking them is the quickest way to
+confirm a healthy install — and the first thing to look at if an app cannot see the GPU:
+
+```bash
+sudo ls -l /dev/nvidia*
+lsmod | grep nvidia
+```
+
+📷 **[post-install verification — device nodes, modules, compute capability](https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/docs/verify-580.png)** — click to view the real terminal output
+
+| Node | Major | What it is |
+|---|:---:|---|
+| `/dev/nvidia0` | 195 | The GPU itself — **one node per physical GPU**. A second card appears as `nvidia1`. |
+| `/dev/nvidiactl` | 195 | Driver control node; every client opens this first. |
+| `/dev/nvidia-uvm` | 240 | Unified memory — **CUDA will not work without it**. |
+| `/dev/nvidia-uvm-tools` | 240 | Debug/profiling companion to UVM. |
+| `/dev/nvidia-caps/*` | 243 | MIG capability nodes; unused outside datacenter GPUs. |
+
+What a healthy install looks like:
+
+- **`nvidia0` count matches your GPU count.** If you see `nvidia0`…`nvidia7` on a
+  single-GPU box, something created phantom nodes.
+- **`nvidia_uvm` is loaded.** Without it `nvidia-smi` may still work while every
+  CUDA application fails.
+- `nvidia_modeset` / `nvidia_drm` missing is **normal on DSM** — Synology ships no
+  `backlight.ko`. They are display-only and irrelevant to compute and NVENC/NVDEC.
+- Permissions are `crw-rw-rw-`, so Plex, Jellyfin and containers can open them
+  without extra setup.
+
+If the nodes are missing entirely, the modules did not load — re-run the installer
+or check `dmesg | grep -i nvrm`.
+
 ### NVENC ffmpeg (Jellyfin package)
 Answer **y** at Step 6 to also install an NVENC-capable `ffmpeg` at
 `/usr/local/nvidia/bin/ffmpeg`. Then in Jellyfin set **Dashboard → Playback →

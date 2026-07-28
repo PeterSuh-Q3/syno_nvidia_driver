@@ -46,6 +46,45 @@ automatically after a reboot. Run `nvidia-smi` any time to check the GPU.
 > This is by far the most common "the driver is installed but transcoding doesn't
 > work" cause. It is **not** a driver/CUDA incompatibility.
 
+### Verifying the install
+
+The driver creates its device nodes on load. Checking them is the quickest way to
+confirm a healthy install — and the first thing to look at if an app cannot see
+the GPU:
+
+```bash
+sudo ls -l /dev/nvidia*
+lsmod | grep nvidia
+```
+
+<p align="center">
+  <img src="docs/verify-580.svg" alt="post-install verification: device nodes, loaded modules, compute capability" width="820">
+</p>
+
+| Node | Major | What it is |
+|---|:---:|---|
+| `/dev/nvidia0` | 195 | The GPU itself — **one node per physical GPU**. A second card appears as `nvidia1`. |
+| `/dev/nvidiactl` | 195 | Driver control node; every client opens this first. |
+| `/dev/nvidia-uvm` | 240 | Unified memory — **CUDA will not work without it**. |
+| `/dev/nvidia-uvm-tools` | 240 | Debug/profiling companion to UVM. |
+| `/dev/nvidia-caps/*` | 243 | MIG capability nodes; unused outside datacenter GPUs. |
+
+What a healthy install looks like:
+
+- **`nvidia0` count matches your GPU count.** If you see `nvidia0`…`nvidia7` on a
+  single-GPU box, something created phantom nodes — the installer derives the count
+  from `/proc/driver/nvidia/gpus/` precisely to avoid that.
+- **`nvidia_uvm` is loaded** (`lsmod`). Without it `nvidia-smi` may still work while
+  every CUDA application fails.
+- `nvidia_modeset` / `nvidia_drm` missing is **normal on DSM** — Synology ships no
+  `backlight.ko`, so they fail to load. They are display-only and irrelevant to
+  compute and NVENC/NVDEC transcoding.
+- Permissions are `crw-rw-rw-`, so unprivileged package users (Plex, Jellyfin,
+  containers) can open them without extra setup.
+
+If the nodes are missing entirely, the modules did not load — re-run the installer
+or check `dmesg | grep -i nvrm`.
+
 ### NVENC ffmpeg (Jellyfin package)
 Answer **y** at Step 6 to also install an NVENC-capable `ffmpeg` at
 `/usr/local/nvidia/bin/ffmpeg`. Then in Jellyfin set **Dashboard → Playback →
@@ -322,6 +361,44 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/i
 >
 > "드라이버는 깔렸는데 트랜스코딩이 안 된다"의 압도적 다수가 이 원인이며,
 > 드라이버·CUDA 호환성 문제가 **아닙니다**.
+
+### 설치 검증
+
+드라이버는 로드될 때 디바이스 노드를 만듭니다. 이 노드를 확인하는 것이 설치가 정상인지
+가장 빠르게 판별하는 방법이며, 앱이 GPU를 못 볼 때 가장 먼저 봐야 할 곳이기도 합니다:
+
+```bash
+sudo ls -l /dev/nvidia*
+lsmod | grep nvidia
+```
+
+<p align="center">
+  <img src="docs/verify-580.svg" alt="설치 검증: 디바이스 노드·로드된 모듈·compute capability" width="820">
+</p>
+
+| 노드 | Major | 정체 |
+|---|:---:|---|
+| `/dev/nvidia0` | 195 | GPU 본체 — **물리 GPU 1장당 노드 1개**. 두 번째 카드는 `nvidia1`로 나타납니다. |
+| `/dev/nvidiactl` | 195 | 드라이버 제어 노드. 모든 클라이언트가 가장 먼저 여는 노드입니다. |
+| `/dev/nvidia-uvm` | 240 | 통합 메모리 — **이게 없으면 CUDA가 동작하지 않습니다**. |
+| `/dev/nvidia-uvm-tools` | 240 | UVM 디버그/프로파일링용 보조 노드. |
+| `/dev/nvidia-caps/*` | 243 | MIG 기능 노드. 데이터센터 GPU 외에는 사용되지 않습니다. |
+
+정상 설치의 판별 기준:
+
+- **`nvidia0` 개수가 실제 GPU 장수와 일치**해야 합니다. GPU 1장인데 `nvidia0`~`nvidia7`이
+  보인다면 유령 노드가 생긴 것입니다 — 설치 스크립트는 이를 막기 위해
+  `/proc/driver/nvidia/gpus/` 에서 개수를 산출합니다.
+- **`nvidia_uvm`이 로드되어 있어야 합니다**(`lsmod`). 이게 없으면 `nvidia-smi`는 동작해도
+  CUDA 애플리케이션은 전부 실패합니다.
+- `nvidia_modeset` / `nvidia_drm`이 없는 것은 **DSM에서 정상**입니다 — Synology에
+  `backlight.ko`가 없어 로드에 실패합니다. 디스플레이 전용이라 컴퓨트와 NVENC/NVDEC
+  트랜스코딩에는 무관합니다.
+- 권한이 `crw-rw-rw-`이므로 비특권 패키지 사용자(Plex, Jellyfin, 컨테이너)가 별도 설정
+  없이 열 수 있습니다.
+
+노드가 아예 없다면 모듈이 로드되지 않은 것입니다 — 설치를 다시 실행하거나
+`dmesg | grep -i nvrm`을 확인하세요.
 
 ### NVENC ffmpeg (Jellyfin 패키지)
 6단계에서 **y**를 선택하면 `/usr/local/nvidia/bin/ffmpeg`에 NVENC 지원 `ffmpeg`도 함께
