@@ -74,27 +74,46 @@ SRC="$WORK/nv"
 
 # --- Synology-kernel compat patches ------------------------------------------
 # Synology's kernels are built with `# CONFIG_X86_PAT is not set`, which forces
-# NVIDIA's builtin-PAT path (nv-pat.c) instead of the kernel's PAT support. That
-# path calls __flush_tlb(), removed from the x86 TLB API in kernel 5.10.
-# Replace it with the local-TLB-flush inline that __flush_tlb() itself expanded
-# to - native_write_cr3(__native_read_cr3()) - which reloads CR3. Both are
-# static inlines (no exported symbol), so unlike __flush_tlb_all() (which is
-# EXPORT_SYMBOL_GPL and modpost-rejected for the proprietary nvidia.ko) this
-# links cleanly. No-op on kernels with CONFIG_X86_PAT (path not built).
-PATC="$SRC/kernel/nvidia/nv-pat.c"
-if [ -f "$PATC" ] && grep -q '__flush_tlb()' "$PATC"; then
-  sed -i 's/__flush_tlb()/native_write_cr3(__native_read_cr3())/g' "$PATC"
-  log "compat: nv-pat.c __flush_tlb() -> native_write_cr3(__native_read_cr3()) (Syno CONFIG_X86_PAT off)"
-fi
-# Same builtin-PAT path toggles CR4.PGE via NV_WRITE_CR4 -> __write_cr4 ->
-# native_write_cr4(), which is a real (non-inline) function NOT exported to
-# modules -> "native_write_cr4 undefined" at modpost. Emit the CR4 write as raw
-# inline asm (what native_write_cr4 does internally) so no symbol is referenced.
-NVLINUX="$SRC/kernel/common/inc/nv-linux.h"
-if [ -f "$NVLINUX" ] && grep -q '__write_cr4(cr4)' "$NVLINUX"; then
-  sed -i 's|__write_cr4(cr4)|asm volatile("mov %0,%%cr4" :: "r"((unsigned long)(cr4)) : "memory")|' "$NVLINUX"
-  log "compat: nv-linux.h NV_WRITE_CR4 -> inline asm (native_write_cr4 not exported)"
-fi
+# NVIDIA's builtin-PAT path (nv-pat.c, guarded by NV_ENABLE_BUILTIN_PAT_SUPPORT)
+# instead of the kernel's own PAT support. That path uses two x86 primitives the
+# Syno 5.10 kernel does not make available to modules:
+#
+#   1) __flush_tlb()  - removed from the x86 TLB API in 5.10. Replace it with the
+#      local-TLB-flush inline it used to expand to - native_write_cr3(
+#      __native_read_cr3()) - which reloads CR3. Both are static inlines (no
+#      exported symbol), so unlike __flush_tlb_all() (EXPORT_SYMBOL_GPL, which
+#      modpost rejects for the proprietary nvidia.ko) this links cleanly.
+#
+#   2) __write_cr4() - resolves to native_write_cr4(), a real (non-inline)
+#      function NOT exported to modules -> "native_write_cr4 undefined" at
+#      modpost. Emit the CR4 write as raw inline asm (what native_write_cr4 does
+#      internally) so no symbol is referenced.
+#
+# Both are no-ops on kernels with CONFIG_X86_PAT (the path is not compiled).
+#
+# The call sites MOVE between driver branches: <=550 hid the CR4 write behind a
+# NV_WRITE_CR4 macro in common/inc/nv-linux.h, while 580 calls __write_cr4()
+# directly in nvidia/nv-pat.c with two different argument forms. So search the
+# tree instead of hardcoding paths, rewrite every call site whatever its
+# argument, and - crucially - DIE if any problematic call survives. A silently
+# skipped patch previously surfaced only as an unrelated-looking
+# "native_write_cr4 undefined" modpost error hundreds of lines later.
+npatch=0
+for f in $(grep -rl '__flush_tlb()' "$SRC/kernel" 2>/dev/null || true); do
+  sed -i 's/__flush_tlb()/native_write_cr3(__native_read_cr3())/g' "$f"
+  log "compat: ${f#$SRC/} __flush_tlb() -> native_write_cr3(__native_read_cr3())"
+  npatch=$((npatch+1))
+done
+for f in $(grep -rl '__write_cr4(' "$SRC/kernel" 2>/dev/null || true); do
+  sed -i 's/__write_cr4(\([^;]*\));/asm volatile("mov %0,%%cr4" :: "r"((unsigned long)(\1)) : "memory");/g' "$f"
+  log "compat: ${f#$SRC/} __write_cr4() -> inline asm (native_write_cr4 not exported)"
+  npatch=$((npatch+1))
+done
+leftover="$(grep -rn '__flush_tlb()\|__write_cr4(' "$SRC/kernel" 2>/dev/null || true)"
+[ -z "$leftover" ] || die "Syno compat patch did not fully apply. These call sites survive and WILL fail at modpost:
+$leftover
+This driver branch moved or reshaped them - update the compat block in build-nvidia.sh."
+log "compat: patched $npatch file(s); no unpatched __flush_tlb/__write_cr4 remain"
 
 # =============================================================================
 # LAYER 1 - kernel modules (.ko), platform-specific
