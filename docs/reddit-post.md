@@ -159,7 +159,7 @@ FFmpeg path** to that binary. (Plex has its own transcoder and does not need thi
 
 All **kver5 (kernel 5.10.55)** Synology platforms are supported. Each cell is a
 prebuilt `.ko` on the [`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/nvidia)
-Release; the shared userspace layer (`nv-userspace-<ver>.tgz`) is identical per
+Release; the shared userspace layer (`nv-userspace-VERSION.tgz`) is identical per
 driver version across every platform.
 
 | Platform | Example models | 470.256.02 | 535.230.02 | 550.163.01 | **580.173.02** |
@@ -263,7 +263,7 @@ kernel** it loads into. Two hard constraints make kver5 the practical target:
    in turn drops support for newer GPUs. So "one modern branch for every platform"
    only holds on kver5.
 2. **Toolchain + kernel tree availability.** Builds run against the per-platform
-   `/opt//build` kernel tree inside the `dante90/syno-compiler`
+   `/opt/PLATFORM/build` kernel tree inside the `dante90/syno-compiler`
    container. The kver5 trees are the ones wired up and validated here.
 
 kver4 / kver3 platforms are therefore **out of scope for the 535/550/580 line**. They
