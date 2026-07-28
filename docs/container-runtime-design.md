@@ -189,7 +189,20 @@ nv-container-runtime-<toolkit_ver>.tgz   (플랫폼 무관, x86_64 공통, 커�
   usr/lib64/libnvidia-container-go.so.1.<ver>
   usr/lib64/libelf.so.1        # CentOS7 vault 에서 동봉
   usr/lib64/libseccomp.so.2    # CentOS7 vault 에서 동봉
+  tools/ldconfig                # CentOS7 glibc-2.17 vault, 정적 링크 — §7-4 실측으로 필요성 확인
 ```
+
+`tools/ldconfig` 는 DSM 에 `ldconfig` 자체가 없어서 필요하다(§7-4). 정적
+링크 바이너리라 별도 의존성 없이 그대로 실행된다. 배치 시 1회
+(그리고 드라이버 버전이 바뀔 때마다) 다음을 실행해 캐시를 만들어 둔다:
+
+```bash
+tools/ldconfig -C /usr/local/nvidia-runtime/etc/ld.so.cache \
+  /usr/lib /usr/local/nvidia/lib /usr/local/nvidia-runtime/lib
+```
+
+이 캐시 경로를 `/etc/nvidia-container-runtime/config.toml` 의 `ldcache`
+설정(또는 `nvidia-container-cli` 호출 시 `--ldcache=`) 로 지정한다.
 
 기존 `nv-ko-*`/`nv-userspace-*` 와 달리 **커널·플랫폼 완전 무관** — 드라이버
 설치 여부와 별개로 한 번만 빌드하면 전 플랫폼·전 드라이버 버전에서
@@ -236,7 +249,7 @@ Step 9 (optional)  Container Manager 연동
 Plex/Jellyfin 재시작 안내와 같은 원칙 — **패키지를 건드렸으면 재시작까지
 안내**한다.
 
-## 7. 미해결 리스크 (다음 세션에서 검증할 것)
+## 7. 미해결 리스크
 
 1. **daemon.json 영속성.** 이번 실측은 "패키지 재시작"까지만 확인했다.
    **Container Manager 자체 업데이트**(버전업)가 이 파일을 초기화하는지는
@@ -246,23 +259,60 @@ Plex/Jellyfin 재시작 안내와 같은 원칙 — **패키지를 건드렸으�
    `nvidia-container-cli` 의 디바이스 화이트리스팅이 v1 경로에서 문제없이
    동작하는지 실제 컨테이너 실행으로 확인 필요(예: 최신
    nvidia-container-toolkit 이 v1 디바이스 cgroup 처리를 얼마나 우선
-   지원하는지는 버전마다 달라질 수 있음).
+   지원하는지는 버전마다 달라질 수 있음). — 바이너리 자체는 §7-4 에서
+   검증됐으나 이건 `docker run --gpus` 로 실제 컨테이너를 띄워야 확인된다.
 3. **`synopkg status` 이상 현상.** daemon.json 을 직접 편집한 뒤 DSM 이
    패키지를 "stop" 으로 오판했다(§5-4). 원인이 우리 편집 때문인지, 이
    테스트 환경 고유의 문제인지 재현·격리 필요.
-4. **CentOS7 바이너리의 실제 DSM 실행 검증.** 지금까지는 정적 분석(file/
-   objdump)만 했다 — 실제로 박스에 올려 `nvidia-container-cli info` 정도는
-   돌려봐야 한다.
+4. ~~**CentOS7 바이너리의 실제 DSM 실행 검증.**~~ → §7-4 에서 완료, 실기
+   성공. 대신 그 과정에서 새로 발견한 두 이슈를 §7-4 항목으로 남긴다.
 5. **Container Manager 미설치 사용자.** 감지 실패 시 조용히 스킵하고,
    나중에 Container Manager 를 설치한 사용자를 위한 재실행 경로(예:
    `install.sh --runtime-only`) 를 고려.
 
+### 7-4. 실기 검증 완료 (박스 89, 2026-07-29) — 성공 + 이슈 2건 발견
+
+**결과: 성공.** CentOS7 prebuilt 바이너리 4종(`nvidia-container-cli`,
+`nvidia-container-runtime`, `nvidia-container-runtime-hook`, `nvidia-ctk`)
++ 동봉 라이브러리 2종(`libelf.so.1`, `libseccomp.so.2`)을 박스에 올려
+`--version` 전부 통과, 그리고 `nvidia-container-cli info` 로 실제 GPU 를
+질의해 우리 580 드라이버를 정확히 인식하는 것까지 확인했다:
+
+```
+NVRM version:   580.173.02
+CUDA version:   13.0
+Model:          Quadro P620
+GPU UUID:       GPU-3701105d-4e68-17bc-0468-7bc43a43c3ac
+Bus Location:   00000000:06:00.0
+Architecture:   6.1
+```
+
+glibc 하위호환 가설(§4)과 "2개 라이브러리만 동봉하면 된다"는 판단(§4-1)이
+그대로 실측으로 입증됐다.
+
+과정에서 **정적 분석만으로는 안 보였던 이슈 두 개**를 발견했고, 둘 다
+해결책까지 확인했다 — §6-1 레이어 구성과 §6-4 install.sh 설계에 반영 완료:
+
+- **`/tmp` 가 noexec.** 바이너리를 `/tmp` 에 두고 바로 실행하면
+  `Permission denied`. 배치 스테이징 경로도 실행 가능한 위치(예:
+  드라이버가 이미 쓰고 있는 `/usr/local/` 하위)를 써야 한다 — install.sh
+  의 임시 다운로드 경로도 이 제약을 받는다.
+- **DSM 에 `ldconfig`/`/etc/ld.so.cache` 자체가 없음.** `nvidia-container-cli
+  info` 가 처음엔 `open failed: /etc/ld.so.cache: no such file or directory`
+  로 실패했다 — 드라이버 라이브러리 목록을 이 캐시 파일에서 읽기 때문.
+  `--help` 로 확인한 결과 `-l/--ldcache=FILE` 옵션으로 대체 경로 지정이
+  가능했고, CentOS7 `glibc-2.17` vault 패키지의 `ldconfig` 가 **정적
+  링크**(외부 의존성 없음, 974KB)라 그대로 가져다 캐시를 직접 만드는
+  것으로 해결했다. 해결 후 재실행하여 위 정상 출력을 얻었다.
+
 ## 8. 다음 단계
 
-1. §7-4 실제 실행 검증 (박스 89: CentOS7 바이너리 + 동봉 libelf/libseccomp
-   으로 `nvidia-container-cli info` 성공 여부)
-2. 검증 성공 시: 레이어 tgz 빌드 → Release 업로드 → `nvidia-index.json`
-   최상위 `container_runtime` 키 등록
-3. `install.sh` Step 9(선택) 구현 + daemon.json jq 병합 로직
-4. 실제 컨테이너(`nvidia/cuda:12.9-base` 등)로 `docker run --runtime=nvidia
-   --gpus all nvidia-smi` 성공까지 확인 후 릴리즈
+1. ~~§7-4 실제 실행 검증~~ → 완료 (성공, 위 참고)
+2. 레이어 tgz 빌드(§6-1, `tools/ldconfig` 포함) → Release 업로드 →
+   `nvidia-index.json` 최상위 `container_runtime` 키 등록
+3. `install.sh` Step 9(선택) 구현 — 런타임 배치 + `ldconfig -C` 캐시 생성 +
+   daemon.json jq 병합 로직 (noexec 제약을 반영한 스테이징 경로 사용)
+4. §7-2(cgroup v1) 검증 겸, 실제 컨테이너(`nvidia/cuda:12.9-base` 등)로
+   `docker run --runtime=nvidia --gpus all nvidia-smi` 성공까지 확인 후 릴리즈
+5. §7-1(daemon.json 영속성), §7-3(`synopkg status` 이상 현상) 은 여전히
+   미검증 — 4번 진행과 함께 재확인
