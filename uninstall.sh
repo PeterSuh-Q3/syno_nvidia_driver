@@ -101,6 +101,14 @@ if [ -d "$CRDIR" ] || [ -f /etc/nvidia-container-runtime/config.toml ]; then
     fi
     warn "restart Container Manager to apply: sudo /usr/syno/bin/synopkg restart ContainerManager"
   fi
+  # only remove /usr/sbin/ldconfig if it's the exact file install.sh placed
+  # there (DSM had none originally) - never touch a real system ldconfig that
+  # some future DSM update or other package might have installed since.
+  if [ -f /usr/sbin/ldconfig ] && [ -f "$CRDIR/tools/ldconfig" ]; then
+    A="$(sha256sum /usr/sbin/ldconfig 2>/dev/null | cut -d' ' -f1)"
+    B="$(sha256sum "$CRDIR/tools/ldconfig" 2>/dev/null | cut -d' ' -f1)"
+    [ -n "$A" ] && [ "$A" = "$B" ] && rm -f /usr/sbin/ldconfig && ok "removed /usr/sbin/ldconfig (ours)"
+  fi
   rm -rf "$CRDIR" /etc/nvidia-container-runtime
   ok "removed $CRDIR and /etc/nvidia-container-runtime"
 else

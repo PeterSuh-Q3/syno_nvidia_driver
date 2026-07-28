@@ -202,11 +202,14 @@ if [ "$WANT_FF" = "true" ]; then
   ok "ffmpeg -> $NVDIR/bin/ffmpeg  (set Jellyfin 'FFmpeg path' to this)"
 fi
 
-# nvidia-smi convenience wrapper (junior DSM PATH lacks /usr/local/nvidia/bin)
-cat > /usr/bin/nvidia-smi <<WRAP
-#!/bin/sh
-exec env LD_LIBRARY_PATH=$NVDIR/lib $NVDIR/bin/nvidia-smi "\$@"
-WRAP
+# nvidia-smi convenience "wrapper" - a REAL COPY of the binary, not a shell
+# script. A shell-script wrapper works fine when run on the host (the target
+# path it execs still exists), but nvidia-container-cli discovers /usr/bin/
+# nvidia-smi by path and bind-mounts *that exact file* into containers - where
+# $NVDIR doesn't exist, so the wrapper's `exec` fails with "No such file or
+# directory". The real binary needs no LD_LIBRARY_PATH since its libs are
+# already exposed on the default loader path via the /usr/lib symlinks above.
+cp -f "$NVDIR/bin/nvidia-smi" /usr/bin/nvidia-smi
 chmod +x /usr/bin/nvidia-smi
 
 # boot hook so it survives reboot (reload modules + nodes + relink libs)
@@ -282,15 +285,37 @@ if [ -d "$CMPKG" ]; then
         # locate the driver's libs. Build our own with the bundled static ldconfig.
         "$CRDIR/tools/ldconfig" -C "$CRDIR/ld.so.cache" \
           /usr/lib "$NVDIR/lib" "$CRDIR/lib" 2>/dev/null
+
+        # nvidia-ctk's own OCI hooks (e.g. `hook update-ldcache`, used inside
+        # containers) hardcode a --ldconfig-path default of /sbin/ldconfig and
+        # do NOT pick up config.toml's [nvidia-container-cli] ldconfig= key for
+        # that default - config threading only covers the classic CLI path.
+        # DSM has neither /sbin nor /usr/sbin/ldconfig at all (confirmed empty
+        # slot, not an overwrite), so fill it with our bundled static binary -
+        # this is what every downstream hook actually ends up calling.
+        if [ ! -e /usr/sbin/ldconfig ]; then
+          cp "$CRDIR/tools/ldconfig" /usr/sbin/ldconfig
+          chmod +x /usr/sbin/ldconfig
+          ok "installed static ldconfig -> /usr/sbin/ldconfig (DSM had none)"
+        fi
+
         mkdir -p /etc/nvidia-container-runtime
         cat > /etc/nvidia-container-runtime/config.toml <<TOML
 [nvidia-container-cli]
 root = "/"
 path = "$CRDIR/bin/nvidia-container-cli"
 ldcache = "$CRDIR/ld.so.cache"
+ldconfig = "@/usr/sbin/ldconfig"
+environment = ["LD_LIBRARY_PATH=$CRDIR/lib"]
 
 [nvidia-container-runtime]
 runtimes = ["/var/packages/ContainerManager/target/usr/bin/runc"]
+
+[nvidia-container-runtime-hook]
+path = "$CRDIR/bin/nvidia-container-runtime-hook"
+
+[nvidia-ctk]
+path = "$CRDIR/bin/nvidia-ctk"
 TOML
         ok "ld.so.cache built, config.toml written"
 
@@ -311,7 +336,11 @@ TOML
         else
           warn "daemon.json not found at $DJ - register the 'nvidia' runtime manually"
         fi
-        say "  ${DIM}test after restart: docker run --rm --runtime=nvidia --gpus all nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi${R}"
+        say "  ${DIM}test after restart:${R}"
+        say "  ${DIM}  docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \\${R}"
+        say "  ${DIM}    nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi${R}"
+        say "  ${DIM}(the plain '--gpus all' flag needs Docker 25+ CDI support, which this${R}"
+        say "  ${DIM}Container Manager version does not have - use --runtime=nvidia instead.)${R}"
       fi
       ;;
     *) ok "skipping container runtime setup" ;;
