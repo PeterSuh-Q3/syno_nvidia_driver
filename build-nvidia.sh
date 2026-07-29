@@ -98,7 +98,25 @@ SRC="$WORK/nv"
 # argument, and - crucially - DIE if any problematic call survives. A silently
 # skipped patch previously surfaced only as an unrelated-looking
 # "native_write_cr4 undefined" modpost error hundreds of lines later.
+#
+# BUT this is 5.10-specific. The older Syno kernels (4.4.302 on apollolake/
+# broadwell*/geminilake/purley/r1000/v1000, 3.10.108 on avoton/braswell/
+# bromolow) still define __flush_tlb() themselves and still have
+# native_write_cr4() as a plain static inline - there is nothing to fix there.
+# Worse, applying the patch anyway BREAKS those builds: the replacement calls
+# __native_read_cr3(), which only exists from 4.9 onward (4.4 has the
+# underscore-less native_read_cr3()), so the 4.4 build dies with
+# "implicit declaration of function '__native_read_cr3'". Detect the actual
+# kernel API instead of assuming, and skip the whole block when the kernel
+# already provides __flush_tlb().
+if grep -qs 'define __flush_tlb\b' "$KSRC/arch/x86/include/asm/tlbflush.h"; then
+  NEED_COMPAT=0
+  log "compat: kernel provides __flush_tlb() itself - skipping the 5.10 PAT compat patches"
+else
+  NEED_COMPAT=1
+fi
 npatch=0
+if [ "$NEED_COMPAT" = "1" ]; then
 for f in $(grep -rl '__flush_tlb()' "$SRC/kernel" 2>/dev/null || true); do
   sed -i 's/__flush_tlb()/native_write_cr3(__native_read_cr3())/g' "$f"
   log "compat: ${f#$SRC/} __flush_tlb() -> native_write_cr3(__native_read_cr3())"
@@ -122,6 +140,7 @@ leftover="$(grep -rn '__flush_tlb()\|__write_cr4(' "$SRC/kernel" 2>/dev/null || 
 $leftover
 This driver branch moved or reshaped them - update the compat block in build-nvidia.sh."
 log "compat: patched $npatch file(s); no unpatched __flush_tlb/__write_cr4 remain"
+fi
 
 # --- optional: suppress backlight/acpi_video (headless platforms only) ------
 # nvidia-modeset.ko references backlight_device_register/unregister whenever
