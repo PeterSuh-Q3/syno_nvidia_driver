@@ -1,5 +1,13 @@
 # syno_nvidia_driver
 
+<a href="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases"><img src="https://img.shields.io/github/release/PeterSuh-Q3/syno_nvidia_driver.svg"></a>
+<img src="https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2FPeterSuh-Q3%2Fsyno_nvidia_driver&label=&icon=github&message=&style=flat&tz=UTC">
+[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/PeterSuh-Q3)
+
+https://paypal.me/PeterSuhQ3
+
+---
+
 No-auth NVIDIA driver for Synology DSM — **physical / passthrough GPUs only, no
 vGPU / license server** (unlike pdbear's closed SPK). Multiple driver versions
 per GPU, auto-matched to your platform + DSM kernel.
