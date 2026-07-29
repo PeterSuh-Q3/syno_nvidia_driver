@@ -199,6 +199,14 @@ for m in nvidia_drm nvidia_modeset nvidia_uvm nvidia; do rmmod "$m" 2>/dev/null;
 mkdir -p /usr/lib/modules
 rm -rf "$DL/ko"; mkdir -p "$DL/ko"; tar -xzf "$DL/$KOF" -C "$DL/ko"
 for ko in "$DL"/ko/*.ko; do [ -f "$ko" ] && cp -f "$ko" "/usr/lib/modules/$(basename "$ko")"; done
+# Record which platform these .ko were built for. All kver5 platforms share
+# the exact same vermagic string (5.10.55+ SMP mod_unload), so the kernel's
+# own vermagic check does NOT catch a .ko from the wrong platform - and
+# per-platform kernel .config can genuinely differ (e.g. backlight/acpi_video
+# on/off). The boot hook below checks this marker before insmod so a leftover
+# module from a previous platform (e.g. after switching the loader's declared
+# platform without uninstalling first) can't get silently auto-loaded.
+echo "$PLATFORM" > /usr/lib/modules/.nvidia-platform
 ok "kernel modules -> /usr/lib/modules"
 
 # GSP firmware -> /lib/firmware/nvidia/<driver_ver>/ (must exist BEFORE the
@@ -251,6 +259,17 @@ RCD=/usr/local/etc/rc.d; mkdir -p "$RCD"
 cat > "$RCD/nvidia.sh" <<'RC'
 #!/bin/sh
 case "$1" in start|"")
+  # Platform guard: skip loading if the installed .ko were built for a
+  # different platform than the one currently running. vermagic alone can't
+  # catch this (identical text across kver5 platforms) and per-platform
+  # kernel .config can genuinely differ - loading the wrong .ko is not
+  # guaranteed safe even though insmod itself might not refuse it.
+  CURP="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
+  STOREDP="$(cat /usr/lib/modules/.nvidia-platform 2>/dev/null)"
+  if [ -n "$STOREDP" ] && [ "$STOREDP" != "$CURP" ]; then
+    logger -t nvidia.sh "SKIPPED: installed .ko are for platform '$STOREDP' but running on '$CURP' - re-run install.sh for this platform (or uninstall.sh first)" 2>/dev/null
+    exit 0
+  fi
   for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
     [ -f "/usr/lib/modules/$m.ko" ] && /sbin/insmod "/usr/lib/modules/$m.ko" 2>/dev/null
   done

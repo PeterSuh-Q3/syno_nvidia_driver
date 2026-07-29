@@ -76,7 +76,7 @@ ok "removed $cnt /usr/lib symlinks"
 # kernel modules
 rm -f /usr/lib/modules/nvidia.ko /usr/lib/modules/nvidia-uvm.ko \
       /usr/lib/modules/nvidia-modeset.ko /usr/lib/modules/nvidia-drm.ko \
-      /usr/lib/modules/nvidia-peermem.ko
+      /usr/lib/modules/nvidia-peermem.ko /usr/lib/modules/.nvidia-platform
 ok "removed nvidia*.ko from /usr/lib/modules"
 # userspace tree
 rm -rf "$NVDIR" && ok "removed $NVDIR"

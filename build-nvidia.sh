@@ -163,7 +163,7 @@ else
   log "ok: nvidia.ko exports $n nvUvmInterface* symbols (uvm will resolve)"
 fi
 
-echo "$DRV" > "$KO_STAGE/VERSION"; echo "$KVER" > "$KO_STAGE/KVER"
+echo "$DRV" > "$KO_STAGE/VERSION"; echo "$KVER" > "$KO_STAGE/KVER"; echo "$PLATFORM" > "$KO_STAGE/PLATFORM"
 KO_TGZ="$OUT/nv-ko-${DRV}-${PLATFORM}-${KVERSHORT}.tgz"
 tar -C "$KO_STAGE" -czf "$KO_TGZ" .
 KO_SHA="$(sha256sum "$KO_TGZ" | cut -d' ' -f1)"
