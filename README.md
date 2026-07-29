@@ -80,6 +80,7 @@ lsmod | grep nvidia
 | `/dev/nvidia-uvm` | 240 | Unified memory — **CUDA will not work without it**. |
 | `/dev/nvidia-uvm-tools` | 240 | Debug/profiling companion to UVM. |
 | `/dev/nvidia-caps/*` | 243 | MIG capability nodes; unused outside datacenter GPUs. |
+| `/dev/nvidia-modeset` | 195 | Mode-setting node. Present since the modules are now built without the backlight dependency (see below). |
 
 What a healthy install looks like:
 
@@ -88,14 +89,45 @@ What a healthy install looks like:
   from `/proc/driver/nvidia/gpus/` precisely to avoid that.
 - **`nvidia_uvm` is loaded** (`lsmod`). Without it `nvidia-smi` may still work while
   every CUDA application fails.
-- `nvidia_modeset` / `nvidia_drm` missing is **normal on DSM** — Synology ships no
-  `backlight.ko`, so they fail to load. They are display-only and irrelevant to
-  compute and NVENC/NVDEC transcoding.
+- **`nvidia_modeset` loads too.** It used to fail on headless platforms with
+  `Unknown symbol backlight_device_register` — Synology simply does not ship
+  `backlight.ko` there. The modules are now compiled with
+  `CONFIG_BACKLIGHT_CLASS_DEVICE` / `CONFIG_ACPI_VIDEO` stripped from the build's
+  `autoconf.h`, so the symbol is never referenced in the first place. Verified on
+  an SA6400 (`epyc7002`): `nvidia_modeset` loads, `/dev/nvidia-modeset` is created,
+  and `dmesg` has no backlight warning at all.
 - Permissions are `crw-rw-rw-`, so unprivileged package users (Plex, Jellyfin,
   containers) can open them without extra setup.
 
 If the nodes are missing entirely, the modules did not load — re-run the installer
 or check `dmesg | grep -i nvrm`.
+
+### `/dev/dri` is missing — is that a problem?
+
+**No.** On headless platforms it cannot exist, and nothing you install will change
+that:
+
+| Platform group | `CONFIG_DRM` in Synology's kernel | `/dev/dri` |
+|---|---|---|
+| `geminilake`, `geminilakenk`, `apollolake` (Intel iGPU) | `CONFIG_DRM_MODULE=1`, `CONFIG_DRM_I915_MODULE=1` | present |
+| `epyc7002`, `epyc7003`, `epyc7003ntb`, `icelaked`, `v1000nk`, `r1000nk` | **not set at all** | **never present** |
+
+Synology builds no DRM subsystem on the headless server platforms, so
+`nvidia-drm.ko` compiles into an effectively empty stub — on an SA6400 it is 16KB,
+carries no `depends`, exposes **no module parameters at all** (there is no
+`modeset` option to turn on), and `/proc/kallsyms` contains zero `drm_*` symbols.
+Passing `modeset=1` would make `insmod` fail with *unknown parameter*, which is
+strictly worse than leaving it alone.
+
+If you saw `/dev/dri` with another solution on "the same box", the box was almost
+certainly running a **different declared platform** — the iGPU platforms above do
+have DRM. This is a per-platform kernel difference, not something a driver package
+controls.
+
+It also does not matter for this driver's purpose: `/dev/dri` is for graphics
+output, Vulkan and VA-API. **CUDA and NVENC/NVDEC use `/dev/nvidia*` only**, which
+is why hardware transcoding works fine without it.
+
 
 ### NVENC ffmpeg (Jellyfin package)
 Answer **y** at Step 6 to also install an NVENC-capable `ffmpeg` at
@@ -505,6 +537,7 @@ lsmod | grep nvidia
 | `/dev/nvidia-uvm` | 240 | 통합 메모리 — **이게 없으면 CUDA가 동작하지 않습니다**. |
 | `/dev/nvidia-uvm-tools` | 240 | UVM 디버그/프로파일링용 보조 노드. |
 | `/dev/nvidia-caps/*` | 243 | MIG 기능 노드. 데이터센터 GPU 외에는 사용되지 않습니다. |
+| `/dev/nvidia-modeset` | 195 | 모드셋 노드. 모듈이 backlight 의존 없이 빌드되므로 생성됩니다(아래 참고). |
 
 정상 설치의 판별 기준:
 
@@ -513,14 +546,42 @@ lsmod | grep nvidia
   `/proc/driver/nvidia/gpus/` 에서 개수를 산출합니다.
 - **`nvidia_uvm`이 로드되어 있어야 합니다**(`lsmod`). 이게 없으면 `nvidia-smi`는 동작해도
   CUDA 애플리케이션은 전부 실패합니다.
-- `nvidia_modeset` / `nvidia_drm`이 없는 것은 **DSM에서 정상**입니다 — Synology에
-  `backlight.ko`가 없어 로드에 실패합니다. 디스플레이 전용이라 컴퓨트와 NVENC/NVDEC
-  트랜스코딩에는 무관합니다.
+- **`nvidia_modeset`도 로드됩니다.** 예전에는 헤드리스 플랫폼에서
+  `Unknown symbol backlight_device_register`로 실패했습니다 — Synology가 그쪽에
+  `backlight.ko`를 배포하지 않기 때문입니다. 지금은 빌드 시점의 `autoconf.h`에서
+  `CONFIG_BACKLIGHT_CLASS_DEVICE` / `CONFIG_ACPI_VIDEO`를 제거하고 컴파일하므로
+  **심볼을 애초에 참조하지 않습니다**. SA6400(`epyc7002`) 실기에서
+  `nvidia_modeset` 로드 · `/dev/nvidia-modeset` 생성 · `dmesg`에 backlight 경고
+  전무를 확인했습니다.
 - 권한이 `crw-rw-rw-`이므로 비특권 패키지 사용자(Plex, Jellyfin, 컨테이너)가 별도 설정
   없이 열 수 있습니다.
 
 노드가 아예 없다면 모듈이 로드되지 않은 것입니다 — 설치를 다시 실행하거나
 `dmesg | grep -i nvrm`을 확인하세요.
+
+### `/dev/dri`가 안 보이는데 문제인가요?
+
+**아닙니다.** 헤드리스 플랫폼에서는 존재할 수 없으며, 무엇을 설치해도 바뀌지 않습니다:
+
+| 플랫폼 그룹 | Synology 커널의 `CONFIG_DRM` | `/dev/dri` |
+|---|---|---|
+| `geminilake`, `geminilakenk`, `apollolake` (Intel iGPU) | `CONFIG_DRM_MODULE=1`, `CONFIG_DRM_I915_MODULE=1` | 존재함 |
+| `epyc7002`, `epyc7003`, `epyc7003ntb`, `icelaked`, `v1000nk`, `r1000nk` | **아예 미설정** | **생성 불가** |
+
+Synology가 헤드리스 서버 플랫폼에는 DRM 서브시스템을 빌드하지 않으므로,
+`nvidia-drm.ko`는 사실상 빈 껍데기로 컴파일됩니다 — SA6400에서 크기 16KB,
+`depends` 없음, **모듈 파라미터가 하나도 없고**(켤 `modeset` 옵션 자체가 없음),
+`/proc/kallsyms`에 `drm_*` 심볼이 0건입니다. `modeset=1`을 주면 `insmod`가
+*unknown parameter*로 실패해 지금보다 나빠집니다.
+
+다른 솔루션에서 "같은 박스"에 `/dev/dri`가 보였다면, 그때는 **선언된 플랫폼이
+달랐을 가능성이 큽니다** — 위의 iGPU 플랫폼들은 DRM을 갖고 있습니다. 이는 드라이버
+패키지가 통제하는 영역이 아니라 플랫폼별 커널 차이입니다.
+
+용도상으로도 무관합니다: `/dev/dri`는 그래픽 출력 · Vulkan · VA-API용이고,
+**CUDA와 NVENC/NVDEC는 `/dev/nvidia*`만 사용합니다.** 그래서 이것 없이도 하드웨어
+트랜스코딩이 정상 동작합니다.
+
 
 ### NVENC ffmpeg (Jellyfin 패키지)
 6단계에서 **y**를 선택하면 `/usr/local/nvidia/bin/ffmpeg`에 NVENC 지원 `ffmpeg`도 함께
