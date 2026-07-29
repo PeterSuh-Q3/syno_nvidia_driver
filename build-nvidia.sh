@@ -115,6 +115,38 @@ $leftover
 This driver branch moved or reshaped them - update the compat block in build-nvidia.sh."
 log "compat: patched $npatch file(s); no unpatched __flush_tlb/__write_cr4 remain"
 
+# --- optional: suppress backlight/acpi_video (headless platforms only) ------
+# nvidia-modeset.ko references backlight_device_register/unregister whenever
+# CONFIG_BACKLIGHT_CLASS_DEVICE is enabled. Verified by direct inspection:
+# Synology's kver5 kernel baseline has this =m (module) IDENTICALLY across
+# platforms (checked epyc7002 vs geminilakenk - same autoconf.h). The reason
+# the "Unknown symbol backlight_device_register" warning only appears on some
+# platforms is NOT a kernel-config difference - it's that Synology doesn't
+# ship backlight.ko as an installable file on headless platforms (no monitor
+# use case), while it does on display-capable ones (e.g. geminilakenk, real
+# hardware confirmed: modeset loads clean there, backlight.ko present).
+#
+# Setting NO_BACKLIGHT=1 strips the CONFIG_BACKLIGHT_CLASS_DEVICE/
+# CONFIG_ACPI_VIDEO defines from THIS EPHEMERAL CONTAINER's copy of the
+# kernel headers before compiling, so nvidia-modeset.ko simply never
+# references those symbols - the warning disappears because the reference is
+# gone, not worked around. Since containers run with --rm (see run-on-vm.sh)
+# and this edits an overlay copy-on-write layer, not the image, the change
+# is automatically gone the moment this build finishes - no revert needed.
+#
+# DO NOT set this for a platform where backlight.ko is actually shipped and
+# used (currently: geminilakenk) - it would needlessly strip working
+# integration there for no benefit.
+if [ "${NO_BACKLIGHT:-0}" = "1" ]; then
+  AUTOCONF="$KSRC/include/generated/autoconf.h"
+  if [ -f "$AUTOCONF" ]; then
+    sed -i -E '/CONFIG_BACKLIGHT_CLASS_DEVICE/d; /CONFIG_ACPI_VIDEO/d' "$AUTOCONF"
+    log "NO_BACKLIGHT=1: stripped CONFIG_BACKLIGHT_CLASS_DEVICE/CONFIG_ACPI_VIDEO from this build's autoconf.h (platform=$PLATFORM, ephemeral)"
+  else
+    log "NO_BACKLIGHT=1 requested but $AUTOCONF not found - skipping"
+  fi
+fi
+
 # =============================================================================
 # LAYER 1 - kernel modules (.ko), platform-specific
 # =============================================================================
