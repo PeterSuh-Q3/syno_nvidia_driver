@@ -59,7 +59,7 @@ done
 
 # ------------------------------------------------- 4) device nodes --
 step "Step 4/6  Removing device nodes"
-rm -f /dev/nvidia0 /dev/nvidiactl /dev/nvidia-uvm /dev/nvidia-uvm-tools
+rm -f /dev/nvidia0 /dev/nvidiactl /dev/nvidia-uvm /dev/nvidia-uvm-tools /dev/nvidia-modeset
 rm -rf /dev/nvidia-caps
 n=0; while [ $n -lt 8 ]; do rm -f "/dev/nvidia$n"; n=$((n+1)); done
 ok "removed /dev/nvidia*"

@@ -278,6 +278,14 @@ case "$1" in start|"")
   [ -n "$major" ] && { [ -e /dev/nvidiactl ] || mknod -m 666 /dev/nvidiactl c "$major" 255; n=0; while [ "$n" -lt "$ngpu" ]; do [ -e /dev/nvidia$n ] || mknod -m 666 /dev/nvidia$n c "$major" $n; n=$((n+1)); done; }
   umajor=$(awk '$2=="nvidia-uvm"{print $1}' /proc/devices | head -1)
   [ -n "$umajor" ] && { [ -e /dev/nvidia-uvm ] || mknod -m 666 /dev/nvidia-uvm c "$umajor" 0; }
+  # /dev/nvidia-modeset: unlike nvidia-uvm-tools and /dev/dri/* (which DSM's
+  # udev auto-creates once the module registers), this one needs an explicit
+  # create - confirmed on real hardware: nvidia-modeset.ko loads and registers
+  # major 195 (visible in /proc/devices) but no /dev node appears without it.
+  # Use NVIDIA's own bundled tool rather than hardcoding the minor (254 by
+  # convention) ourselves. No-ops harmlessly on platforms where
+  # nvidia-modeset.ko didn't load (e.g. headless, no backlight.ko).
+  [ -e /dev/nvidia-modeset ] || /usr/local/nvidia/bin/nvidia-modprobe -m 2>/dev/null
   for so in /usr/local/nvidia/lib/*.so*; do [ -e "$so" ] && ln -sf "$so" "/usr/lib/$(basename "$so")"; done
   [ -x /sbin/ldconfig ] && /sbin/ldconfig 2>/dev/null
   ;;
