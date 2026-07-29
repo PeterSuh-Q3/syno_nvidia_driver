@@ -24,7 +24,11 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$HERE/out"
 
 SUDO=""; docker info >/dev/null 2>&1 || SUDO="sudo"
+# NO_BACKLIGHT must be forwarded explicitly - `docker run` starts with a clean
+# environment, so exporting it in the caller's shell alone silently does nothing
+# (the build then quietly produces backlight-referencing modules anyway).
 $SUDO docker run --rm -t --privileged -u 0 \
+  -e "NO_BACKLIGHT=${NO_BACKLIGHT:-0}" \
   -v "$HERE":/work \
   "dante90/syno-compiler:${DSM_VER}" \
   bash /work/build-nvidia.sh "$DRV" "$PLATFORM" "$KVER"

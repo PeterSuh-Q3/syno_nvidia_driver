@@ -153,6 +153,11 @@ if [ "${NO_BACKLIGHT:-0}" = "1" ]; then
   else
     log "NO_BACKLIGHT=1 requested but $AUTOCONF not found - skipping"
   fi
+else
+  # Log the off case too: silence here is ambiguous, and a NO_BACKLIGHT=1 that
+  # never reached the container (missing `docker run -e`) looks exactly like a
+  # normal build until you nm the resulting .ko.
+  log "NO_BACKLIGHT=0: leaving autoconf.h untouched (backlight/acpi_video as the platform kernel declares them)"
 fi
 
 # =============================================================================
