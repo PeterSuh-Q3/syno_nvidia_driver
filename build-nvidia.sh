@@ -105,7 +105,15 @@ for f in $(grep -rl '__flush_tlb()' "$SRC/kernel" 2>/dev/null || true); do
   npatch=$((npatch+1))
 done
 for f in $(grep -rl '__write_cr4(' "$SRC/kernel" 2>/dev/null || true); do
-  sed -i 's/__write_cr4(\([^;]*\));/asm volatile("mov %0,%%cr4" :: "r"((unsigned long)(\1)) : "memory");/g' "$f"
+  # Match up to the closing paren only - NOT requiring a trailing ';'. Call
+  # sites (e.g. 580's nv-pat.c) have one: "__write_cr4(x);". But ≤550's
+  # nv-linux.h defines the wrapper macro itself with no trailing semicolon:
+  # "#define NV_WRITE_CR4(cr4)   __write_cr4(cr4)" - the old ');'-anchored
+  # regex silently skipped that line, and the leftover-check below correctly
+  # flagged it as unpatched (caught only once we rebuilt 470/535/550 through
+  # this assertion for the first time). Whatever character follows the match
+  # (';' at a call site, EOL at a #define) is left untouched either way.
+  sed -i 's/__write_cr4(\([^)]*\))/asm volatile("mov %0,%%cr4" :: "r"((unsigned long)(\1)) : "memory")/g' "$f"
   log "compat: ${f#$SRC/} __write_cr4() -> inline asm (native_write_cr4 not exported)"
   npatch=$((npatch+1))
 done
