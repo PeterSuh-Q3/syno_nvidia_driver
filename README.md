@@ -16,8 +16,9 @@ per GPU, auto-matched to your platform + DSM kernel.
 
 ## 🚀 Install (on a running DSM)
 
-**Requirements:** root/`sudo`, internet, a **supported kver5 (5.10.55) platform**
-(all 7 — see the [support matrix](#supported-platforms--driver-versions) below)
+**Requirements:** root/`sudo`, internet, a **supported platform** — all 7 kernel
+5.10.55 ones, plus 9 kernel 4.4 ones on 550 (see the
+[support matrix](#supported-platforms--driver-versions) below)
 with an NVIDIA GPU (physical or passthrough). The installer auto-detects your
 platform + GPU and refuses to run on anything it can't support.
 
@@ -154,10 +155,13 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/u
 
 ## Supported platforms & driver versions
 
-All **kver5 (kernel 5.10.55)** Synology platforms are supported. Each cell is a
-prebuilt `.ko` on the [`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/nvidia)
+Both **kernel 5.10.55 (kver5)** and **kernel 4.4 (kver4)** Synology platforms are
+supported. Each cell is a prebuilt `.ko` on the
+[`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/nvidia)
 Release; the shared userspace layer (`nv-userspace-<ver>.tgz`) is identical per
-driver version across every platform.
+driver version across every platform and kernel.
+
+### kernel 5.10.55 platforms — all four branches
 
 | Platform | Example models | 470.256.02 | 535.230.02 | 550.163.01 | **580.173.02** |
 |---|---|:---:|:---:|:---:|:---:|
@@ -168,6 +172,41 @@ driver version across every platform.
 | `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | ✅ |
+
+### kernel 4.4 platforms — 550 only
+
+**550.163.01 is the ceiling on kernel 4.4**, and that is NVIDIA's decision, not a
+packaging choice: from 560 onward `common/inc/nv-linux.h` hard-fails with
+`#error "This driver does not support kernels older than Linux 4.15!"` — verified
+by actually building 560 / 570 / 575 / 580, all of which stop there.
+
+Modules are published **per kernel version**, because the same platform ships a
+different kernel depending on the DSM release and vermagic must match exactly:
+
+| Platform | Example models | DSM 7.0 / 7.1 (4.4.180) | DSM 7.2 / 7.3 / 7.4 (4.4.302) |
+|---|---|:---:|:---:|
+| `apollolake`      | DS918+ / DS620slim / DS1019+  | ✅ | ✅ |
+| `broadwell`       | DS3617xs / RS3617xs+          | ✅ | ✅ |
+| `broadwellnk`     | DS3622xs+ / RS4021xs+         | ✅ | ✅ |
+| `broadwellnkv2`   | RS3621xs+                     | ✅ | ✅ |
+| `broadwellntbap`  | SA3400                        | ✅ | ✅ |
+| `geminilake`      | DS220+ / DS420+ / DS720+      | ✅ | ✅ |
+| `purley`          | FS6400 / HD6500               | ✅ | ✅ |
+| `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
+| `v1000`           | DS1621+ / DS1821+ / DS2422+   | ✅ | ✅ |
+
+- **`denverton` is intentionally absent.** DSM already ships a vanilla NVIDIA
+  driver on that platform for DVA (Deep Video Analytics), so it is not a target
+  here.
+- The installer picks the build from `uname -r`, **not from the platform name
+  alone**. Cross the 4.4.180 → 4.4.302 boundary by upgrading DSM (7.1 → 7.2) and
+  the boot hook detects the mismatch, refuses to load the now-invalid modules,
+  and logs why — re-run the installer to get the matching build.
+- `avoton` / `braswell` / `bromolow` (kernel **3.10.108**) are **not** supported.
+  NVIDIA's 2.6.32 floor would allow them on paper, but they are untested here.
+- These 4.4 builds are **not yet verified on real hardware** — the modules build
+  cleanly and carry the correct vermagic, but no GPU-equipped 4.4 box has been
+  tested. Reports welcome.
 
 | Branch | GPU coverage | Native CUDA | Notes |
 |---|---|:---:|---|
@@ -187,9 +226,11 @@ driver version across every platform.
   580.173.02 `.run` does **not** bundle `gsp_ad10x.bin` or a Blackwell blob — the
   installer detects this and warns before letting you proceed (the driver would
   load but fail to initialise). Use 535/550 on those GPUs for now.
-- One `.ko` per platform covers **DSM 7.1–7.4** because `CONFIG_MODVERSIONS` is off
-  and the vermagic (`5.10.55+ SMP mod_unload`) is identical across those DSM
-  releases — only the vermagic gates module load.
+- On kver5, one `.ko` per platform covers **DSM 7.1–7.4**: `CONFIG_MODVERSIONS` is
+  off and the vermagic (`5.10.55+ SMP mod_unload`) is identical across those
+  releases, so only the vermagic gates module load. **Kernel 4.4 platforms do not
+  share that property** — DSM 7.0/7.1 are `4.4.180+` while 7.2+ are `4.4.302+`, so
+  each needs its own build and the installer resolves by kernel version.
 
 ---
 
@@ -257,32 +298,47 @@ The one direction that *does* break is the opposite one: an **old driver with a
 too-new ffmpeg** (e.g. 470 + an NVENC 12.x build). That is why each branch is
 pinned to a matching ffmpeg layer.
 
-### Why kver5 only?
+### Which kernels, and why 550 is the ceiling on kernel 4.4
 
 The driver ships as a kernel module (`.ko`) that must match the **exact Synology
-kernel** it loads into. Two hard constraints make kver5 the practical target:
+kernel** it loads into — the vermagic string is compared on load and nothing else
+matters.
 
-1. **Kernel API vs. driver branch.** NVIDIA's open kernel-interface glue tracks
-   modern kernel APIs. The **470 / 535 / 550 / 580** branches all compile cleanly
-   against **5.10.55** (580 needs kernel ≥ 4.15 per NVIDIA), but on the older
-   **kver4 (4.4.x, ~2016)** and **kver3 (3.10.x)** Synology kernels the newer glue
-   fails to build — those kernels would need a *legacy* branch (470 / 390), which
-   in turn drops support for newer GPUs. So "one modern branch for every platform"
-   only holds on kver5.
-2. **Toolchain + kernel tree availability.** Builds run against the per-platform
-   `/opt/<platform>/build` kernel tree inside the `dante90/syno-compiler`
-   container. The kver5 trees are the ones wired up and validated here.
+**The limit is NVIDIA's, and it sits between 550 and 560.** Every branch carries
+an explicit floor in `common/inc/nv-linux.h`:
 
-kver4 / kver3 platforms are therefore **out of scope for the 535/550/580 line**. They
-are technically buildable with a legacy branch, but that is a separate matrix
-(different branch, different GPU coverage) and is not currently shipped.
+| Branch | Declared kernel floor |
+|---|---|
+| 470 / 535 / **550** | `2.6.32` |
+| 560 / 570 / 575 / 580 | **`4.15`** — `#error "This driver does not support kernels older than Linux 4.15!"` |
+
+That was measured, not inferred: 560 / 570 / 575 / 580 were each downloaded and
+built against a 4.4.302 tree, and all four stop at that `#error` before compiling
+anything. 550 builds through cleanly and produces modules with the correct
+`4.4.302+ SMP mod_unload` vermagic. So on kernel 4.4 the answer is simply **550,
+and there is no way around it** short of patching NVIDIA's source.
+
+**One caveat worth recording**, because it looked like a kernel-support problem
+and was not: this project patches `nv-pat.c` / `nv-linux.h` to work around
+Synology building with `CONFIG_X86_PAT` off. That patch is **5.10-specific** —
+it rewrites `__flush_tlb()` into `native_write_cr3(__native_read_cr3())`, and
+`__native_read_cr3` only exists from 4.9 onward. Applying it to a 4.4 tree
+*creates* a build failure that the unpatched source does not have (4.4 still
+defines `__flush_tlb()` itself and keeps `native_write_cr4()` as a plain static
+inline, so there is nothing to fix there). `build-nvidia.sh` now detects this
+from the kernel headers and skips the block when the kernel already provides
+`__flush_tlb()`.
+
+**Kernel 3.10 (`avoton` / `braswell` / `bromolow`) is not shipped.** 550's 2.6.32
+floor would permit it on paper, but it has not been built or tested here, and
+those platforms are old enough that GPU passthrough is a rare configuration.
 
 ---
 
 ## About (build / producer side)
 
-Builds the **no-auth NVIDIA driver** (2-layer package) for Synology DSM kver5
-platforms. Physical / passthrough GPUs only — **no vGPU / license server**
+Builds the **no-auth NVIDIA driver** (2-layer package) for Synology DSM
+platforms on kernel 5.10.55 and kernel 4.4. Physical / passthrough GPUs only — **no vGPU / license server**
 (unlike pdbear's closed SPK). Multiple driver versions per GPU.
 
 This repo is the **build/producer** side. It borrows the
@@ -312,7 +368,7 @@ the exact DSM kernel (the fix for the issue-#77 "Unknown symbol" failure).
 | layer | file | scope |
 |---|---|---|
 | kernel | `nv-ko-<ver>-<platform>-<kvershort>.tgz` | **per platform** (~MB) |
-| userspace | `nv-userspace-<ver>.tgz` | **per version** only, x86_64 shared across kver5 platforms |
+| userspace | `nv-userspace-<ver>.tgz` | **per version** only, x86_64 shared across every platform and kernel |
 
 ## Build (on VM 192.168.45.139)
 
@@ -345,9 +401,12 @@ Outputs land in `out/` with a printed `nvidia-index.json` fragment (incl. sha256
 
 - `.ko` are unsigned → DSM logs `module verification failed … tainting` — benign
   (`MODULE_SIG_FORCE` not set, modules still load).
-- Target is **kver5 (5.10.55)** where 470/535/550/580 all build fine (each
-  verified — vermagic matches, `nvUvmInterface` exported). On kver4 (4.4.x) the
-  newer branches may not compile — the legacy 470 branch is the fallback.
+- On **5.10.55**, 470/535/550/580 all build fine (each verified — vermagic
+  matches, `nvUvmInterface` exported). On **4.4.x**, 550 is the ceiling: 560+
+  refuse outright with `#error "... older than Linux 4.15!"` (measured on
+  560/570/575/580). Note the PAT compat patch below must be **skipped** on 4.4 —
+  it targets 5.10 API and injects `__native_read_cr3`, which 4.4 lacks;
+  `build-nvidia.sh` detects this from the kernel headers automatically.
 - **Compat patches move between branches.** Synology builds with
   `CONFIG_X86_PAT` off, forcing NVIDIA's builtin-PAT path, which uses
   `__flush_tlb()` and `__write_cr4()` — neither usable from a module on 5.10.
@@ -390,8 +449,8 @@ vGPU · 라이선스 서버 없음**(pdbear의 폐쇄 SPK와 다름). GPU마다 
 
 ## 🚀 설치 (구동 중인 DSM에서)
 
-**요구 사항:** root/`sudo`, 인터넷, **지원되는 kver5(5.10.55) 플랫폼**(7종 전부 —
-아래 [지원 매트릭스](#supported-platforms--driver-versions) 참고)과 NVIDIA GPU(물리
+**요구 사항:** root/`sudo`, 인터넷, **지원되는 플랫폼**(커널 5.10.55 7종 전부 +
+550 한정으로 커널 4.4 9종 — 아래 [지원 매트릭스](#지원-플랫폼--드라이버-버전) 참고)과 NVIDIA GPU(물리
 또는 passthrough). 설치 스크립트가 플랫폼 + GPU를 자동 감지하며, 지원 불가한 환경에서는
 실행을 거부합니다.
 
@@ -518,10 +577,12 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/u
 
 ## 지원 플랫폼 & 드라이버 버전
 
-모든 **kver5(커널 5.10.55)** Synology 플랫폼을 지원합니다. 각 칸은
-[`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/nvidia)
+**커널 5.10.55(kver5)** 와 **커널 4.4(kver4)** Synology 플랫폼을 모두 지원합니다.
+각 칸은 [`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/nvidia)
 Release에 올라간 사전 빌드 `.ko`이며, 공유 userspace 레이어
-(`nv-userspace-<ver>.tgz`)는 드라이버 버전별로 모든 플랫폼에서 동일합니다.
+(`nv-userspace-<ver>.tgz`)는 드라이버 버전별로 모든 플랫폼·커널에서 동일합니다.
+
+### 커널 5.10.55 플랫폼 — 4개 브랜치 전부
 
 | 플랫폼 | 예시 모델 | 470.256.02 | 535.230.02 | 550.163.01 | **580.173.02** |
 |---|---|:---:|:---:|:---:|:---:|
@@ -532,6 +593,39 @@ Release에 올라간 사전 빌드 `.ko`이며, 공유 userspace 레이어
 | `v1000nk`       | (Ryzen Embedded V1000, no-key)  | ✅ | ✅ | ✅ | ✅ |
 | `r1000nk`       | (Ryzen Embedded R1000, no-key)  | ✅ | ✅ | ✅ | ✅ |
 | `geminilakenk`  | DS225+ / DS425+                 | ✅ | ✅ | ✅ | ✅ |
+
+### 커널 4.4 플랫폼 — 550 전용
+
+**커널 4.4에서는 550.163.01이 상한**이며, 이는 패키징 선택이 아니라 NVIDIA가 정한
+것입니다. 560부터 `common/inc/nv-linux.h`가
+`#error "This driver does not support kernels older than Linux 4.15!"` 로 즉시
+중단합니다 — 560 / 570 / 575 / 580을 실제로 받아 빌드해 전부 확인했습니다.
+
+같은 플랫폼이라도 DSM 릴리즈에 따라 커널이 달라지고 vermagic은 정확히 일치해야
+하므로, **커널 버전별로** 모듈을 따로 발행합니다:
+
+| 플랫폼 | 예시 모델 | DSM 7.0 / 7.1 (4.4.180) | DSM 7.2 / 7.3 / 7.4 (4.4.302) |
+|---|---|:---:|:---:|
+| `apollolake`      | DS918+ / DS620slim / DS1019+  | ✅ | ✅ |
+| `broadwell`       | DS3617xs / RS3617xs+          | ✅ | ✅ |
+| `broadwellnk`     | DS3622xs+ / RS4021xs+         | ✅ | ✅ |
+| `broadwellnkv2`   | RS3621xs+                     | ✅ | ✅ |
+| `broadwellntbap`  | SA3400                        | ✅ | ✅ |
+| `geminilake`      | DS220+ / DS420+ / DS720+      | ✅ | ✅ |
+| `purley`          | FS6400 / HD6500               | ✅ | ✅ |
+| `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
+| `v1000`           | DS1621+ / DS1821+ / DS2422+   | ✅ | ✅ |
+
+- **`denverton`은 의도적으로 제외했습니다.** 이 플랫폼은 DSM이 DVA(Deep Video
+  Analytics)용 바닐라 NVIDIA 드라이버를 이미 제공하므로 설치 대상이 아닙니다.
+- 설치 스크립트는 **플랫폼명이 아니라 `uname -r`** 로 빌드를 고릅니다. DSM을
+  업그레이드해 4.4.180 → 4.4.302 경계를 넘으면(7.1 → 7.2) 부팅 훅이 불일치를 감지해
+  무효가 된 모듈 로드를 거부하고 이유를 로그에 남깁니다 — 설치를 다시 실행하면 맞는
+  빌드를 받습니다.
+- `avoton` / `braswell` / `bromolow`(커널 **3.10.108**)는 **미지원**입니다. 550의
+  하한(2.6.32)상 이론적으로는 가능하나 검증하지 않았습니다.
+- 이 4.4 빌드들은 아직 **실기 검증 전**입니다 — 모듈이 정상 생성되고 vermagic도
+  맞지만, GPU가 장착된 4.4 박스에서 실제 로드까지 확인하지는 못했습니다.
 
 | 브랜치 | GPU 커버리지 | 네이티브 CUDA | 비고 |
 |---|---|:---:|---|
@@ -551,9 +645,12 @@ Release에 올라간 사전 빌드 `.ko`이며, 공유 userspace 레이어
   580.173.02 `.run`에는 `gsp_ad10x.bin`이나 Blackwell용 blob이 **들어있지 않습니다** —
   설치 스크립트가 이를 감지해 진행 전 경고합니다(드라이버는 설치되지만 초기화에
   실패함). 해당 GPU는 당분간 535/550을 사용하세요.
-- 플랫폼당 하나의 `.ko`가 **DSM 7.1–7.4**를 모두 커버합니다 — `CONFIG_MODVERSIONS`가
-  꺼져 있고 vermagic(`5.10.55+ SMP mod_unload`)이 해당 DSM 릴리즈 전체에서 동일해,
-  모듈 로드를 오직 vermagic만 판정하기 때문입니다.
+- kver5에서는 플랫폼당 하나의 `.ko`가 **DSM 7.1–7.4**를 모두 커버합니다 —
+  `CONFIG_MODVERSIONS`가 꺼져 있고 vermagic(`5.10.55+ SMP mod_unload`)이 해당 DSM
+  릴리즈 전체에서 동일해, 모듈 로드를 오직 vermagic만 판정하기 때문입니다.
+  **커널 4.4 플랫폼은 이 성질이 성립하지 않습니다** — DSM 7.0/7.1은 `4.4.180+`,
+  7.2+는 `4.4.302+`라 각각 별도 빌드가 필요하고, 설치 스크립트가 커널 버전으로
+  판별합니다.
 
 ---
 
@@ -618,31 +715,42 @@ Plex와 Jellyfin은 트랜스코딩에 CUDA 툴킷을 **쓰지 않습니다** �
 실제로 깨지는 것은 반대 방향입니다 — **구형 드라이버 + 너무 새로운 ffmpeg**(예: 470 +
 NVENC 12.x 빌드). 각 브랜치에 맞는 ffmpeg 레이어를 고정해 둔 이유가 이것입니다.
 
-### 왜 kver5만 지원하나요?
+### 어떤 커널을 지원하며, 왜 커널 4.4에서는 550이 상한인가요?
 
 이 드라이버는 로드되는 **정확한 Synology 커널**과 일치해야 하는 커널 모듈(`.ko`)로
-배포됩니다. kver5를 현실적 타깃으로 만드는 두 가지 제약이 있습니다:
+배포됩니다 — 로드 시 vermagic 문자열을 비교하며, 그 외에는 아무것도 보지 않습니다.
 
-1. **커널 API vs. 드라이버 브랜치.** NVIDIA의 오픈 커널 인터페이스 glue는 최신 커널
-   API를 따라갑니다. **470 / 535 / 550 / 580** 브랜치는 모두 **5.10.55**에서 깨끗이
-   컴파일되지만(580은 NVIDIA 기준 커널 4.15 이상 필요), 더
-   오래된 **kver4(4.4.x, 약 2016년)** · **kver3(3.10.x)** Synology 커널에서는 동일한
-   glue가 빌드에 실패합니다 — 이 커널들은 *레거시* 브랜치(470 / 390)가 필요하고, 그러면
-   최신 GPU(Ampere / Ada) 지원이 빠집니다. 따라서 "모든 플랫폼에 최신 브랜치 하나"는
-   kver5에서만 성립합니다.
-2. **툴체인 + 커널 트리 가용성.** 빌드는 `dante90/syno-compiler` 컨테이너 안의
-   플랫폼별 `/opt/<platform>/build` 커널 트리를 대상으로 수행됩니다. kver5 트리들이
-   여기서 연결·검증된 대상입니다.
+**한계는 NVIDIA가 정한 것이고, 550과 560 사이에 있습니다.** 각 브랜치는
+`common/inc/nv-linux.h`에 명시적 하한을 갖습니다:
 
-그러므로 kver4 / kver3 플랫폼은 **535/550/580 라인의 범위 밖**입니다. 레거시 브랜치로는
-기술적으로 빌드가 가능하지만, 그것은 별도의 매트릭스(다른 브랜치, 다른 GPU 커버리지)이며
-현재 배포하지 않습니다.
+| 브랜치 | 선언된 커널 하한 |
+|---|---|
+| 470 / 535 / **550** | `2.6.32` |
+| 560 / 570 / 575 / 580 | **`4.15`** — `#error "This driver does not support kernels older than Linux 4.15!"` |
+
+추정이 아니라 실측입니다: 560 / 570 / 575 / 580을 각각 내려받아 4.4.302 트리로
+빌드해봤고, 넷 다 컴파일 전에 저 `#error`에서 멈춥니다. 550은 끝까지 빌드되어
+`4.4.302+ SMP mod_unload` vermagic을 가진 모듈을 만들어냅니다. 즉 커널 4.4에서는
+NVIDIA 소스를 직접 고치지 않는 한 **550이 답이고 우회로가 없습니다**.
+
+**한 가지 기록해둘 함정이 있습니다.** 커널 지원 문제처럼 보였지만 아니었던 건인데,
+이 프로젝트는 Synology가 `CONFIG_X86_PAT`를 끄고 빌드하는 것에 대응해 `nv-pat.c` /
+`nv-linux.h`를 패치합니다. 그런데 이 패치는 **5.10 전용**입니다 — `__flush_tlb()`를
+`native_write_cr3(__native_read_cr3())`로 바꾸는데, `__native_read_cr3`는 4.9부터
+생긴 심볼입니다. 그래서 4.4 트리에 이 패치를 적용하면 원본에는 없던 빌드 실패를
+*만들어냅니다*(4.4는 `__flush_tlb()`를 직접 정의하고 `native_write_cr4()`도 평범한
+static inline이라 고칠 것이 애초에 없습니다). 이제 `build-nvidia.sh`가 커널 헤더를
+검사해, 커널이 `__flush_tlb()`를 이미 제공하면 이 블록을 건너뜁니다.
+
+**커널 3.10(`avoton` / `braswell` / `bromolow`)은 배포하지 않습니다.** 550의 하한
+2.6.32상 서류상으로는 가능하지만 빌드·테스트를 하지 않았고, GPU passthrough를 쓰는
+구성 자체가 드문 세대입니다.
 
 ---
 
 ## 소개 (빌드 / 생산자 측)
 
-Synology DSM kver5 플랫폼용 **무인증 NVIDIA 드라이버**(2층 패키지)를 빌드합니다. 물리 /
+커널 5.10.55 및 커널 4.4 Synology DSM 플랫폼용 **무인증 NVIDIA 드라이버**(2층 패키지)를 빌드합니다. 물리 /
 passthrough GPU 전용 — **vGPU · 라이선스 서버 없음**(pdbear의 폐쇄 SPK와 다름). GPU마다
 여러 드라이버 버전을 제공합니다.
 
@@ -673,7 +781,7 @@ NVIDIA의 **오픈** 커널 인터페이스 glue만 재컴파일해 폐쇄 `nv-k
 | 레이어 | 파일 | 범위 |
 |---|---|---|
 | 커널 | `nv-ko-<ver>-<platform>-<kvershort>.tgz` | **플랫폼별** (~MB) |
-| userspace | `nv-userspace-<ver>.tgz` | **버전별** 1개, x86_64 공통(kver5 플랫폼 공유) |
+| userspace | `nv-userspace-<ver>.tgz` | **버전별** 1개, x86_64 공통(모든 플랫폼·커널 공유) |
 
 ### 빌드 (VM 192.168.45.139에서)
 
@@ -699,9 +807,12 @@ curl -kLo run/NVIDIA-Linux-x86_64-535.183.06.run \
 
 - `.ko`는 서명되지 않아 DSM이 `module verification failed … tainting`을 남깁니다 —
   무해합니다(`MODULE_SIG_FORCE` 미설정, 모듈은 정상 로드).
-- 타깃은 470/535/550/580이 모두 정상 빌드되는 **kver5(5.10.55)**입니다(각각 검증 —
-  vermagic 일치, `nvUvmInterface` export 확인). kver4(4.4.x)에서는 신규 브랜치가
-  컴파일되지 않을 수 있으며, 레거시 470 브랜치가 대안입니다.
+- **5.10.55**에서는 470/535/550/580이 모두 정상 빌드됩니다(각각 검증 — vermagic
+  일치, `nvUvmInterface` export 확인). **4.4.x**에서는 550이 상한이며, 560 이상은
+  `#error "... older than Linux 4.15!"`로 즉시 거부합니다(560/570/575/580 실측).
+  아래 PAT 호환 패치는 4.4에서 **건너뛰어야** 합니다 — 5.10 API를 겨냥해
+  `__native_read_cr3`를 주입하는데 4.4에는 없는 심볼입니다. `build-nvidia.sh`가
+  커널 헤더를 보고 자동 판별합니다.
 - **호환 패치의 위치는 브랜치마다 이동합니다.** Synology는 `CONFIG_X86_PAT`를 끈 채
   빌드하므로 NVIDIA의 builtin-PAT 경로가 강제되고, 이 경로가 쓰는 `__flush_tlb()`와
   `__write_cr4()`는 5.10에서 모듈이 사용할 수 없습니다. `build-nvidia.sh`가 둘 다
