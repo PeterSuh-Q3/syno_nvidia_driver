@@ -114,18 +114,95 @@ for d in /sys/bus/pci/devices/*; do
   case "$(cat "$d/class" 2>/dev/null)" in 0x0300*|0x0302*)
     GPUID="10de:$(sed 's/^0x//' "$d/device" 2>/dev/null | tr 'A-Z' 'a-z')"; break ;; esac
 done
-GNAME="Unknown"; GARCH=""; REC_BRANCH="$(jq -r '.default_branch' "$SUP" 2>/dev/null)"
-GBRANCHES=""
-if [ -n "$GPUID" ]; then
+# Branches this release actually publishes for THIS platform + kernel. Every
+# recommendation below is intersected with it, so we can never point at a
+# driver the release does not carry - kver5 platforms have 470/535/550/580,
+# kver4 platforms have 550 only, and the old code happily recommended 535 on
+# both because `default_branch` was a single global value.
+AVAIL="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(.[0:3]) | unique | join(" ")' "$IDX")"
+NEWEST_AVAIL="${AVAIL##* }"        # keys are sorted ascending -> last = newest
+has_branch(){ case " $AVAIL " in *" $1 "*) return 0 ;; esac; return 1; }
+
+GNAME="Unknown"; GARCH=""; GBRANCHES=""; GLEGACY=""; REC_BRANCH=""; GKNOWN=false
+KMAJ="${KVER%%.*}"
+if [ -n "$GPUID" ] && jq -e --arg g "$GPUID" '.gpus[$g]' "$SUP" >/dev/null 2>&1; then
+  GKNOWN=true
   GNAME="$(jq -r --arg g "$GPUID" '.gpus[$g].name // "Unknown NVIDIA GPU"' "$SUP")"
   GARCH="$(jq -r --arg g "$GPUID" '.gpus[$g].arch // ""' "$SUP")"
-  GBRANCHES="$(jq -r --arg g "$GPUID" '.gpus[$g].branches // [] | join(", ")' "$SUP")"
-  [ -n "$GBRANCHES" ] && REC_BRANCH="$(jq -r --arg g "$GPUID" '.gpus[$g].branches[0] // .default_branch' "$SUP")"
-  ok "detected: ${WHT}${GNAME}${R}  (${GPUID}${GARCH:+, $GARCH})"
-  [ -n "$GBRANCHES" ] && say "  compatible driver branches: ${CYN}${GBRANCHES}${R}   recommended: ${GRN}${REC_BRANCH}${R}"
-else
+  # space-separated, newest-preferred first - iterated as a word list below
+  GBRANCHES="$(jq -r --arg g "$GPUID" '.gpus[$g].branches // [] | join(" ")' "$SUP")"
+  GLEGACY="$(jq -r --arg g "$GPUID" '.gpus[$g].legacy_driver // ""' "$SUP")"
+fi
+# Read here, not in step 5: the GSP facts gate the recommendation itself.
+NEEDS_GSP="$(jq -r --arg g "$GPUID" '.gpus[$g].needs_gsp // false' "$SUP" 2>/dev/null)"
+GSP_FW="$(jq -r --arg g "$GPUID" '.gpus[$g].gsp_fw // empty' "$SUP" 2>/dev/null)"
+CUDA_MAX="$(jq -r --arg g "$GPUID" '.gpus[$g].cuda_max // empty' "$SUP" 2>/dev/null)"
+# 580 runs the open kernel module, which on Turing+ refuses to initialise
+# without a GSP firmware blob. We only ship the blobs NVIDIA's .run bundles
+# (Turing + consumer Ampere), so for Ada/Blackwell/GA100 580 is present but
+# unusable - never *recommend* it there, even though it stays selectable.
+gsp_blocked(){ [ "$1" = "580" ] && [ "$NEEDS_GSP" = "true" ] && [ -z "$GSP_FW" ]; }
+# Recommended = the newest branch the GPU supports that we also publish here.
+for b in $GBRANCHES; do
+  has_branch "$b" || continue
+  gsp_blocked "$b" && continue
+  REC_BRANCH="$b"; break
+done
+if [ -z "$REC_BRANCH" ]; then
+  # No GPU match (or none of its branches are published): fall back to the
+  # per-kernel default - 580 on kver5, 550 on kver4 - and only to a branch we
+  # really have.
+  KDEF="$(jq -r --arg k "$KMAJ" '.default_branch_by_kernel[$k] // .default_branch // empty' "$SUP" 2>/dev/null)"
+  if [ -n "$KDEF" ] && has_branch "$KDEF"; then REC_BRANCH="$KDEF"; else REC_BRANCH="$NEWEST_AVAIL"; fi
+fi
+
+if [ -z "$GPUID" ]; then
   warn "no NVIDIA GPU detected on the PCI bus (passthrough not attached?)."
   warn "you can still install; recommended branch defaults to ${GRN}${REC_BRANCH}${R}"
+elif [ "$GKNOWN" != "true" ]; then
+  ok "detected: ${WHT}${GPUID}${R}"
+  warn "this PCI id is not in the GPU catalog - it is probably newer than the"
+  warn "catalog build. Defaulting to ${GRN}${REC_BRANCH}${R} (newest branch for kernel ${KMAJ}.x)."
+elif [ -n "$GLEGACY" ]; then
+  # In NVIDIA's own supportedchips list this chip appears only under a legacy
+  # branch (390.xx and older) that this project does not build at all. Nothing
+  # we ship will bind to it - say so instead of installing a driver that loads
+  # and then finds no device.
+  ok "detected: ${WHT}${GNAME}${R}  (${GPUID}${GARCH:+, $GARCH})"
+  err "${WHT}${GNAME}${R} is only supported by NVIDIA's ${B}${GLEGACY}${R} legacy driver,"
+  err "which this project does not build. ${RED}No branch here will drive it.${R}"
+  printf "%b" "  ${B}Install anyway (it will not work)? [y/N]: ${R}"
+  ask lg; case "$lg" in y|Y) ;; *) die "aborted - unsupported GPU" ;; esac
+else
+  ok "detected: ${WHT}${GNAME}${R}  (${GPUID}${GARCH:+, $GARCH})"
+  # Report what can be INSTALLED here, not the full NVIDIA support matrix. On a
+  # kver4 platform a Pascal card is supported by 470/535/550/580 as far as
+  # NVIDIA is concerned, but only 550 is built for kernel 4.4 - leading with the
+  # full list just advertises drivers this box cannot get.
+  USABLE=""; UNAVAIL=""
+  for b in $GBRANCHES; do
+    if has_branch "$b"; then USABLE="$USABLE $b"; else UNAVAIL="$UNAVAIL $b"; fi
+  done
+  if [ -z "$USABLE" ]; then
+    err "supported by NVIDIA's ${CYN}$(echo "${GBRANCHES}" | tr ' ' ',' | sed 's/,/, /g')${R} branch(es),"
+    err "none of which are published for ${B}${PLATFORM}${R} on kernel ${B}${KVER}${R}"
+    err "(this platform has only: ${YEL}${AVAIL}${R}) - ${RED}nothing here will drive this GPU.${R}"
+    printf "%b" "  ${B}Install anyway (it will not work)? [y/N]: ${R}"
+    ask nb; case "$nb" in y|Y) ;; *) die "aborted - no compatible driver for this platform/kernel" ;; esac
+  elif [ "$USABLE" = " 580" ] && gsp_blocked 580; then
+    # Only 580 lists this GPU, and 580 cannot initialise it without a firmware
+    # blob we do not have (Ada / Blackwell / GA100). Nothing usable - but 580 is
+    # still the least-wrong pick, so recommend it and be explicit about why.
+    err "only ${B}580${R} lists it, and 580 needs a ${B}GSP firmware${R} blob for this chip"
+    err "that NVIDIA's .run does not bundle - ${RED}the driver will load but not initialise.${R}"
+    warn "nothing here can drive this GPU yet; continue only to test."
+  else
+    say "  installable driver branches: ${CYN}${USABLE# }${R}   recommended: ${GRN}${REC_BRANCH}${R}"
+    # Mention the rest only as a footnote, so it reads as "you are not missing
+    # anything installable" rather than as an option.
+    [ -n "$UNAVAIL" ] && say "  ${DIM}(NVIDIA also supports it on ${UNAVAIL# }, not built for kernel ${KVER} - kver5 platforms only)${R}"
+    gsp_blocked 580 && warn "580 is skipped as a recommendation: it needs a GSP firmware blob we don't ship for this chip."
+  fi
 fi
 
 # ==================================================== 5) version selection ==
@@ -134,37 +211,79 @@ V535="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(select(sta
 V550="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(select(startswith("550."))) | .[0] // empty' "$IDX")"
 V470="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(select(startswith("470."))) | .[0] // empty' "$IDX")"
 V580="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(select(startswith("580."))) | .[0] // empty' "$IDX")"
-# 580 needs GSP firmware on Turing+ (compute capability >= 7.5). We ship it
-# for chips the index has a matching blob for (gsp_fw name -> gsp_firmware.
-# <driver>.chips); GPUs needing GSP but with no available blob (currently
+# NEEDS_GSP / GSP_FW / CUDA_MAX were read in step 4 - they gate the branch
+# recommendation, so they have to exist before it is computed. The hard warning
+# gate below still uses them: GPUs needing GSP with no available blob (currently
 # Ada/RTX 40, Blackwell/RTX 50 - NVIDIA's .run doesn't bundle their firmware)
-# still hit the hard warning gate below.
-NEEDS_GSP="$(jq -r --arg g "$GPUID" '.gpus[$g].needs_gsp // false' "$SUP" 2>/dev/null)"
-GSP_FW="$(jq -r --arg g "$GPUID" '.gpus[$g].gsp_fw // empty' "$SUP" 2>/dev/null)"
-CUDA_MAX="$(jq -r --arg g "$GPUID" '.gpus[$g].cuda_max // empty' "$SUP" 2>/dev/null)"
+# stay selectable but must be confirmed.
 tag_of(){ # $1 version -> "(verified)"/"(build-ok)"/"" for this GPU
   [ -n "$GPUID" ] || { echo ""; return; }
   [ "$(jq -r --arg g "$GPUID" --arg v "$1" '(.gpus[$g].verified // [])|index($v)' "$SUP" 2>/dev/null)" != "null" ] && { echo "${GRN}(verified)${R}"; return; }
   [ "$(jq -r --arg g "$GPUID" --arg v "$1" '(.gpus[$g].build_ok // [])|index($v)' "$SUP" 2>/dev/null)" != "null" ] && { echo "${YEL}(build-ok)${R}"; return; }
   echo ""
 }
-mark(){ [ "${REC_BRANCH}" = "$1" ] && printf "%b" " ${MAG}<= recommended for your GPU${R}"; }
-say "  ${B}1)${R} 535 : ${WHT}${V535:-N/A}${R} $(tag_of "$V535")$(mark 535)  ${DIM}(Production/LTS, Maxwell..Ada)${R}"
-say "  ${B}2)${R} 550 : ${WHT}${V550:-N/A}${R} $(tag_of "$V550")$(mark 550)  ${DIM}(newest)${R}"
-say "  ${B}3)${R} 470 : ${WHT}${V470:-N/A}${R} $(tag_of "$V470")$(mark 470)  ${DIM}(legacy LTSB, Kepler..Ampere; for older GPUs)${R}"
-say "  ${B}4)${R} 580 : ${WHT}${V580:-N/A}${R} $(tag_of "$V580")$(mark 580)  ${DIM}(newest branch, Maxwell..Ampere w/ GSP fw, highest CUDA)${R}"
+mark(){ [ "${REC_BRANCH}" = "$1" ] && printf "%b" " ${MAG}<= recommended${R}"; }
+# Flag branches the DETECTED GPU is not on. Silent when no GPU was detected or
+# it is not in the catalog - we have nothing to judge against there.
+incompat(){
+  [ -n "$GBRANCHES" ] || return 0
+  case " $GBRANCHES " in *" $1 "*) ;; *) printf "%b" " ${RED}(not supported by ${GNAME})${R}" ;; esac
+}
+desc_of(){ case "$1" in
+  580) echo "newest, Maxwell..Blackwell, highest CUDA; Turing+ needs GSP fw" ;;
+  550) echo "Maxwell..Ada, superseded by 580 on kver5" ;;
+  535) echo "Production/LTS, Maxwell..Ada" ;;
+  470) echo "legacy LTSB, Kepler..Ampere; the only branch for Kepler" ;;
+esac; }
+# The menu lists ONLY what is published for this platform+kernel, newest first.
+# It used to print a fixed 1=535/2=550/3=470/4=580 with "N/A" on the missing
+# ones, which on a kver4 platform meant three of the four entries could not be
+# installed at all - and a Pascal card there was still being pointed at 580,
+# a driver that exists only for kernel 5. Numbering is therefore dynamic.
+set --
+for b in 580 550 535 470; do has_branch "$b" && set -- "$@" "$b"; done
+NBR=$#
+[ "$NBR" -ge 1 ] || die "no driver published for ${PLATFORM} on kernel ${KVER}"
+i=0; DEF=1
+for b in "$@"; do
+  i=$((i+1))
+  eval "MB$i=$b; MV$i=\$V$b"
+  [ "$b" = "$REC_BRANCH" ] && DEF=$i
+  eval "v=\$V$b"
+  say "  ${B}$i)${R} $b : ${WHT}${v}${R} $(tag_of "$v")$(mark "$b")$(incompat "$b")  ${DIM}($(desc_of "$b"))${R}"
+done
 [ -n "$CUDA_MAX" ] && say "  ${DIM}Your GPU tops out at ${WHT}CUDA ${CUDA_MAX}${R}${DIM} - set by its compute capability, not by the driver.${R}"
-DEF=1; [ "${REC_BRANCH}" = "550" ] && DEF=2; [ "${REC_BRANCH}" = "470" ] && DEF=3; [ "${REC_BRANCH}" = "580" ] && DEF=4
-DRV=""
-while :; do
-  printf "%b" "  ${B}Select [1=535 / 2=550 / 3=470 / 4=580] (default ${DEF}): ${R}"
+DRV=""; BR=""
+# One published branch (every kver4 platform) = nothing to choose. Skip the
+# prompt rather than asking a question with a single answer.
+if [ "$NBR" -eq 1 ]; then
+  eval "DRV=\$MV1; BR=\$MB1"
+  say "  ${DIM}${BR} is the only branch built for ${PLATFORM} on kernel ${KVER} - selected automatically.${R}"
+fi
+while [ "$NBR" -gt 1 ]; do
+  PICKS=""; i=0
+  for b in "$@"; do i=$((i+1)); PICKS="$PICKS / $i=$b"; done
+  printf "%b" "  ${B}Select [${PICKS# / }] (default ${DEF}): ${R}"
   ask ans; ans="${ans:-$DEF}"
   case "$ans" in
-    1) DRV="$V535" ;; 2) DRV="$V550" ;; 3) DRV="$V470" ;; 4) DRV="$V580" ;;
-    *) warn "enter 1, 2, 3 or 4"; continue ;;
+    ''|*[!0-9]*) warn "enter a number between 1 and ${NBR}"; continue ;;
   esac
-  [ -n "$DRV" ] && [ "$DRV" != "null" ] && break
-  warn "that version is not available for ${PLATFORM}; pick another"
+  if [ "$ans" -lt 1 ] || [ "$ans" -gt "$NBR" ]; then
+    warn "enter a number between 1 and ${NBR}"; continue
+  fi
+  eval "DRV=\$MV$ans; BR=\$MB$ans"
+  # Picking a branch that does not list this GPU installs cleanly and then
+  # binds to nothing (nvidia-smi: "No devices were found"). Confirm, don't block
+  # - the catalog can lag a brand-new SKU.
+  if [ -n "$GBRANCHES" ]; then
+    case " $GBRANCHES " in
+      *" $BR "*) ;;
+      *) warn "${B}${BR}${R} does not list ${WHT}${GNAME}${R} as supported - it would load but find no GPU."
+         printf "%b" "  ${B}Use ${BR} anyway? [y/N]: ${R}"
+         ask ic; case "$ic" in y|Y) ;; *) continue ;; esac ;;
+    esac
+  fi
+  break
 done
 # Guard: 580 on a GSP-requiring GPU with no available firmware would install
 # but fail to initialise. If we DO have a matching blob, just note it - Step 8
@@ -181,9 +300,18 @@ case "$DRV" in
              warn "${WHT}${GNAME:-Your GPU}${R} is Turing or newer and needs ${B}GSP firmware${R} on 580,"
              warn "and ${B}no firmware blob is available yet${R} for this chip - the driver would"
              warn "load but fail to initialise."
-             warn "Pick ${B}1 (535)${R} or ${B}2 (550)${R} instead until GSP support lands for it."
+             # Name the branches that actually list this GPU - telling a
+             # Blackwell owner to "pick 535 or 550" is a dead end, 580 is the
+             # only branch that knows the chip at all.
+             ALT=""; for b in $GBRANCHES; do [ "$b" = "580" ] || { has_branch "$b" && ALT="$ALT or $b"; }; done
+             ALT="${ALT# or }"
+             if [ -n "$ALT" ]; then
+               warn "Pick ${B}${ALT}${R} instead until GSP support lands for it."
+             else
+               warn "No other branch here supports this GPU - there is no working option yet."
+             fi
              printf "%b" "  ${B}Continue with 580 anyway? [y/N]: ${R}"
-             ask g; case "$g" in y|Y) ;; *) die "aborted - re-run and choose 535 or 550" ;; esac
+             ask g; case "$g" in y|Y) ;; *) die "aborted${ALT:+ - re-run and choose${ALT}}" ;; esac
            fi
          fi ;;
 esac

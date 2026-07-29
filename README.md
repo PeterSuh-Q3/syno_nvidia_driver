@@ -27,7 +27,9 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/i
 ```
 
 It walks you through 8 steps — platform check → GPU detection → **version choice
-(1=535 / 2=550 / 3=470 / 4=580)** → optional NVENC ffmpeg for the Jellyfin package
+(only the branches actually published for your platform + kernel, newest first;
+on a kver4 platform that is 550 alone, and it is picked for you)** → optional
+NVENC ffmpeg for the Jellyfin package
 — then downloads, installs, loads the driver and verifies with `nvidia-smi`. A
 **9th, optional step** sets up GPU access for Container Manager (Docker) if it's
 installed — see [Container Manager (Docker) GPU access](#container-manager-docker-gpu-access)
@@ -490,7 +492,8 @@ vGPU · 라이선스 서버 없음**(pdbear의 폐쇄 SPK와 다름). GPU마다 
 curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
 ```
 
-8단계로 안내합니다 — 플랫폼 확인 → GPU 감지 → **버전 선택(1=535 / 2=550 / 3=470 / 4=580)**
+8단계로 안내합니다 — 플랫폼 확인 → GPU 감지 → **버전 선택(해당 플랫폼·커널에 실제로 배포된
+브랜치만 최신순으로 표시. 커널 4.4 플랫폼은 550 하나뿐이라 자동 선택)**
 → (선택) Jellyfin 패키지용 NVENC ffmpeg → 이후 다운로드·설치·드라이버 로드 후 `nvidia-smi`로
 검증. **선택 9단계**는 Container Manager(Docker)가 설치돼 있으면 그 안에서도 GPU를 쓸 수
 있게 설정합니다 — 아래 [Container Manager(Docker) GPU 연동](#container-managerdocker-gpu-연동)
