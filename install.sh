@@ -70,14 +70,41 @@ ok "catalog loaded"
 step "Step 3/8  Platform support check"
 PLATFORM="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
 KREL="$(uname -r)"
+# "4.4.302+" -> "4.4.302". The trailing '+' is Synology's localversion marker;
+# the index keys kernels by the bare x.y.z.
+KVER="$(echo "$KREL" | sed 's/[^0-9.].*$//')"
 say "  platform : ${B}${PLATFORM}${R}   kernel: ${B}${KREL}${R}"
 if ! jq -e --arg p "$PLATFORM" '.platforms[$p]' "$IDX" >/dev/null 2>&1; then
   err "platform ${B}${PLATFORM}${R} is ${RED}NOT supported${R} by this driver package."
   say "  supported platforms: ${YEL}$(jq -r '.platforms|keys|join(", ")' "$IDX")${R}"
   exit 1
 fi
-PKVER="$(jq -r --arg p "$PLATFORM" '.platforms[$p].kver' "$IDX")"
-ok "supported (kver ${PKVER})"
+# The platform NAME alone does not identify the kernel ABI: the same platform
+# ships different kernels across DSM releases (broadwell & friends are 4.4.180
+# on DSM 7.0/7.1 but 4.4.302 on 7.2+). Module vermagic embeds the exact
+# version, so insmod refuses a mismatch - we must pick by platform AND kernel.
+# Platforms that exist on more than one kernel carry a 'kernels' map keyed by
+# version; single-kernel platforms keep the flat 'drivers' plus a 'kver' that
+# we now verify instead of trusting blindly.
+if jq -e --arg p "$PLATFORM" '.platforms[$p].kernels' "$IDX" >/dev/null 2>&1; then
+  if ! jq -e --arg p "$PLATFORM" --arg k "$KVER" '.platforms[$p].kernels[$k]' "$IDX" >/dev/null 2>&1; then
+    err "platform ${B}${PLATFORM}${R} is supported, but not on kernel ${B}${KVER}${R}."
+    say "  modules are published for: ${YEL}$(jq -r --arg p "$PLATFORM" '.platforms[$p].kernels|keys|join(", ")' "$IDX")${R}"
+    exit 1
+  fi
+  PKVER="$KVER"
+else
+  PKVER="$(jq -r --arg p "$PLATFORM" '.platforms[$p].kver' "$IDX")"
+  if [ "$PKVER" != "$KVER" ]; then
+    err "modules for ${B}${PLATFORM}${R} are built against kernel ${B}${PKVER}${R}, but this box runs ${B}${KVER}${R}."
+    say "  ${DIM}vermagic must match exactly - insmod would reject them.${R}"
+    exit 1
+  fi
+fi
+ok "supported (kernel ${PKVER})"
+# Resolved drivers node: per-kernel entry when the platform has one, flat
+# 'drivers' otherwise. Every lookup below goes through this.
+DQ='(.platforms[$p].kernels[$k].drivers // .platforms[$p].drivers)'
 
 # ==================================================== 4) GPU detect + guide ==
 step "Step 4/8  NVIDIA GPU detection"
@@ -103,10 +130,10 @@ fi
 
 # ==================================================== 5) version selection ==
 step "Step 5/8  Choose driver version"
-V535="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("535."))) | .[0] // empty' "$IDX")"
-V550="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("550."))) | .[0] // empty' "$IDX")"
-V470="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("470."))) | .[0] // empty' "$IDX")"
-V580="$(jq -r --arg p "$PLATFORM" '.platforms[$p].drivers | keys | map(select(startswith("580."))) | .[0] // empty' "$IDX")"
+V535="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(select(startswith("535."))) | .[0] // empty' "$IDX")"
+V550="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(select(startswith("550."))) | .[0] // empty' "$IDX")"
+V470="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(select(startswith("470."))) | .[0] // empty' "$IDX")"
+V580="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" "$DQ"' | keys | map(select(startswith("580."))) | .[0] // empty' "$IDX")"
 # 580 needs GSP firmware on Turing+ (compute capability >= 7.5). We ship it
 # for chips the index has a matching blob for (gsp_fw name -> gsp_firmware.
 # <driver>.chips); GPUs needing GSP but with no available blob (currently
@@ -164,7 +191,7 @@ ok "selected driver ${WHT}${DRV}${R}"
 
 # ==================================================== 6) optional ffmpeg ==
 step "Step 6/8  NVENC ffmpeg (for SynoCommunity Jellyfin package)"
-FFF="$(jq -r --arg p "$PLATFORM" --arg d "$DRV" '.platforms[$p].drivers[$d].ffmpeg.file // empty' "$IDX")"
+FFF="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" --arg d "$DRV" "$DQ"'[$d].ffmpeg.file // empty' "$IDX")"
 WANT_FF=false
 if [ -n "$FFF" ]; then
   say "  ${DIM}Plex has its own transcoder and does NOT need this.${R}"
@@ -176,8 +203,8 @@ else
 fi
 
 # ==================================================== confirm & download ==
-KOF="$(jq -r --arg p "$PLATFORM" --arg d "$DRV" '.platforms[$p].drivers[$d].ko.file' "$IDX")"
-USF="$(jq -r --arg p "$PLATFORM" --arg d "$DRV" '.platforms[$p].drivers[$d].userspace.file' "$IDX")"
+KOF="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" --arg d "$DRV" "$DQ"'[$d].ko.file' "$IDX")"
+USF="$(jq -r --arg p "$PLATFORM" --arg k "$KVER" --arg d "$DRV" "$DQ"'[$d].userspace.file' "$IDX")"
 hr
 say "  ${B}About to install:${R}  driver ${WHT}${DRV}${R} for ${WHT}${PLATFORM}${R}, ffmpeg=${WANT_FF}"
 printf "%b" "  ${B}Proceed? [Y/n]: ${R}"; ask go; case "$go" in n|N) die "aborted by user" ;; esac
@@ -206,7 +233,9 @@ for ko in "$DL"/ko/*.ko; do [ -f "$ko" ] && cp -f "$ko" "/usr/lib/modules/$(base
 # on/off). The boot hook below checks this marker before insmod so a leftover
 # module from a previous platform (e.g. after switching the loader's declared
 # platform without uninstalling first) can't get silently auto-loaded.
-echo "$PLATFORM" > /usr/lib/modules/.nvidia-platform
+# The kernel version goes in too: a DSM upgrade (7.1 -> 7.2) keeps the platform
+# name but moves 4.4.180 -> 4.4.302, which silently invalidates these modules.
+echo "$PLATFORM $PKVER" > /usr/lib/modules/.nvidia-platform
 ok "kernel modules -> /usr/lib/modules"
 
 # GSP firmware -> /lib/firmware/nvidia/<driver_ver>/ (must exist BEFORE the
@@ -293,9 +322,20 @@ case "$1" in start|"")
   # kernel .config can genuinely differ - loading the wrong .ko is not
   # guaranteed safe even though insmod itself might not refuse it.
   CURP="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
-  STOREDP="$(cat /usr/lib/modules/.nvidia-platform 2>/dev/null)"
+  CURK="$(uname -r | sed 's/[^0-9.].*$//')"
+  STORED="$(cat /usr/lib/modules/.nvidia-platform 2>/dev/null)"
+  STOREDP="${STORED%% *}"
+  # markers written by older installs hold the platform only (no space)
+  STOREDK=""; case "$STORED" in *" "*) STOREDK="${STORED##* }" ;; esac
   if [ -n "$STOREDP" ] && [ "$STOREDP" != "$CURP" ]; then
     logger -t nvidia.sh "SKIPPED: installed .ko are for platform '$STOREDP' but running on '$CURP' - re-run install.sh for this platform (or uninstall.sh first)" 2>/dev/null
+    exit 0
+  fi
+  # Kernel guard: a DSM upgrade can move the same platform to a new kernel
+  # (4.4.180 -> 4.4.302). insmod would reject the vermagic anyway; catching it
+  # here makes the reason visible in the log instead of a silent failure.
+  if [ -n "$STOREDK" ] && [ "$STOREDK" != "$CURK" ]; then
+    logger -t nvidia.sh "SKIPPED: installed .ko are for kernel '$STOREDK' but running '$CURK' (DSM upgraded?) - re-run install.sh" 2>/dev/null
     exit 0
   fi
   for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
