@@ -288,6 +288,25 @@ case "$1" in start|"")
   [ -e /dev/nvidia-modeset ] || /usr/local/nvidia/bin/nvidia-modprobe -m 2>/dev/null
   for so in /usr/local/nvidia/lib/*.so*; do [ -e "$so" ] && ln -sf "$so" "/usr/lib/$(basename "$so")"; done
   [ -x /sbin/ldconfig ] && /sbin/ldconfig 2>/dev/null
+  # Container Manager runtime integration (Step 9, if set up once already):
+  # re-assert the 'nvidia' entry in dockerd.json on every boot, in case a DSM
+  # update or config restore reverted it. Confirmed on real hardware that
+  # rc.d runs several seconds BEFORE ContainerManager's own auto-start
+  # (kernel module load logged ~8s ahead of the package's synopkg start
+  # sequence), so this is already in place by the time dockerd reads it - no
+  # restart needed on a normal boot, unlike the one-time setup below.
+  CRDIR=/usr/local/nvidia-runtime
+  DJ=/var/packages/ContainerManager/etc/dockerd.json
+  if [ -x "$CRDIR/bin/nvidia-container-runtime" ] && [ -f "$DJ" ] && command -v jq >/dev/null 2>&1; then
+    CUR="$(jq -r '.runtimes.nvidia.path // empty' "$DJ" 2>/dev/null)"
+    if [ "$CUR" != "$CRDIR/bin/nvidia-container-runtime" ]; then
+      NEWDJ="$(jq --arg p "$CRDIR/bin/nvidia-container-runtime" '.runtimes.nvidia = {"path": $p, "runtimeArgs": []}' "$DJ" 2>/dev/null)"
+      if [ -n "$NEWDJ" ]; then
+        echo -E "$NEWDJ" > "$DJ"
+        logger -t nvidia.sh "container runtime: re-registered 'nvidia' in dockerd.json (was missing/stale)" 2>/dev/null
+      fi
+    fi
+  fi
   ;;
 esac
 RC
@@ -390,7 +409,9 @@ TOML
           if [ -n "$NEWDJ" ]; then
             echo -E "$NEWDJ" > "$DJ"
             ok "daemon.json: 'nvidia' runtime registered (backup: $DJ.pre-nvidia.bak)"
-            warn "restart Container Manager to apply: sudo /usr/syno/bin/synopkg restart ContainerManager"
+            warn "restart Container Manager to apply now: sudo /usr/syno/bin/synopkg restart ContainerManager"
+            say "  ${DIM}(future boots re-assert this automatically via the boot hook, before${R}"
+            say "  ${DIM}Container Manager auto-starts - no restart needed after a reboot.)${R}"
           else
             warn "failed to update daemon.json (jq error) - left untouched"
           fi
