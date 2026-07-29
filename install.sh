@@ -241,7 +241,35 @@ ok "userspace -> $NVDIR/lib  (+ /usr/lib symlinks)"
 # optional ffmpeg
 if [ "$WANT_FF" = "true" ]; then
   mkdir -p "$NVDIR/bin"; tar -xzf "$DL/$FFF" -C "$NVDIR"; chmod +x "$NVDIR/bin/ffmpeg" "$NVDIR/bin/ffprobe" 2>/dev/null
-  ok "ffmpeg -> $NVDIR/bin/ffmpeg  (set Jellyfin 'FFmpeg path' to this)"
+  ok "ffmpeg -> $NVDIR/bin/ffmpeg"
+
+  # SynoCommunity's Jellyfin package hardcodes the ffmpeg path as a *command
+  # line argument* in its service-setup:
+  #     --ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg
+  # That argument outranks encoding.xml and greys out the Dashboard field
+  # (encoding.xml only keeps a read-only EncoderAppPathDisplay), so the user
+  # cannot point Jellyfin at our NVENC build from the UI at all. The ffmpeg7
+  # package's own binary has no NVENC encoders, so transcoding stays on CPU.
+  # Patch the launch argument instead of touching ffmpeg7's files: the arg is
+  # Jellyfin-local, and ffmpeg7 is a dependency of Jellyfin only.
+  # Jellyfin resolves ffprobe from the same directory, and our layer ships
+  # both, so pointing at our bin/ is sufficient.
+  JF_SS=/var/packages/jellyfin/scripts/service-setup
+  if [ -f "$JF_SS" ] && grep -q -- '--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg' "$JF_SS"; then
+    say "  ${DIM}Jellyfin package forces its ffmpeg path via a launch argument.${R}"
+    printf "%b" "  ${B}Point Jellyfin at the NVENC ffmpeg? [y/N]: ${R}"
+    ask jf
+    case "$jf" in
+      y|Y)
+        cp -n "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
+        sed -i "s#--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg#--ffmpeg $NVDIR/bin/ffmpeg#" "$JF_SS"
+        ok "Jellyfin -> $NVDIR/bin/ffmpeg  (backup: $JF_SS.pre-nvidia.bak)"
+        warn "restart Jellyfin to apply: sudo /usr/syno/bin/synopkg restart jellyfin"
+        warn "a Jellyfin package UPDATE overwrites this - re-run this installer after one"
+        ;;
+      *) ok "left Jellyfin on the ffmpeg7 package binary (no NVENC)" ;;
+    esac
+  fi
 fi
 
 # nvidia-smi convenience "wrapper" - a REAL COPY of the binary, not a shell

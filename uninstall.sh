@@ -66,6 +66,20 @@ ok "removed /dev/nvidia*"
 
 # ------------------------------------------------- 5) files & symlinks --
 step "Step 5/6  Removing driver files"
+# Jellyfin launch argument, if install.sh repointed it at our NVENC ffmpeg.
+# Must run BEFORE $NVDIR is removed below, otherwise Jellyfin would be left
+# pointing at a binary that no longer exists and would fail to transcode.
+JF_SS=/var/packages/jellyfin/scripts/service-setup
+if [ -f "$JF_SS" ] && grep -q -- "--ffmpeg $NVDIR/bin/ffmpeg" "$JF_SS"; then
+  if [ -f "$JF_SS.pre-nvidia.bak" ]; then
+    mv "$JF_SS.pre-nvidia.bak" "$JF_SS"
+    ok "Jellyfin ffmpeg path restored from pre-nvidia backup"
+  else
+    sed -i "s#--ffmpeg $NVDIR/bin/ffmpeg#--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg#" "$JF_SS"
+    ok "Jellyfin ffmpeg path reset to the ffmpeg7 package binary"
+  fi
+  warn "restart Jellyfin to apply: sudo /usr/syno/bin/synopkg restart jellyfin"
+fi
 # /usr/lib symlinks that point into $NVDIR
 cnt=0
 for f in /usr/lib/*.so*; do
