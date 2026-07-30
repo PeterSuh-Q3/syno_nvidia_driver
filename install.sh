@@ -420,6 +420,16 @@ if [ "$WANT_FF" = "true" ]; then
       y|Y)
         cp -n "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
         sed -i "s#--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg#--ffmpeg $NVDIR/bin/ffmpeg#" "$JF_SS"
+        # sed -i (and cp above) rebuild the file under the current umask,
+        # which does not preserve the original 755 - confirmed on real
+        # hardware landing as root:root 700. DSM runs this script as the
+        # package's own service account (sc-jellyfin), so a non-executable
+        # file makes Jellyfin exit within ~20s ("abnormal status") before it
+        # logs anything - looks like a crash, is really a permissions
+        # regression. Force both files back to what every sibling script in
+        # that directory already is.
+        chown root:root "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
+        chmod 755 "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
         ok "Jellyfin -> $NVDIR/bin/ffmpeg  (backup: $JF_SS.pre-nvidia.bak)"
         warn "restart Jellyfin to apply: sudo /usr/syno/bin/synopkg restart jellyfin"
         warn "a Jellyfin package UPDATE overwrites this - re-run this installer after one"
