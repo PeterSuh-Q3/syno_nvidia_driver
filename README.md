@@ -133,8 +133,32 @@ is why hardware transcoding works fine without it.
 
 ### NVENC ffmpeg (Jellyfin package)
 Answer **y** at Step 6 to also install an NVENC-capable `ffmpeg` at
-`/usr/local/nvidia/bin/ffmpeg`. Then in Jellyfin set **Dashboard → Playback →
-FFmpeg path** to that binary. (Plex has its own transcoder and does not need this.)
+`/usr/local/nvidia/bin/ffmpeg`, and to repoint Jellyfin's launch argument at it
+(SynoCommunity's package hardcodes `--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg`,
+which outranks the Dashboard field and has no NVENC encoders — patching the
+argument is the only way to actually change it). A backup of the original script
+is kept at `service-setup.pre-nvidia.bak`. (Plex has its own transcoder and does
+not need this.)
+
+**Hardware-transcoding auto-configuration.** Right after that, if
+`encoding.xml` already exists, the installer offers to configure Jellyfin's
+playback settings too — the same thing Plex does automatically on detecting a
+GPU, except model-aware (Plex is not): NVENC is probed against the *actual*
+card, so a Pascal box never gets AV1 encoding turned on and a Kepler box never
+gets HEVC. It also sets the encoder preset (`slow` — measured on a P620:
+`p1`..`p7` differ by only ~17% in throughput, so there's no real reason to
+trade quality for speed with a fixed-function encoder) and a RAM transcode
+scratch directory (`/dev/shm/jellyfin-transcodes` — a *dedicated* subdirectory,
+never `/dev/shm` itself, since Jellyfin's cleanup task empties whatever
+directory is configured wholesale and would otherwise try to delete other
+processes' files sharing that tmpfs).
+
+This runs once — a `.nvidia-autoconf` stamp next to `encoding.xml` prevents it
+from ever overwriting settings you change afterward. If `encoding.xml` doesn't
+exist yet (Jellyfin's setup wizard not completed), the same check happens
+automatically on the next boot instead, via the boot hook. The logic lives in
+[`jellyfin-autoconfig.sh`](jellyfin-autoconfig.sh), fetched once and reused
+by both the installer and the boot hook.
 
 ## Container Manager (Docker) GPU access
 
@@ -588,8 +612,29 @@ Synology가 헤드리스 서버 플랫폼에는 DRM 서브시스템을 빌드하
 
 ### NVENC ffmpeg (Jellyfin 패키지)
 6단계에서 **y**를 선택하면 `/usr/local/nvidia/bin/ffmpeg`에 NVENC 지원 `ffmpeg`도 함께
-설치됩니다. 이후 Jellyfin의 **대시보드 → 재생 → FFmpeg 경로**를 해당 바이너리로 지정하세요.
+설치되고, Jellyfin의 실행 인자도 그쪽으로 재지정할지 물어봅니다(SynoCommunity
+패키지는 `--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg`를 실행 인자로
+하드코딩해 두는데, 이 인자가 대시보드 설정값보다 우선하고 그 ffmpeg7 바이너리엔
+NVENC 인코더가 아예 없어서, 이 인자를 패치하는 것이 실제로 바꿀 수 있는 유일한
+방법입니다). 원본 스크립트 백업은 `service-setup.pre-nvidia.bak`에 남습니다.
 (Plex는 자체 트랜스코더가 있어 필요 없습니다.)
+
+**하드웨어 트랜스코딩 자동 구성.** 바로 이어서, `encoding.xml`이 이미 존재하면
+Jellyfin의 재생 설정까지 자동으로 구성할지 물어봅니다 — Plex가 GPU를 감지하면
+자동으로 해주는 일과 같지만, Plex와 달리 **GPU 모델을 실제로 반영**합니다. NVENC는
+*실제 카드*에 시험 인코딩을 돌려 판정하므로, Pascal 박스에 AV1 인코딩이 켜지거나
+Kepler 박스에 HEVC가 켜지는 일이 없습니다. 인코더 프리셋(`slow` — P620 실측 결과
+`p1`~`p7` 간 처리량 차이가 17%에 불과해, 고정기능 인코더에서 품질을 속도와
+맞바꿀 실익이 없습니다)과 RAM 트랜스코드 임시경로(`/dev/shm/jellyfin-transcodes` —
+`/dev/shm` 자체가 아니라 **전용 하위 디렉터리**입니다. Jellyfin의 정리 작업이
+설정된 경로를 통째로 비우기 때문에, 같은 tmpfs를 쓰는 다른 프로세스의 파일까지
+지우려 들 수 있기 때문입니다)도 함께 설정합니다.
+
+이 동작은 최초 1회만 수행됩니다 — `encoding.xml` 옆의 `.nvidia-autoconf` 스탬프가
+이후 사용자가 직접 바꾼 설정을 덮어쓰지 않도록 막아줍니다. `encoding.xml`이 아직
+없으면(Jellyfin 설치 마법사를 마치지 않은 경우) 같은 확인이 다음 부팅 시 부팅훅을
+통해 자동으로 이루어집니다. 로직은 [`jellyfin-autoconfig.sh`](jellyfin-autoconfig.sh)
+파일 하나에만 두고, 설치기와 부팅훅 양쪽이 그 파일을 그대로 재사용합니다.
 
 ## Container Manager(Docker) GPU 연동
 
