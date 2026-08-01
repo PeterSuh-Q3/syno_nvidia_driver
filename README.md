@@ -136,6 +136,38 @@ almost certainly running a **different declared platform**.
 
 ## 🎬 Jellyfin — NVENC ffmpeg & auto-configuration
 
+<details>
+<summary><b>🆕 New to Jellyfin?</b> — installing the package first (click to expand)</summary>
+
+<br>
+
+Everything below assumes the **SynoCommunity** Jellyfin package is already
+installed. If you've never used it, it's a free, open-source alternative to
+Plex/Emby, distributed through a third-party repository (not Package Center's
+default sources) — this is normal and doesn't require unlocking anything on a
+genuine Synology unit beyond one settings toggle.
+
+**1. Add the SynoCommunity repository** — Package Center → ⚙️ Settings →
+Package Sources → **Add**, then enter `https://packages.synocommunity.com`.
+
+<p align="center">
+  <img src="docs/jellyfin-package-sources.png" alt="Package Center settings showing the synocommunity package source added" width="700">
+</p>
+
+**2. Install Jellyfin** — Package Center → Community tab → search
+**Jellyfin** → Install.
+
+<p align="center">
+  <img src="docs/jellyfin-package-info.png" alt="Installed Jellyfin package info panel showing Running status and FFmpeg7 as a dependency" width="500">
+</p>
+
+Note the **FFmpeg 7** dependency in that panel — that's the stock ffmpeg with
+no NVENC support the rest of this section replaces.
+
+</details>
+
+<br>
+
 Answer **y** at Step 6 to install an NVENC-capable `ffmpeg` and point Jellyfin
 at it.
 
@@ -490,6 +522,36 @@ VA-API용이고, **CUDA와 NVENC/NVDEC는 `/dev/nvidia*`만 사용**합니다 �
 <br>
 
 ## 🎬 Jellyfin — NVENC ffmpeg & 자동 구성
+
+<details>
+<summary><b>🆕 Jellyfin을 처음 쓰시나요?</b> — 패키지 설치부터 (펼쳐 보기)</summary>
+
+<br>
+
+아래 내용은 **SynoCommunity** 배포판 Jellyfin 패키지가 이미 설치돼 있다고
+가정합니다. 처음 들어보셨다면, Plex/Emby의 무료 오픈소스 대안 프로그램이고
+패키지 센터 기본 저장소가 아닌 서드파티 저장소로 배포됩니다 — 정품 시놀로지
+장비에서도 설정 하나만 바꾸면 되는 정상적인 절차입니다.
+
+**1. SynoCommunity 저장소 추가** — 패키지 센터 → ⚙️ 설정 → 패키지 소스 →
+**추가**, 그다음 `https://packages.synocommunity.com` 입력.
+
+<p align="center">
+  <img src="docs/jellyfin-package-sources.png" alt="synocommunity 패키지 소스가 추가된 패키지 센터 설정 화면" width="700">
+</p>
+
+**2. Jellyfin 설치** — 패키지 센터 → 커뮤니티 탭 → **Jellyfin** 검색 → 설치.
+
+<p align="center">
+  <img src="docs/jellyfin-package-info.png" alt="설치된 Jellyfin 패키지 정보 패널 - Running 상태와 종속 패키지 FFmpeg 7 표시" width="500">
+</p>
+
+이 패널의 **FFmpeg 7** 종속 패키지를 눈여겨보세요 — 이번 섹션에서 교체할,
+NVENC를 지원하지 않는 기본 ffmpeg입니다.
+
+</details>
+
+<br>
 
 6단계에서 **y**를 선택하면 NVENC 지원 `ffmpeg`를 설치하고 Jellyfin이 그것을
 쓰도록 지정합니다.
