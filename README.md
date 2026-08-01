@@ -524,6 +524,10 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/i
 참고. 감지된 GPU에 권장되는 브랜치를 표시하고, **그 GPU가 실제로 사용할 수 있는 최대 CUDA
 버전**까지 알려주며, 필요한 GPU(현재는 Turing/Ampere)에는 **GSP 펌웨어를 자동 배치**합니다.
 
+<p align="center">
+  <img src="docs/install-580.svg" alt="Quadro P620이 장착된 SA6400에서 install.sh 가 580.173.02 드라이버를 설치하는 화면" width="820">
+</p>
+
 > **Synology SA6400(epyc7002) · Quadro P620 · DSM 7.4**에서 **580.173.02** 설치 실기 검증
 > — 2026-07-28, Plex 하드웨어 트랜스코딩까지 확인.
 
@@ -681,6 +685,10 @@ docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
 ```bash
 curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/uninstall.sh | sudo bash
 ```
+
+<p align="center">
+  <img src="docs/uninstall.svg" alt="uninstall.sh 실행 화면" width="660">
+</p>
 
 ---
 
