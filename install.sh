@@ -433,6 +433,36 @@ if [ "$WANT_FF" = "true" ]; then
         ok "Jellyfin -> $NVDIR/bin/ffmpeg  (backup: $JF_SS.pre-nvidia.bak)"
         warn "restart Jellyfin to apply: sudo /usr/syno/bin/synopkg restart jellyfin"
         warn "a Jellyfin package UPDATE overwrites this - re-run this installer after one"
+
+        # Jellyfin ships with hardware acceleration off and expects the user
+        # to hand-pick NVENC in Dashboard -> Playback, then hand-pick which
+        # decode codecs are safe to turn on - something nobody can answer
+        # without NVIDIA's per-architecture capability tables. Offer to do
+        # what Plex does automatically, but GPU-model-aware (Plex is not):
+        # encoders are probed against the real card so a Pascal box never
+        # gets AV1 turned on and a Kepler box never gets HEVC.
+        #
+        # jellyfin-autoconfig.sh is written to disk (not run in-process) so
+        # the boot hook - a separate /bin/sh process spawned from a heredoc,
+        # sharing no shell state with this installer - can call the exact
+        # same logic later if encoding.xml does not exist yet at install
+        # time. Single source of truth instead of two copies drifting apart.
+        curl -skL "${REPO_RAW}/jellyfin-autoconfig.sh" -o "$NVDIR/bin/jellyfin-autoconfig.sh" \
+          && chmod +x "$NVDIR/bin/jellyfin-autoconfig.sh"
+        [ -n "$GARCH" ] && echo "$GARCH" > /usr/lib/modules/.nvidia-gpuarch 2>/dev/null
+        JF_CFG=/var/packages/jellyfin/var/config/encoding.xml
+        if [ -x "$NVDIR/bin/jellyfin-autoconfig.sh" ] && [ -f "$JF_CFG" ]; then
+          say "  ${DIM}Also set NVENC + presets + a RAM transcode scratch dir in encoding.xml?${R}"
+          printf "%b" "  ${B}Auto-configure Jellyfin's hardware transcoding? [y/N]: ${R}"
+          ask hc
+          case "$hc" in
+            y|Y) "$NVDIR/bin/jellyfin-autoconfig.sh" "$JF_CFG" "$NVDIR/bin/ffmpeg" "$GARCH" ;;
+            *)   ok "left encoding.xml untouched" ;;
+          esac
+        elif [ ! -f "$JF_CFG" ]; then
+          say "  ${DIM}encoding.xml not found yet (Jellyfin setup wizard not completed) -${R}"
+          say "  ${DIM}hardware transcoding will be auto-configured on next boot instead.${R}"
+        fi
         ;;
       *) ok "left Jellyfin on the ffmpeg7 package binary (no NVENC)" ;;
     esac
@@ -512,6 +542,19 @@ case "$1" in start|"")
         logger -t nvidia.sh "container runtime: re-registered 'nvidia' in dockerd.json (was missing/stale)" 2>/dev/null
       fi
     fi
+  fi
+  # Jellyfin hardware-transcoding auto-configuration (see
+  # jellyfin-autoconfig.sh for the logic). At install time this already ran
+  # if encoding.xml existed yet; this covers the case where the Jellyfin
+  # setup wizard was completed AFTER the installer ran - the script itself
+  # is a no-op past its stamp file or with acceleration already set, so
+  # calling it on every boot costs nothing once it has actually run.
+  NVFF=/usr/local/nvidia/bin/ffmpeg
+  JF_CFG=/var/packages/jellyfin/var/config/encoding.xml
+  JF_AC=/usr/local/nvidia/bin/jellyfin-autoconfig.sh
+  if [ -x "$JF_AC" ] && [ -x "$NVFF" ] && [ -f "$JF_CFG" ]; then
+    OUT="$("$JF_AC" "$JF_CFG" "$NVFF" "$(cat /usr/lib/modules/.nvidia-gpuarch 2>/dev/null)" 2>&1)"
+    [ -n "$OUT" ] && logger -t nvidia.sh "$OUT" 2>/dev/null
   fi
   ;;
 esac
