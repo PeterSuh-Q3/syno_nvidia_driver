@@ -198,6 +198,49 @@ same check happens automatically on the next boot.
 
 <br>
 
+<details>
+<summary><b>📸 See exactly what changes</b> — real Dashboard screenshots, changed
+fields boxed in red</summary>
+
+<br>
+
+Everything outside the red boxes is either a Jellyfin default the script
+leaves alone, or a setting (CRF, tone-mapping algorithm/mode, deinterlacing …)
+that only applies to software encoding and doesn't matter once NVENC is on.
+
+**Hardware acceleration + decode codecs** — `HardwareAccelerationType` set to
+`nvenc`; the decode-codec checklist is written from a real capability probe
+(here: everything through VP9, no AV1 — this GPU is Pascal).
+
+<p align="center">
+  <img src="docs/jellyfin-autoconfig-1.png" alt="Hardware acceleration set to Nvidia NVENC, decode codecs H264 through VP9 checked, AV1 unchecked" width="820">
+</p>
+
+**Encoding options** — NVDEC decoder, hardware encoding, HEVC/AV1 encoding,
+and tone mapping are each toggled based on what the card can actually do.
+
+<p align="center">
+  <img src="docs/jellyfin-autoconfig-2.png" alt="Enable enhanced NVDEC decoder, hardware encoding, HEVC encoding, and tone mapping all checked; AV1 encoding unchecked" width="820">
+</p>
+
+**FFmpeg + transcode paths** — points Jellyfin at the NVENC ffmpeg this
+installer just set up, and moves the transcode scratch directory into RAM.
+
+<p align="center">
+  <img src="docs/jellyfin-autoconfig-3.png" alt="FFmpeg path set to /usr/local/nvidia/bin/ffmpeg, transcode path set to /dev/shm/jellyfin-transcodes" width="820">
+</p>
+
+**Encoder preset** — the one non-toggle field, set to `slow` (see the table
+above for why that's not the performance trade-off it sounds like).
+
+<p align="center">
+  <img src="docs/jellyfin-autoconfig-4.png" alt="Encoding preset set to slow" width="820">
+</p>
+
+</details>
+
+<br>
+
 ---
 
 <br>
@@ -581,6 +624,49 @@ SynoCommunity 패키지는 ffmpeg 경로를 **실행 인자**로 하드코딩해
 **최초 1회만 동작합니다.** 스탬프 파일이 있어, 이후 직접 바꾼 설정을 덮어쓰는
 일이 없습니다. Jellyfin 설치 마법사를 아직 마치지 않았다면, 같은 확인이 다음
 부팅 시 자동으로 이루어집니다.
+
+<br>
+
+<details>
+<summary><b>📸 실제로 바뀌는 부분 보기</b> — 실기 대시보드 캡처, 변경되는 필드를
+빨간 박스로 표시</summary>
+
+<br>
+
+빨간 박스 밖은 스크립트가 손대지 않는 Jellyfin 기본값이거나, NVENC가 켜진
+뒤에는 의미가 없어지는 소프트웨어 인코딩 전용 설정(CRF, 톤매핑 알고리즘/모드,
+디인터레이싱 등)입니다.
+
+**하드웨어 가속 + 디코드 코덱** — `HardwareAccelerationType`이 `nvenc`로
+설정됩니다. 디코드 코덱 체크리스트는 실제 카드 능력 프로브 결과로 채워집니다
+(이 GPU는 Pascal이라 VP9까지만 켜지고 AV1은 꺼집니다).
+
+<p align="center">
+  <img src="docs/jellyfin-autoconfig-1.png" alt="하드웨어 가속이 Nvidia NVENC로 설정되고, H264부터 VP9까지 디코드 코덱이 체크되며 AV1은 미체크 상태" width="820">
+</p>
+
+**인코딩 옵션** — NVDEC 디코더, 하드웨어 인코딩, HEVC/AV1 인코딩, 톤매핑이
+각각 카드가 실제로 지원하는지에 따라 켜지거나 꺼집니다.
+
+<p align="center">
+  <img src="docs/jellyfin-autoconfig-2.png" alt="향상된 NVDEC 디코더, 하드웨어 인코딩, HEVC 인코딩, 톤매핑이 모두 체크되고 AV1 인코딩은 미체크 상태" width="820">
+</p>
+
+**FFmpeg 경로 + 트랜스코드 경로** — 방금 설치기가 세팅한 NVENC ffmpeg를
+가리키게 하고, 트랜스코드 임시경로를 RAM으로 옮깁니다.
+
+<p align="center">
+  <img src="docs/jellyfin-autoconfig-3.png" alt="FFmpeg 경로가 /usr/local/nvidia/bin/ffmpeg 로, 트랜스코드 경로가 /dev/shm/jellyfin-transcodes 로 설정됨" width="820">
+</p>
+
+**인코더 프리셋** — 유일하게 토글이 아닌 값 필드로, `slow`로 설정됩니다
+(왜 이게 성능 손해가 아닌지는 위 표 참고).
+
+<p align="center">
+  <img src="docs/jellyfin-autoconfig-4.png" alt="인코딩 프리셋이 slow 로 설정됨" width="820">
+</p>
+
+</details>
 
 <br>
 
