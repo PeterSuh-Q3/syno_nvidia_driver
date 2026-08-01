@@ -4,76 +4,78 @@
 <img src="https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2FPeterSuh-Q3%2Fsyno_nvidia_driver&label=&icon=github&message=&style=flat&tz=UTC">
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/PeterSuh-Q3)
 
-https://paypal.me/PeterSuhQ3
+**NVIDIA driver for Synology DSM — no license server, no authentication.**
+
+Physical / passthrough GPUs. One command installs it, survives reboots, and
+enables hardware transcoding in Plex and Jellyfin.
+
+<br>
 
 ---
 
-No-auth NVIDIA driver for Synology DSM — **physical / passthrough GPUs only, no
-vGPU / license server** (unlike pdbear's closed SPK). Multiple driver versions
-per GPU, auto-matched to your platform + DSM kernel.
+<br>
 
----
-
-## 🚀 Install (on a running DSM)
-
-**Requirements:** root/`sudo`, internet, a **supported platform** — all 7 kernel
-5.10.55 ones, plus 9 kernel 4.4 ones on 550 (see the
-[support matrix](#supported-platforms--driver-versions) below)
-with an NVIDIA GPU (physical or passthrough). The installer auto-detects your
-platform + GPU and refuses to run on anything it can't support.
+## 🚀 Install
 
 ```bash
 curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
 ```
 
-It walks you through 8 steps — platform check → GPU detection → **version choice
-(only the branches actually published for your platform + kernel, newest first;
-on a kver4 platform that is 550 alone, and it is picked for you)** → optional
-NVENC ffmpeg for the Jellyfin package
-— then downloads, installs, loads the driver and verifies with `nvidia-smi`. A
-**9th, optional step** sets up GPU access for Container Manager (Docker) if it's
-installed — see [Container Manager (Docker) GPU access](#container-manager-docker-gpu-access)
-below. The installer highlights the branch recommended for the GPU it found and
-tells you the **highest CUDA version that GPU can actually run**, and deploys
-**GSP firmware automatically** for GPUs that need it (Turing / Ampere so far).
+That's it. The installer detects your platform and GPU, picks the right driver,
+and refuses to run on anything it can't support.
 
 <p align="center">
   <img src="docs/install-580.svg" alt="install.sh installing driver 580.173.02 on an SA6400 with a Quadro P620" width="820">
 </p>
 
-> Real run on **Synology SA6400 (epyc7002) · Quadro P620 · DSM 7.4** installing
-> **580.173.02** — verified 2026-07-28, including Plex hardware transcoding.
+<br>
 
-A boot hook (`/usr/local/etc/rc.d/nvidia.sh`) is installed so the driver reloads
-automatically after a reboot. Run `nvidia-smi` any time to check the GPU.
-
-> ### ⚠️ Restart Plex / Jellyfin after installing
-> Both enumerate GPUs **once, at their own startup**, and cache the result. If the
-> package was already running when you installed (or removed) the driver, its
-> hardware-transcoding device list is stale — the GPU simply will not appear in the
-> settings, and transcodes fall back to software or fail.
+> ### ⚠️ Restart Plex / Jellyfin afterwards
 >
 > ```bash
 > sudo /usr/syno/bin/synopkg restart PlexMediaServer
 > ```
 >
-> This is by far the most common "the driver is installed but transcoding doesn't
-> work" cause. It is **not** a driver/CUDA incompatibility.
+> They scan for GPUs **once at startup** and cache the result. If the package was
+> already running when you installed the driver, the GPU will simply not appear
+> in its settings.
+>
+> **This is by far the most common "driver installed but transcoding doesn't
+> work" cause** — not a CUDA or driver mismatch.
 
-### Verifying the install
+<br>
 
-The driver creates its device nodes on load. Checking them is the quickest way to
-confirm a healthy install — and the first thing to look at if an app cannot see
-the GPU:
+**Requirements** — root/`sudo`, internet, an NVIDIA GPU, and a supported
+platform ([see the matrix](#-supported-platforms)).
+
+A boot hook (`/usr/local/etc/rc.d/nvidia.sh`) is installed automatically, so the
+driver reloads after every reboot.
+
+<br>
+
+---
+
+<br>
+
+## ✅ Verify
 
 ```bash
+nvidia-smi
 sudo ls -l /dev/nvidia*
-lsmod | grep nvidia
 ```
 
 <p align="center">
   <img src="docs/verify-580.svg" alt="post-install verification: device nodes, loaded modules, compute capability" width="820">
 </p>
+
+A healthy install has **one `/dev/nvidia<N>` per physical GPU**, plus
+`nvidiactl` and `nvidia-uvm`. If `nvidia-smi` works but CUDA apps fail, check
+that `nvidia_uvm` is in `lsmod`.
+
+<details>
+<summary><b>Device node reference</b> — what each node is for</summary>
+
+<br>
 
 | Node | Major | What it is |
 |---|:---:|---|
@@ -82,122 +84,229 @@ lsmod | grep nvidia
 | `/dev/nvidia-uvm` | 240 | Unified memory — **CUDA will not work without it**. |
 | `/dev/nvidia-uvm-tools` | 240 | Debug/profiling companion to UVM. |
 | `/dev/nvidia-caps/*` | 243 | MIG capability nodes; unused outside datacenter GPUs. |
-| `/dev/nvidia-modeset` | 195 | Mode-setting node. Present since the modules are now built without the backlight dependency (see below). |
+| `/dev/nvidia-modeset` | 195 | Mode-setting node. |
 
-What a healthy install looks like:
+Permissions are `crw-rw-rw-`, so unprivileged package users (Plex, Jellyfin,
+containers) can open them with no extra setup.
 
-- **`nvidia0` count matches your GPU count.** If you see `nvidia0`…`nvidia7` on a
-  single-GPU box, something created phantom nodes — the installer derives the count
-  from `/proc/driver/nvidia/gpus/` precisely to avoid that.
-- **`nvidia_uvm` is loaded** (`lsmod`). Without it `nvidia-smi` may still work while
-  every CUDA application fails.
-- **`nvidia_modeset` loads too.** It used to fail on headless platforms with
-  `Unknown symbol backlight_device_register` — Synology simply does not ship
-  `backlight.ko` there. The modules are now compiled with
-  `CONFIG_BACKLIGHT_CLASS_DEVICE` / `CONFIG_ACPI_VIDEO` stripped from the build's
-  `autoconf.h`, so the symbol is never referenced in the first place. Verified on
-  an SA6400 (`epyc7002`): `nvidia_modeset` loads, `/dev/nvidia-modeset` is created,
-  and `dmesg` has no backlight warning at all.
-- Permissions are `crw-rw-rw-`, so unprivileged package users (Plex, Jellyfin,
-  containers) can open them without extra setup.
+If the nodes are missing entirely, the modules did not load — re-run the
+installer or check `dmesg | grep -i nvrm`.
 
-If the nodes are missing entirely, the modules did not load — re-run the installer
-or check `dmesg | grep -i nvrm`.
+</details>
 
-### `/dev/dri` is missing — is that a problem?
+<details>
+<summary><b>❓ <code>/dev/dri</code> is missing — is that a problem?</b></summary>
 
-**No.** On headless platforms it cannot exist, and nothing you install will change
-that:
+<br>
 
-| Platform group | `CONFIG_DRM` in Synology's kernel | `/dev/dri` |
-|---|---|---|
-| `geminilake`, `geminilakenk`, `apollolake` (Intel iGPU) | `CONFIG_DRM_MODULE=1`, `CONFIG_DRM_I915_MODULE=1` | present |
-| `epyc7002`, `epyc7003`, `epyc7003ntb`, `icelaked`, `v1000nk`, `r1000nk` | **not set at all** | **never present** |
+**No.** On headless platforms it cannot exist, and nothing you install will
+change that. Synology builds no DRM subsystem on server platforms
+(`epyc7002`, `epyc7003`, `icelaked`, `v1000nk`, `r1000nk` …), so
+`nvidia-drm.ko` compiles into an effectively empty stub. Only the Intel iGPU
+platforms (`geminilake`, `apollolake`) have `/dev/dri`.
 
-Synology builds no DRM subsystem on the headless server platforms, so
-`nvidia-drm.ko` compiles into an effectively empty stub — on an SA6400 it is 16KB,
-carries no `depends`, exposes **no module parameters at all** (there is no
-`modeset` option to turn on), and `/proc/kallsyms` contains zero `drm_*` symbols.
-Passing `modeset=1` would make `insmod` fail with *unknown parameter*, which is
-strictly worse than leaving it alone.
+It does not matter for this driver's purpose: `/dev/dri` is for graphics
+output, Vulkan and VA-API. **CUDA and NVENC/NVDEC use `/dev/nvidia*` only** —
+which is why hardware transcoding works fine without it.
 
-If you saw `/dev/dri` with another solution on "the same box", the box was almost
-certainly running a **different declared platform** — the iGPU platforms above do
-have DRM. This is a per-platform kernel difference, not something a driver package
-controls.
+If you saw `/dev/dri` with another solution on "the same box", that box was
+almost certainly running a **different declared platform**.
 
-It also does not matter for this driver's purpose: `/dev/dri` is for graphics
-output, Vulkan and VA-API. **CUDA and NVENC/NVDEC use `/dev/nvidia*` only**, which
-is why hardware transcoding works fine without it.
+</details>
 
+<br>
 
-### NVENC ffmpeg (Jellyfin package)
-Answer **y** at Step 6 to also install an NVENC-capable `ffmpeg` at
-`/usr/local/nvidia/bin/ffmpeg`, and to repoint Jellyfin's launch argument at it
-(SynoCommunity's package hardcodes `--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg`,
-which outranks the Dashboard field and has no NVENC encoders — patching the
-argument is the only way to actually change it). A backup of the original script
-is kept at `service-setup.pre-nvidia.bak`. (Plex has its own transcoder and does
-not need this.)
+---
 
-**Hardware-transcoding auto-configuration.** Right after that, if
-`encoding.xml` already exists, the installer offers to configure Jellyfin's
-playback settings too — the same thing Plex does automatically on detecting a
-GPU, except model-aware (Plex is not): NVENC is probed against the *actual*
-card, so a Pascal box never gets AV1 encoding turned on and a Kepler box never
-gets HEVC. It also sets the encoder preset (`slow` — measured on a P620:
-`p1`..`p7` differ by only ~17% in throughput, so there's no real reason to
-trade quality for speed with a fixed-function encoder) and a RAM transcode
-scratch directory (`/dev/shm/jellyfin-transcodes` — a *dedicated* subdirectory,
-never `/dev/shm` itself, since Jellyfin's cleanup task empties whatever
-directory is configured wholesale and would otherwise try to delete other
-processes' files sharing that tmpfs).
+<br>
 
-This runs once — a `.nvidia-autoconf` stamp next to `encoding.xml` prevents it
-from ever overwriting settings you change afterward. If `encoding.xml` doesn't
-exist yet (Jellyfin's setup wizard not completed), the same check happens
-automatically on the next boot instead, via the boot hook. The logic lives in
-[`jellyfin-autoconfig.sh`](jellyfin-autoconfig.sh), fetched once and reused
-by both the installer and the boot hook.
+## 🎬 Jellyfin — NVENC ffmpeg & auto-configuration
 
-## Container Manager (Docker) GPU access
+Answer **y** at Step 6 to install an NVENC-capable `ffmpeg` and point Jellyfin
+at it.
 
-If Container Manager is installed, `install.sh` offers an optional **Step 9**
-that lets `docker run` containers use this GPU too (Ollama, PyTorch, vLLM, …).
-It downloads a small runtime layer (`nvidia-container-cli` + friends, built from
-NVIDIA's official upstream binaries — no compiling needed), registers a
-**`nvidia`** runtime in Container Manager's `daemon.json` by **merging** (your
-existing `bip`/`data-root`/etc. are preserved, and a backup is kept at
-`dockerd.json.pre-nvidia.bak`), and builds an `ld.so.cache` for it (DSM ships
-neither `ldconfig` nor a cache file, so a static one is bundled and used).
+> 💡 Plex needs none of this — it has its own transcoder and works as soon as the
+> driver is installed (just restart it).
 
-After it runs, restart Container Manager once:
+The SynoCommunity package hardcodes its ffmpeg path as a **launch argument**,
+which outranks the Dashboard field — so patching that argument is the only way
+to actually change it. The original is backed up to `service-setup.pre-nvidia.bak`.
+
+<br>
+
+### 🪄 Automatic playback configuration
+
+The installer then offers to configure Jellyfin's playback settings for you —
+what Plex does automatically on detecting a GPU, except **model-aware**:
+
+| | How it's decided |
+|---|---|
+| 🎯 **NVENC on/off** | Probed against your *actual* card |
+| 🎞️ **HEVC / AV1 encoding** | Real 1-frame test encode — a Pascal card never gets AV1, a Kepler card never gets HEVC |
+| ⚡ **Encoder preset** | `slow` — measured on a P620, `p1`→`p7` differ by only ~17% throughput, so there's no reason to trade quality for speed on a fixed-function encoder |
+| 🧠 **Transcode scratch** | `/dev/shm/jellyfin-transcodes` in RAM, with throttling + segment deletion enabled to keep it bounded |
+
+**It runs once.** A stamp file prevents it from ever overwriting settings you
+change afterward. If Jellyfin's setup wizard hasn't been completed yet, the
+same check happens automatically on the next boot.
+
+<br>
+
+---
+
+<br>
+
+## 🐳 Docker (Container Manager) GPU access
+
+Optional **Step 9** lets containers use the GPU — Ollama, PyTorch, vLLM, and so on.
 
 ```bash
-sudo /usr/syno/bin/synopkg restart ContainerManager
-```
+sudo /usr/syno/bin/synopkg restart ContainerManager   # once, after setup
 
-Then test with:
-
-```bash
 docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
   nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi
 ```
 
-> **Use `--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all`, not `--gpus all`.** The
-> `--gpus` flag needs Docker 25+ CDI support; Synology's Container Manager (24.0.2
-> as of this writing) doesn't have it and Synology controls that version, not you.
-> The legacy `--runtime=nvidia` + env-var path works on any Docker version and is
-> what NVIDIA's own `cuda`/`pytorch` images already expect (they set
-> `NVIDIA_VISIBLE_DEVICES` themselves in many cases).
+> ⚠️ **Use `--runtime=nvidia`, not `--gpus all`.** The `--gpus` flag needs Docker
+> 25+ CDI support; Synology's Container Manager doesn't have it, and Synology
+> controls that version — not you.
 
-`uninstall.sh` reverses all of this — it restores `daemon.json` from the backup
-(or strips just the `nvidia` key if the backup is missing) and removes the
-runtime files. See [docs/container-runtime-design.md](docs/container-runtime-design.md)
-for the full design notes, including five non-obvious gotchas found while getting
-this working (noexec `/tmp`, no system `ldconfig`, hook paths, …) — all fixed and
-verified end-to-end on real hardware (`nvidia-smi` running correctly inside a
-container talking to a Quadro P620).
+Your existing `daemon.json` settings are preserved (merged, with a backup), and
+`uninstall.sh` reverses everything. Full design notes:
+[docs/container-runtime-design.md](docs/container-runtime-design.md).
+
+<br>
+
+---
+
+<br>
+
+## 📋 Supported platforms
+
+<br>
+
+### Kernel 5.10.55 — all four branches
+
+| Platform | Example models | 470 | 535 | 550 | **580** |
+|---|---|:---:|:---:|:---:|:---:|
+| `epyc7002`      | SA6400                         | ✅ | ✅ | ✅ | ✅ |
+| `epyc7003`      | FS6420                         | ✅ | ✅ | ✅ | ✅ |
+| `epyc7003ntb`   | PAS7700                        | ✅ | ✅ | ✅ | ✅ |
+| `icelaked`      | FS3420 / RS3626xs / RS4826xs+  | ✅ | ✅ | ✅ | ✅ |
+| `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | ✅ |
+| `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |
+| `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | ✅ |
+
+<br>
+
+### Kernel 4.4 — 550 only
+
+| Platform | Example models | DSM 7.0 / 7.1 | DSM 7.2+ |
+|---|---|:---:|:---:|
+| `apollolake`      | DS918+ / DS620slim / DS1019+  | ✅ | ✅ |
+| `broadwell`       | DS3617xs / RS3617xs+          | ✅ | ✅ |
+| `broadwellnk`     | DS3622xs+ / RS4021xs+         | ✅ | ✅ |
+| `broadwellnkv2`   | RS3621xs+                     | ✅ | ✅ |
+| `broadwellntbap`  | SA3400                        | ✅ | ✅ |
+| `geminilake`      | DS220+ / DS420+ / DS720+      | ✅ | ✅ |
+| `purley`          | FS6400 / HD6500               | ✅ | ✅ |
+| `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
+| `v1000`           | DS1621+ / DS1821+ / DS2422+   | ✅ | ✅ |
+
+> ⚠️ These 4.4 builds are **not yet verified on real hardware**. They compile
+> cleanly with the correct vermagic, but no GPU-equipped 4.4 box has been
+> tested. Reports welcome.
+
+**Not supported:** `denverton` (DSM already ships a vanilla NVIDIA driver there
+for DVA) and kernel 3.10 platforms — `avoton` / `braswell` / `bromolow`.
+
+<details>
+<summary><b>Why 550 is the ceiling on kernel 4.4</b></summary>
+
+<br>
+
+It's NVIDIA's limit, not a packaging choice. Every branch declares a kernel
+floor in `common/inc/nv-linux.h`:
+
+| Branch | Declared floor |
+|---|---|
+| 470 / 535 / **550** | `2.6.32` |
+| 560 / 570 / 575 / 580 | **`4.15`** — `#error "This driver does not support kernels older than Linux 4.15!"` |
+
+That was measured, not inferred — 560/570/575/580 were each built against a
+4.4.302 tree and all four stop at that `#error`. 550 builds through cleanly.
+
+Modules are published **per kernel version** because the same platform ships a
+different kernel depending on DSM release (7.0/7.1 = `4.4.180`, 7.2+ =
+`4.4.302`) and vermagic must match exactly. The installer resolves from
+`uname -r`, not the platform name. Upgrade DSM across that boundary and the
+boot hook detects the mismatch, refuses to load, and logs why.
+
+</details>
+
+<br>
+
+### Driver branches
+
+| Branch | GPU coverage | Native CUDA | Notes |
+|---|---|:---:|---|
+| **470.256.02** | Kepler … Ampere | 11.4 | Legacy LTSB — for old GPUs 535+ dropped |
+| **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. Verified on P620 |
+| **550.163.01** | Maxwell … Ada | 12.4 | Ceiling for kernel 4.4 |
+| **580.173.02** | Maxwell … Ampere | **13.0** | ⭐ **Recommended.** Last branch supporting Maxwell/Pascal/Volta |
+
+> ⭐ **580 is the right choice for most GPUs.** It supersedes 535/550 and raises
+> what Pascal can run from CUDA 12.4 to 12.9. Only Kepler-era cards still need 470.
+>
+> ⚠️ **Ada (RTX 40) / Blackwell (RTX 50)** need GSP firmware that NVIDIA doesn't
+> bundle in the 580 `.run` — the installer warns you. Use 535/550 on those cards.
+> Turing / Ampere GSP firmware **is** bundled and deployed automatically.
+
+<br>
+
+---
+
+<br>
+
+## 🎯 CUDA — what actually applies to your GPU
+
+**Two independent things** decide which CUDA you can run:
+
+| | Set by | What it limits |
+|---|---|---|
+| **Driver** | the branch you install | the highest CUDA API the driver speaks |
+| **GPU architecture** | the silicon — cannot be changed | which toolkits can *generate code* for it |
+
+| Compute cap. | Architecture | Example GPUs | **Max usable CUDA** |
+|:---:|---|---|:---:|
+| 6.0 / 6.1 | Pascal | Quadro P620 / P1000, Tesla P4 / P40, GTX 10xx | **12.9** |
+| 7.0 | Volta | Tesla V100 | 12.9 |
+| **7.5** | **Turing** | Tesla T4, RTX 20xx | **13.0** |
+| 8.0 / 8.6 | Ampere | A100 / A10, RTX 30xx | 13.0 |
+| 8.9 | Ada | L4 / L40S, RTX 40xx | 13.0 |
+| 12.0 | Blackwell | RTX 50xx | 13.0 |
+
+**7.5 is the dividing line** — CUDA 13.0 dropped code generation for everything
+below it. Installing 580 on a Pascal card does *not* unlock CUDA 13.
+
+```bash
+sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
+```
+
+> ⚠️ **Don't read the CUDA version off the `nvidia-smi` header.** It shows the
+> *driver's* maximum, not your GPU's. `compute_cap` is the value that decides.
+
+<br>
+
+> 💡 **CUDA is irrelevant for transcoding.** Plex and Jellyfin use the dedicated
+> NVENC/NVDEC engines, not the CUDA toolkit. If hardware transcoding is missing,
+> it's almost always the stale device list above — restart the package.
+
+<br>
+
+---
+
+<br>
 
 ## 🧹 Uninstall
 
@@ -209,19 +318,219 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/u
   <img src="docs/uninstall.svg" alt="uninstall.sh run" width="660">
 </p>
 
+<br>
+
 ---
 
-## Supported platforms & driver versions
+<br>
 
-Both **kernel 5.10.55 (kver5)** and **kernel 4.4 (kver4)** Synology platforms are
-supported. Each cell is a prebuilt `.ko` on the
-[`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/nvidia)
-Release; the shared userspace layer (`nv-userspace-<ver>.tgz`) is identical per
-driver version across every platform and kernel.
+## 🛠️ Building from source
 
-### kernel 5.10.55 platforms — all four branches
+See **[DEVELOPING.md](DEVELOPING.md)** for the build/producer side — toolchain,
+2-layer packaging, publishing, and compat-patch notes.
 
-| Platform | Example models | 470.256.02 | 535.230.02 | 550.163.01 | **580.173.02** |
+<br>
+
+<sub>💖 [Sponsor](https://github.com/sponsors/PeterSuh-Q3) · [PayPal](https://paypal.me/PeterSuhQ3)</sub>
+
+<br>
+
+---
+
+<br>
+
+<details>
+<summary>🇰🇷 <b>한국어 (펼쳐 보기)</b></summary>
+
+<br>
+
+# syno_nvidia_driver
+
+**Synology DSM용 NVIDIA 드라이버 — 라이선스 서버도, 인증도 없습니다.**
+
+물리 / passthrough GPU 전용. 명령 한 줄로 설치되고, 재부팅해도 유지되며,
+Plex와 Jellyfin의 하드웨어 트랜스코딩을 활성화합니다.
+
+<br>
+
+---
+
+<br>
+
+## 🚀 설치
+
+```bash
+curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
+```
+
+이게 전부입니다. 설치기가 플랫폼과 GPU를 자동 감지해 맞는 드라이버를 고르고,
+지원 불가한 환경에서는 실행을 거부합니다.
+
+<p align="center">
+  <img src="docs/install-580.svg" alt="Quadro P620이 장착된 SA6400에서 install.sh 가 580.173.02 드라이버를 설치하는 화면" width="820">
+</p>
+
+<br>
+
+> ### ⚠️ 설치 후 Plex / Jellyfin을 재시작하세요
+>
+> ```bash
+> sudo /usr/syno/bin/synopkg restart PlexMediaServer
+> ```
+>
+> 이 프로그램들은 **기동 시 한 번만** GPU를 검색하고 결과를 캐시합니다. 드라이버를
+> 설치할 때 패키지가 이미 실행 중이었다면, 설정 화면에 GPU가 아예 나타나지 않습니다.
+>
+> **"드라이버는 깔았는데 트랜스코딩이 안 된다"의 압도적 1위 원인**입니다 —
+> CUDA나 드라이버 호환성 문제가 아닙니다.
+
+<br>
+
+**요구 사항** — root/`sudo`, 인터넷, NVIDIA GPU, 그리고 지원 플랫폼
+([매트릭스 참고](#-지원-플랫폼)).
+
+부팅 훅(`/usr/local/etc/rc.d/nvidia.sh`)이 자동으로 설치되어, 재부팅할 때마다
+드라이버가 다시 로드됩니다.
+
+<br>
+
+---
+
+<br>
+
+## ✅ 설치 검증
+
+```bash
+nvidia-smi
+sudo ls -l /dev/nvidia*
+```
+
+<p align="center">
+  <img src="docs/verify-580.svg" alt="설치 검증: 디바이스 노드·로드된 모듈·compute capability" width="820">
+</p>
+
+정상 설치라면 **물리 GPU 하나당 `/dev/nvidia<N>` 하나**와 `nvidiactl`,
+`nvidia-uvm`이 보입니다. `nvidia-smi`는 되는데 CUDA 앱이 실패한다면 `lsmod`에
+`nvidia_uvm`이 있는지 확인하세요.
+
+<details>
+<summary><b>디바이스 노드 레퍼런스</b> — 각 노드의 역할</summary>
+
+<br>
+
+| 노드 | 메이저 | 설명 |
+|---|:---:|---|
+| `/dev/nvidia0` | 195 | GPU 본체 — **물리 GPU 하나당 하나**. 두 번째 카드는 `nvidia1`. |
+| `/dev/nvidiactl` | 195 | 드라이버 제어 노드. 모든 클라이언트가 가장 먼저 엽니다. |
+| `/dev/nvidia-uvm` | 240 | 통합 메모리 — **이게 없으면 CUDA가 동작하지 않습니다**. |
+| `/dev/nvidia-uvm-tools` | 240 | UVM 디버그/프로파일링용 짝. |
+| `/dev/nvidia-caps/*` | 243 | MIG 관련 노드. 데이터센터 GPU 외에는 쓰이지 않습니다. |
+| `/dev/nvidia-modeset` | 195 | 모드셋 노드. |
+
+권한이 `crw-rw-rw-`라 비특권 패키지 사용자(Plex, Jellyfin, 컨테이너)도 별도
+설정 없이 열 수 있습니다.
+
+노드가 아예 없다면 모듈이 로드되지 않은 것입니다 — 설치기를 다시 실행하거나
+`dmesg | grep -i nvrm`을 확인하세요.
+
+</details>
+
+<details>
+<summary><b>❓ <code>/dev/dri</code>가 안 보이는데 문제인가요?</b></summary>
+
+<br>
+
+**아닙니다.** 헤드리스 플랫폼에서는 존재할 수 없고, 무엇을 설치해도 바뀌지
+않습니다. 시놀로지는 서버 플랫폼(`epyc7002`, `epyc7003`, `icelaked`,
+`v1000nk`, `r1000nk` 등)에 DRM 서브시스템을 아예 빌드하지 않기 때문에,
+`nvidia-drm.ko`는 사실상 빈 스텁으로 컴파일됩니다. `/dev/dri`가 있는 것은
+Intel iGPU 플랫폼(`geminilake`, `apollolake`)뿐입니다.
+
+이 드라이버의 목적에는 아무 상관이 없습니다. `/dev/dri`는 그래픽 출력·Vulkan·
+VA-API용이고, **CUDA와 NVENC/NVDEC는 `/dev/nvidia*`만 사용**합니다 — 그래서
+`/dev/dri` 없이도 하드웨어 트랜스코딩이 정상 동작합니다.
+
+"같은 박스"에서 다른 솔루션으로는 `/dev/dri`가 보였다면, 그 박스는 거의 확실히
+**다른 플랫폼으로 선언되어** 동작하고 있었을 것입니다.
+
+</details>
+
+<br>
+
+---
+
+<br>
+
+## 🎬 Jellyfin — NVENC ffmpeg & 자동 구성
+
+6단계에서 **y**를 선택하면 NVENC 지원 `ffmpeg`를 설치하고 Jellyfin이 그것을
+쓰도록 지정합니다.
+
+> 💡 Plex는 이 과정이 전혀 필요 없습니다 — 자체 트랜스코더가 있어서 드라이버만
+> 설치하고 재시작하면 바로 동작합니다.
+
+SynoCommunity 패키지는 ffmpeg 경로를 **실행 인자**로 하드코딩해 두는데, 이
+인자가 대시보드 설정값보다 우선합니다. 그래서 이 인자를 패치하는 것이 실제로
+바꿀 수 있는 유일한 방법입니다. 원본은 `service-setup.pre-nvidia.bak`에
+백업됩니다.
+
+<br>
+
+### 🪄 재생 설정 자동 구성
+
+이어서 Jellyfin의 재생 설정까지 자동 구성할지 물어봅니다 — Plex가 GPU를 감지하면
+자동으로 해주는 일과 같지만, **GPU 모델을 실제로 반영**합니다:
+
+| | 판정 방식 |
+|---|---|
+| 🎯 **NVENC 활성화** | *실제* 카드에 시험 인코딩을 돌려 확인 |
+| 🎞️ **HEVC / AV1 인코딩** | 1프레임 실제 시험 인코딩 — Pascal 카드에 AV1이, Kepler 카드에 HEVC가 켜지는 일이 없습니다 |
+| ⚡ **인코더 프리셋** | `slow` — P620 실측 결과 `p1`→`p7` 처리량 차이가 17%에 불과해, 고정기능 인코더에서 품질을 속도와 맞바꿀 이유가 없습니다 |
+| 🧠 **트랜스코드 임시경로** | RAM의 `/dev/shm/jellyfin-transcodes`. 용량이 무한정 늘지 않도록 스로틀링과 세그먼트 삭제를 함께 켭니다 |
+
+**최초 1회만 동작합니다.** 스탬프 파일이 있어, 이후 직접 바꾼 설정을 덮어쓰는
+일이 없습니다. Jellyfin 설치 마법사를 아직 마치지 않았다면, 같은 확인이 다음
+부팅 시 자동으로 이루어집니다.
+
+<br>
+
+---
+
+<br>
+
+## 🐳 Docker(Container Manager) GPU 연동
+
+선택 **9단계**에서 컨테이너도 GPU를 쓸 수 있게 설정합니다 — Ollama, PyTorch,
+vLLM 등.
+
+```bash
+sudo /usr/syno/bin/synopkg restart ContainerManager   # 설정 후 한 번
+
+docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
+  nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi
+```
+
+> ⚠️ **`--gpus all`이 아니라 `--runtime=nvidia`를 쓰세요.** `--gpus` 플래그는
+> Docker 25+의 CDI 지원이 필요한데, 시놀로지 Container Manager에는 그 기능이
+> 없고 버전은 시놀로지가 정합니다(사용자가 올릴 수 없음).
+
+기존 `daemon.json` 설정은 병합 방식으로 그대로 유지되며(백업도 남습니다),
+`uninstall.sh`가 전부 되돌립니다. 전체 설계 내용은
+[docs/container-runtime-design.md](docs/container-runtime-design.md) 참고.
+
+<br>
+
+---
+
+<br>
+
+## 📋 지원 플랫폼
+
+<br>
+
+### 커널 5.10.55 — 4개 브랜치 전부
+
+| 플랫폼 | 예시 모델 | 470 | 535 | 550 | **580** |
 |---|---|:---:|:---:|:---:|:---:|
 | `epyc7002`      | SA6400                         | ✅ | ✅ | ✅ | ✅ |
 | `epyc7003`      | FS6420                         | ✅ | ✅ | ✅ | ✅ |
@@ -231,17 +540,11 @@ driver version across every platform and kernel.
 | `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | ✅ |
 
-### kernel 4.4 platforms — 550 only
+<br>
 
-**550.163.01 is the ceiling on kernel 4.4**, and that is NVIDIA's decision, not a
-packaging choice: from 560 onward `common/inc/nv-linux.h` hard-fails with
-`#error "This driver does not support kernels older than Linux 4.15!"` — verified
-by actually building 560 / 570 / 575 / 580, all of which stop there.
+### 커널 4.4 — 550 전용
 
-Modules are published **per kernel version**, because the same platform ships a
-different kernel depending on the DSM release and vermagic must match exactly:
-
-| Platform | Example models | DSM 7.0 / 7.1 (4.4.180) | DSM 7.2 / 7.3 / 7.4 (4.4.302) |
+| 플랫폼 | 예시 모델 | DSM 7.0 / 7.1 | DSM 7.2+ |
 |---|---|:---:|:---:|
 | `apollolake`      | DS918+ / DS620slim / DS1019+  | ✅ | ✅ |
 | `broadwell`       | DS3617xs / RS3617xs+          | ✅ | ✅ |
@@ -253,432 +556,100 @@ different kernel depending on the DSM release and vermagic must match exactly:
 | `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
 | `v1000`           | DS1621+ / DS1821+ / DS2422+   | ✅ | ✅ |
 
-- **`denverton` is intentionally absent.** DSM already ships a vanilla NVIDIA
-  driver on that platform for DVA (Deep Video Analytics), so it is not a target
-  here.
-- The installer picks the build from `uname -r`, **not from the platform name
-  alone**. Cross the 4.4.180 → 4.4.302 boundary by upgrading DSM (7.1 → 7.2) and
-  the boot hook detects the mismatch, refuses to load the now-invalid modules,
-  and logs why — re-run the installer to get the matching build.
-- `avoton` / `braswell` / `bromolow` (kernel **3.10.108**) are **not** supported.
-  NVIDIA's 2.6.32 floor would allow them on paper, but they are untested here.
-- These 4.4 builds are **not yet verified on real hardware** — the modules build
-  cleanly and carry the correct vermagic, but no GPU-equipped 4.4 box has been
-  tested. Reports welcome.
+> ⚠️ 이 4.4 빌드들은 **아직 실기 검증이 되지 않았습니다.** 정상적으로 컴파일되고
+> vermagic도 올바르지만, GPU가 장착된 4.4 박스에서 테스트한 적이 없습니다.
+> 제보 환영합니다.
 
-| Branch | GPU coverage | Native CUDA | Notes |
-|---|---|:---:|---|
-| **470.256.02** | Kepler … Ampere | 11.4 | Legacy LTSB — for old GPUs 535+ dropped. ffmpeg layer pinned to `jellyfin-ffmpeg 5.1.2-9` (NVENC API 11.1); never pair it with the 535/550 ffmpeg. |
-| **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. Verified on P620. ffmpeg `6.0.1-8` (NVENC 12.0). |
-| **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9` (NVENC SDK 12.0, same pin as 535). |
-| **580.173.02** | Maxwell … Ampere (Turing/GA10x) | **13.0** | Newest, and the **last branch supporting Maxwell/Pascal/Volta**. Verified on P620 incl. Plex HW transcoding. GSP firmware for Turing/Ampere(GA10x) is shipped and **auto-deployed by the installer**; Ada(RTX 40)/Blackwell(RTX 50) still need GSP firmware NVIDIA does not bundle in this `.run` — those chips hit a warning gate. ffmpeg `7.1.4-3`. |
+**미지원:** `denverton`(DSM이 DVA용으로 이미 정식 NVIDIA 드라이버를 탑재),
+그리고 커널 3.10 플랫폼 — `avoton` / `braswell` / `bromolow`.
 
-- **580 is the recommended branch for most GPUs.** It supersedes 535/550 (same
-  Maxwell→Ada coverage on the driver side) and raises what Pascal can run from
-  CUDA 12.4 to **12.9**. Only Kepler-era cards still need 470.
-- **GSP firmware for Turing / Ampere (GA10x)** — RTX 20xx, T4, GTX 16xx, RTX 30xx,
-  A10 — is bundled (`nv-gsp-580.173.02.tgz`, extracted from the official `.run`)
-  and the installer deploys it to `/lib/firmware/nvidia/580.173.02/` automatically,
-  before the driver loads. No action needed beyond picking 580.
-- ⚠️ **Ada (RTX 40) / Blackwell (RTX 50)** also require GSP firmware, but NVIDIA's
-  580.173.02 `.run` does **not** bundle `gsp_ad10x.bin` or a Blackwell blob — the
-  installer detects this and warns before letting you proceed (the driver would
-  load but fail to initialise). Use 535/550 on those GPUs for now.
-- On kver5, one `.ko` per platform covers **DSM 7.1–7.4**: `CONFIG_MODVERSIONS` is
-  off and the vermagic (`5.10.55+ SMP mod_unload`) is identical across those
-  releases, so only the vermagic gates module load. **Kernel 4.4 platforms do not
-  share that property** — DSM 7.0/7.1 are `4.4.180+` while 7.2+ are `4.4.302+`, so
-  each needs its own build and the installer resolves by kernel version.
+<details>
+<summary><b>커널 4.4에서 550이 상한인 이유</b></summary>
 
----
+<br>
 
-## CUDA versions — what actually applies to your GPU
+패키징 선택이 아니라 NVIDIA가 정한 한계입니다. 각 브랜치는
+`common/inc/nv-linux.h`에 커널 하한을 명시합니다:
 
-This trips people up constantly, so it is worth being precise. **Two independent
-things** decide which CUDA you can run:
-
-| | Set by | What it limits |
-|---|---|---|
-| **Driver** | the branch you install | the highest CUDA API the driver speaks |
-| **GPU architecture** (compute capability) | the silicon — cannot be changed | which CUDA toolkit versions can *generate code* for it |
-
-CUDA 13.0 dropped code generation for everything below **compute capability 7.5
-(Turing)**. So on a Pascal card, installing 580 does **not** unlock CUDA 13.0 —
-there is simply no Pascal binary in a CUDA 13 build. Drivers are backward
-compatible, so a 580 driver happily runs CUDA 12.x applications.
-
-| Compute cap. | Architecture | Example GPUs | **Max usable CUDA** |
-|:---:|---|---|:---:|
-| 6.0 / 6.1 | Pascal | **Quadro P620 / P1000**, Tesla **P4 / P40 / P100**, GTX 10xx | **12.9** |
-| 7.0 | Volta | Tesla V100 | 12.9 |
-| **7.5** | **Turing** | **Tesla T4**, RTX 20xx | **13.0** |
-| 8.0 / 8.6 | Ampere | A100 / A10, RTX 30xx | 13.0 |
-| 8.9 | Ada | L4 / L40S, RTX 40xx | 13.0 |
-| 12.0 | Blackwell | RTX 50xx | 13.0 |
-
-**7.5 is the dividing line.** Below it the ceiling is 12.9; at or above it, 13.0.
-Higher-capability cards also run every lower CUDA version.
-
-### How to check your GPU's real CUDA ceiling
-
-```bash
-sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
-```
-```
-name, compute_cap, driver_version
-Quadro P620, 6.1, 580.173.02      →  cc 6.1 = Pascal  →  CUDA 12.9 max
-```
-
-> **Do not read the CUDA version off the `nvidia-smi` header.** On the P620 above it
-> prints `CUDA Version: 13.0`, but that is only the *driver's* maximum — the GPU
-> still cannot run CUDA 13.0. `compute_cap` is the value that decides.
-
-`compute_cap` requires driver **≥ 510**, so it is unavailable on 470. There, read
-the model name instead (`sudo nvidia-smi -q | grep "Product Name"`) and look it up
-in the table above.
-
-To check what an application actually gets, query it from inside your container:
-
-```bash
-python3 -c "import torch; print(torch.version.cuda, torch.cuda.get_device_capability(), torch.cuda.is_available())"
-# e.g. 12.4 (6, 1) True   →  toolkit 12.4, compute capability 6.1, usable
-```
-
-### CUDA is irrelevant for transcoding
-
-Plex and Jellyfin do **not** use the CUDA toolkit to transcode — they use the
-dedicated **NVENC/NVDEC** engines via `libnvidia-encode.so.1` / `libnvcuvid.so.1`.
-NVENC is backward compatible, so a newer driver runs a player's older NVENC code
-fine. If hardware transcoding is missing, the cause is almost always the stale
-device list described above (restart the package), not a CUDA version mismatch.
-
-The one direction that *does* break is the opposite one: an **old driver with a
-too-new ffmpeg** (e.g. 470 + an NVENC 12.x build). That is why each branch is
-pinned to a matching ffmpeg layer.
-
-### Which kernels, and why 550 is the ceiling on kernel 4.4
-
-The driver ships as a kernel module (`.ko`) that must match the **exact Synology
-kernel** it loads into — the vermagic string is compared on load and nothing else
-matters.
-
-**The limit is NVIDIA's, and it sits between 550 and 560.** Every branch carries
-an explicit floor in `common/inc/nv-linux.h`:
-
-| Branch | Declared kernel floor |
+| 브랜치 | 선언된 하한 |
 |---|---|
 | 470 / 535 / **550** | `2.6.32` |
 | 560 / 570 / 575 / 580 | **`4.15`** — `#error "This driver does not support kernels older than Linux 4.15!"` |
 
-That was measured, not inferred: 560 / 570 / 575 / 580 were each downloaded and
-built against a 4.4.302 tree, and all four stop at that `#error` before compiling
-anything. 550 builds through cleanly and produces modules with the correct
-`4.4.302+ SMP mod_unload` vermagic. So on kernel 4.4 the answer is simply **550,
-and there is no way around it** short of patching NVIDIA's source.
+추정이 아니라 실측입니다 — 560/570/575/580을 각각 4.4.302 트리에 대해 빌드해
+보았고, 넷 다 저 `#error`에서 멈춥니다. 550은 깨끗하게 빌드됩니다.
 
-**One caveat worth recording**, because it looked like a kernel-support problem
-and was not: this project patches `nv-pat.c` / `nv-linux.h` to work around
-Synology building with `CONFIG_X86_PAT` off. That patch is **5.10-specific** —
-it rewrites `__flush_tlb()` into `native_write_cr3(__native_read_cr3())`, and
-`__native_read_cr3` only exists from 4.9 onward. Applying it to a 4.4 tree
-*creates* a build failure that the unpatched source does not have (4.4 still
-defines `__flush_tlb()` itself and keeps `native_write_cr4()` as a plain static
-inline, so there is nothing to fix there). `build-nvidia.sh` now detects this
-from the kernel headers and skips the block when the kernel already provides
-`__flush_tlb()`.
+모듈은 **커널 버전별로** 배포됩니다. 같은 플랫폼이라도 DSM 릴리스에 따라 커널이
+다르고(7.0/7.1 = `4.4.180`, 7.2+ = `4.4.302`) vermagic이 정확히 일치해야 하기
+때문입니다. 설치기는 플랫폼 이름이 아니라 `uname -r`로 판단합니다. DSM을
+업그레이드해 이 경계를 넘으면 부팅 훅이 불일치를 감지해 로드를 거부하고 이유를
+로그에 남깁니다.
 
-**Kernel 3.10 (`avoton` / `braswell` / `bromolow`) is not shipped.** 550's 2.6.32
-floor would permit it on paper, but it has not been built or tested here, and
-those platforms are old enough that GPU passthrough is a rare configuration.
-
----
-
-## About (build / producer side)
-
-Builds the **no-auth NVIDIA driver** (2-layer package) for Synology DSM
-platforms on kernel 5.10.55 and kernel 4.4. Physical / passthrough GPUs only — **no vGPU / license server**
-(unlike pdbear's closed SPK). Multiple driver versions per GPU.
-
-This repo is the **build/producer** side. It borrows the
-`dante90/syno-compiler:<DSM>` container (the same toolchain base mshell-modules
-uses) but is otherwise independent of both mshell-modules and tcrp-addons.
-
-## Where it fits
-
-```
-mshell-modules ── provides ──> dante90/syno-compiler:<DSM>  +  /opt/<platform>/build
-                                        │ (container + kernel tree reused, not the repo tree)
-                                        ▼
-        THIS REPO (syno_nvidia_driver, cloned on build VM 192.168.45.139)
-          build-nvidia.sh → 2-layer tgz → GitHub Release (tag: nvidia)
-                                        │
-                                        ▼
-        tcrp-addons/nvidiadriver  ── consumer: install.sh + nvidia-index.json
-          (references the Release URLs; loader fetches at build time → DSM)
-```
-
-Only NVIDIA's **open** kernel-interface glue is recompiled and linked against the
-closed `nv-kernel` blob, so the `.ko` vermagic + `CONFIG_MODVERSIONS` CRCs match
-the exact DSM kernel (the fix for the issue-#77 "Unknown symbol" failure).
-
-## 2-layer packaging
-
-| layer | file | scope |
-|---|---|---|
-| kernel | `nv-ko-<ver>-<platform>-<kvershort>.tgz` | **per platform** (~MB) |
-| userspace | `nv-userspace-<ver>.tgz` | **per version** only, x86_64 shared across every platform and kernel |
-
-## Build (on VM 192.168.45.139)
-
-```bash
-ssh dante90@192.168.45.139
-git -C ~/syno_nvidia_driver pull            # always sync first
-cd ~/syno_nvidia_driver
-# download the .run once (open glue + closed nv-kernel blob)
-curl -kLo run/NVIDIA-Linux-x86_64-535.183.06.run \
-  https://us.download.nvidia.com/XFree86/Linux-x86_64/535.183.06/NVIDIA-Linux-x86_64-535.183.06.run
-./run-on-vm.sh 535.183.06 epyc7002 7.4      # <ver> <platform> <DSM_VER>
-```
-
-Outputs land in `out/` with a printed `nvidia-index.json` fragment (incl. sha256).
-
-## Publish
-
-1. Upload both `out/*.tgz` to this repo's Release tagged **`nvidia`**.
-2. Paste the printed fragment into `tcrp-addons/nvidiadriver/src/nvidia-index.json`
-   and push tcrp-addons.
-
-## Files
-
-- [build-nvidia.sh](build-nvidia.sh) — runs inside the compiler container; builds both layers
-- [run-on-vm.sh](run-on-vm.sh) — `sudo docker` wrapper for the build VM
-- `run/` — put `NVIDIA-Linux-x86_64-<ver>.run` here (git-ignored)
-- `out/` — build artifacts (git-ignored)
-
-## Notes / limits
-
-- `.ko` are unsigned → DSM logs `module verification failed … tainting` — benign
-  (`MODULE_SIG_FORCE` not set, modules still load).
-- On **5.10.55**, 470/535/550/580 all build fine (each verified — vermagic
-  matches, `nvUvmInterface` exported). On **4.4.x**, 550 is the ceiling: 560+
-  refuse outright with `#error "... older than Linux 4.15!"` (measured on
-  560/570/575/580). Note the PAT compat patch below must be **skipped** on 4.4 —
-  it targets 5.10 API and injects `__native_read_cr3`, which 4.4 lacks;
-  `build-nvidia.sh` detects this from the kernel headers automatically.
-- **Compat patches move between branches.** Synology builds with
-  `CONFIG_X86_PAT` off, forcing NVIDIA's builtin-PAT path, which uses
-  `__flush_tlb()` and `__write_cr4()` — neither usable from a module on 5.10.
-  `build-nvidia.sh` rewrites both, but their *location* changes: ≤550 kept the CR4
-  write in `common/inc/nv-linux.h`, 580 calls it directly in `nvidia/nv-pat.c`
-  with a different argument shape. The patcher therefore searches the tree and
-  **aborts the build if any call site survives** — a silently skipped patch used
-  to surface only as an unrelated `native_write_cr4 undefined` modpost error.
-- R515+ branches load **GSP firmware** on Turing and newer. Extracted from the
-  official `.run` (it ships `gsp_tu10x.bin` + `gsp_ga10x.bin` only — no Ada/
-  Blackwell blob), packaged as `nv-gsp-<ver>.tgz`, and deployed by `install.sh` to
-  `/lib/firmware/nvidia/<ver>/` **before** the kernel module loads (GSP is
-  requested via `request_firmware()` at probe time, so order matters).
-  `/lib/firmware` lives on the same rw root as everything else here, so this
-  persists across reboots with no redeploy needed. GPUs needing GSP with no
-  bundled blob (Ada/Blackwell) still hit `install.sh`'s warning gate.
-  **Caveat: wired up and unit-tested (download/sha256/placement), but not yet
-  validated against real Turing/Ampere hardware** — the only box available this
-  session has a Pascal GPU, which skips the GSP path entirely.
-
-## Workflow rule
-
-Source change → **commit/push here first** → on the VM **`git pull`** → then build.
-Never build from uncommitted local changes.
-
----
-
-<details>
-<summary>🇰🇷 <b>한국어 번역 (펼쳐 보기)</b></summary>
+</details>
 
 <br>
 
-# syno_nvidia_driver
+### 드라이버 브랜치
 
-Synology DSM용 **무인증(no-auth)** NVIDIA 드라이버 — **물리 / passthrough GPU 전용,
-vGPU · 라이선스 서버 없음**(pdbear의 폐쇄 SPK와 다름). GPU마다 여러 드라이버 버전을
-제공하며, 플랫폼 + DSM 커널에 자동으로 매칭됩니다.
+| 브랜치 | GPU 커버리지 | 네이티브 CUDA | 비고 |
+|---|---|:---:|---|
+| **470.256.02** | Kepler … Ampere | 11.4 | 레거시 LTSB — 535+ 가 버린 구형 GPU용 |
+| **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. P620 검증 완료 |
+| **550.163.01** | Maxwell … Ada | 12.4 | 커널 4.4의 상한 |
+| **580.173.02** | Maxwell … Ampere | **13.0** | ⭐ **권장.** Maxwell/Pascal/Volta를 지원하는 마지막 브랜치 |
+
+> ⭐ **대부분의 GPU에는 580이 정답입니다.** 535/550을 대체하며, Pascal이 쓸 수 있는
+> CUDA를 12.4에서 12.9로 올려줍니다. 470이 여전히 필요한 것은 Kepler 세대뿐입니다.
+>
+> ⚠️ **Ada(RTX 40) / Blackwell(RTX 50)** 은 GSP 펌웨어가 필요한데 NVIDIA가 580
+> `.run`에 동봉하지 않았습니다 — 설치기가 경고합니다. 이 카드들은 535/550을
+> 쓰세요. Turing / Ampere용 GSP 펌웨어는 동봉되어 **자동 배치**됩니다.
+
+<br>
 
 ---
 
-## 🚀 설치 (구동 중인 DSM에서)
+<br>
 
-**요구 사항:** root/`sudo`, 인터넷, **지원되는 플랫폼**(커널 5.10.55 7종 전부 +
-550 한정으로 커널 4.4 9종 — 아래 [지원 매트릭스](#지원-플랫폼--드라이버-버전) 참고)과 NVIDIA GPU(물리
-또는 passthrough). 설치 스크립트가 플랫폼 + GPU를 자동 감지하며, 지원 불가한 환경에서는
-실행을 거부합니다.
+## 🎯 CUDA — 내 GPU에 실제로 적용되는 것
 
-```bash
-curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
-```
+**서로 독립적인 두 가지**가 사용 가능한 CUDA를 결정합니다:
 
-8단계로 안내합니다 — 플랫폼 확인 → GPU 감지 → **버전 선택(해당 플랫폼·커널에 실제로 배포된
-브랜치만 최신순으로 표시. 커널 4.4 플랫폼은 550 하나뿐이라 자동 선택)**
-→ (선택) Jellyfin 패키지용 NVENC ffmpeg → 이후 다운로드·설치·드라이버 로드 후 `nvidia-smi`로
-검증. **선택 9단계**는 Container Manager(Docker)가 설치돼 있으면 그 안에서도 GPU를 쓸 수
-있게 설정합니다 — 아래 [Container Manager(Docker) GPU 연동](#container-managerdocker-gpu-연동)
-참고. 감지된 GPU에 권장되는 브랜치를 표시하고, **그 GPU가 실제로 사용할 수 있는 최대 CUDA
-버전**까지 알려주며, 필요한 GPU(현재는 Turing/Ampere)에는 **GSP 펌웨어를 자동 배치**합니다.
-
-<p align="center">
-  <img src="docs/install-580.svg" alt="Quadro P620이 장착된 SA6400에서 install.sh 가 580.173.02 드라이버를 설치하는 화면" width="820">
-</p>
-
-> **Synology SA6400(epyc7002) · Quadro P620 · DSM 7.4**에서 **580.173.02** 설치 실기 검증
-> — 2026-07-28, Plex 하드웨어 트랜스코딩까지 확인.
-
-부팅 훅(`/usr/local/etc/rc.d/nvidia.sh`)이 설치되어 재부팅 후 드라이버가 자동으로 다시
-로드됩니다. 언제든 `nvidia-smi`로 GPU 상태를 확인하세요.
-
-> ### ⚠️ 설치 후 Plex / Jellyfin을 반드시 재시작하세요
-> 두 프로그램 모두 **자신이 기동할 때 GPU를 한 번만 열거**하고 그 결과를 캐시합니다.
-> 드라이버를 설치(또는 제거)할 때 패키지가 이미 실행 중이었다면 하드웨어 트랜스코딩 장치
-> 목록이 낡은 상태로 남아, GPU가 설정 화면에 아예 나타나지 않고 트랜스코딩이 소프트웨어로
-> 떨어지거나 실패합니다.
->
-> ```bash
-> sudo /usr/syno/bin/synopkg restart PlexMediaServer
-> ```
->
-> "드라이버는 깔렸는데 트랜스코딩이 안 된다"의 압도적 다수가 이 원인이며,
-> 드라이버·CUDA 호환성 문제가 **아닙니다**.
-
-### 설치 검증
-
-드라이버는 로드될 때 디바이스 노드를 만듭니다. 이 노드를 확인하는 것이 설치가 정상인지
-가장 빠르게 판별하는 방법이며, 앱이 GPU를 못 볼 때 가장 먼저 봐야 할 곳이기도 합니다:
-
-```bash
-sudo ls -l /dev/nvidia*
-lsmod | grep nvidia
-```
-
-<p align="center">
-  <img src="docs/verify-580.svg" alt="설치 검증: 디바이스 노드·로드된 모듈·compute capability" width="820">
-</p>
-
-| 노드 | Major | 정체 |
-|---|:---:|---|
-| `/dev/nvidia0` | 195 | GPU 본체 — **물리 GPU 1장당 노드 1개**. 두 번째 카드는 `nvidia1`로 나타납니다. |
-| `/dev/nvidiactl` | 195 | 드라이버 제어 노드. 모든 클라이언트가 가장 먼저 여는 노드입니다. |
-| `/dev/nvidia-uvm` | 240 | 통합 메모리 — **이게 없으면 CUDA가 동작하지 않습니다**. |
-| `/dev/nvidia-uvm-tools` | 240 | UVM 디버그/프로파일링용 보조 노드. |
-| `/dev/nvidia-caps/*` | 243 | MIG 기능 노드. 데이터센터 GPU 외에는 사용되지 않습니다. |
-| `/dev/nvidia-modeset` | 195 | 모드셋 노드. 모듈이 backlight 의존 없이 빌드되므로 생성됩니다(아래 참고). |
-
-정상 설치의 판별 기준:
-
-- **`nvidia0` 개수가 실제 GPU 장수와 일치**해야 합니다. GPU 1장인데 `nvidia0`~`nvidia7`이
-  보인다면 유령 노드가 생긴 것입니다 — 설치 스크립트는 이를 막기 위해
-  `/proc/driver/nvidia/gpus/` 에서 개수를 산출합니다.
-- **`nvidia_uvm`이 로드되어 있어야 합니다**(`lsmod`). 이게 없으면 `nvidia-smi`는 동작해도
-  CUDA 애플리케이션은 전부 실패합니다.
-- **`nvidia_modeset`도 로드됩니다.** 예전에는 헤드리스 플랫폼에서
-  `Unknown symbol backlight_device_register`로 실패했습니다 — Synology가 그쪽에
-  `backlight.ko`를 배포하지 않기 때문입니다. 지금은 빌드 시점의 `autoconf.h`에서
-  `CONFIG_BACKLIGHT_CLASS_DEVICE` / `CONFIG_ACPI_VIDEO`를 제거하고 컴파일하므로
-  **심볼을 애초에 참조하지 않습니다**. SA6400(`epyc7002`) 실기에서
-  `nvidia_modeset` 로드 · `/dev/nvidia-modeset` 생성 · `dmesg`에 backlight 경고
-  전무를 확인했습니다.
-- 권한이 `crw-rw-rw-`이므로 비특권 패키지 사용자(Plex, Jellyfin, 컨테이너)가 별도 설정
-  없이 열 수 있습니다.
-
-노드가 아예 없다면 모듈이 로드되지 않은 것입니다 — 설치를 다시 실행하거나
-`dmesg | grep -i nvrm`을 확인하세요.
-
-### `/dev/dri`가 안 보이는데 문제인가요?
-
-**아닙니다.** 헤드리스 플랫폼에서는 존재할 수 없으며, 무엇을 설치해도 바뀌지 않습니다:
-
-| 플랫폼 그룹 | Synology 커널의 `CONFIG_DRM` | `/dev/dri` |
+| | 결정 주체 | 제한하는 것 |
 |---|---|---|
-| `geminilake`, `geminilakenk`, `apollolake` (Intel iGPU) | `CONFIG_DRM_MODULE=1`, `CONFIG_DRM_I915_MODULE=1` | 존재함 |
-| `epyc7002`, `epyc7003`, `epyc7003ntb`, `icelaked`, `v1000nk`, `r1000nk` | **아예 미설정** | **생성 불가** |
+| **드라이버** | 설치한 브랜치 | 드라이버가 구사하는 최대 CUDA API |
+| **GPU 아키텍처** | 실리콘 — 변경 불가 | 어떤 툴킷이 이 GPU용 코드를 *생성*할 수 있는가 |
 
-Synology가 헤드리스 서버 플랫폼에는 DRM 서브시스템을 빌드하지 않으므로,
-`nvidia-drm.ko`는 사실상 빈 껍데기로 컴파일됩니다 — SA6400에서 크기 16KB,
-`depends` 없음, **모듈 파라미터가 하나도 없고**(켤 `modeset` 옵션 자체가 없음),
-`/proc/kallsyms`에 `drm_*` 심볼이 0건입니다. `modeset=1`을 주면 `insmod`가
-*unknown parameter*로 실패해 지금보다 나빠집니다.
+| Compute cap. | 아키텍처 | 예시 GPU | **사용 가능 최대 CUDA** |
+|:---:|---|---|:---:|
+| 6.0 / 6.1 | Pascal | Quadro P620 / P1000, Tesla P4 / P40, GTX 10xx | **12.9** |
+| 7.0 | Volta | Tesla V100 | 12.9 |
+| **7.5** | **Turing** | Tesla T4, RTX 20xx | **13.0** |
+| 8.0 / 8.6 | Ampere | A100 / A10, RTX 30xx | 13.0 |
+| 8.9 | Ada | L4 / L40S, RTX 40xx | 13.0 |
+| 12.0 | Blackwell | RTX 50xx | 13.0 |
 
-다른 솔루션에서 "같은 박스"에 `/dev/dri`가 보였다면, 그때는 **선언된 플랫폼이
-달랐을 가능성이 큽니다** — 위의 iGPU 플랫폼들은 DRM을 갖고 있습니다. 이는 드라이버
-패키지가 통제하는 영역이 아니라 플랫폼별 커널 차이입니다.
-
-용도상으로도 무관합니다: `/dev/dri`는 그래픽 출력 · Vulkan · VA-API용이고,
-**CUDA와 NVENC/NVDEC는 `/dev/nvidia*`만 사용합니다.** 그래서 이것 없이도 하드웨어
-트랜스코딩이 정상 동작합니다.
-
-
-### NVENC ffmpeg (Jellyfin 패키지)
-6단계에서 **y**를 선택하면 `/usr/local/nvidia/bin/ffmpeg`에 NVENC 지원 `ffmpeg`도 함께
-설치되고, Jellyfin의 실행 인자도 그쪽으로 재지정할지 물어봅니다(SynoCommunity
-패키지는 `--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg`를 실행 인자로
-하드코딩해 두는데, 이 인자가 대시보드 설정값보다 우선하고 그 ffmpeg7 바이너리엔
-NVENC 인코더가 아예 없어서, 이 인자를 패치하는 것이 실제로 바꿀 수 있는 유일한
-방법입니다). 원본 스크립트 백업은 `service-setup.pre-nvidia.bak`에 남습니다.
-(Plex는 자체 트랜스코더가 있어 필요 없습니다.)
-
-**하드웨어 트랜스코딩 자동 구성.** 바로 이어서, `encoding.xml`이 이미 존재하면
-Jellyfin의 재생 설정까지 자동으로 구성할지 물어봅니다 — Plex가 GPU를 감지하면
-자동으로 해주는 일과 같지만, Plex와 달리 **GPU 모델을 실제로 반영**합니다. NVENC는
-*실제 카드*에 시험 인코딩을 돌려 판정하므로, Pascal 박스에 AV1 인코딩이 켜지거나
-Kepler 박스에 HEVC가 켜지는 일이 없습니다. 인코더 프리셋(`slow` — P620 실측 결과
-`p1`~`p7` 간 처리량 차이가 17%에 불과해, 고정기능 인코더에서 품질을 속도와
-맞바꿀 실익이 없습니다)과 RAM 트랜스코드 임시경로(`/dev/shm/jellyfin-transcodes` —
-`/dev/shm` 자체가 아니라 **전용 하위 디렉터리**입니다. Jellyfin의 정리 작업이
-설정된 경로를 통째로 비우기 때문에, 같은 tmpfs를 쓰는 다른 프로세스의 파일까지
-지우려 들 수 있기 때문입니다)도 함께 설정합니다.
-
-이 동작은 최초 1회만 수행됩니다 — `encoding.xml` 옆의 `.nvidia-autoconf` 스탬프가
-이후 사용자가 직접 바꾼 설정을 덮어쓰지 않도록 막아줍니다. `encoding.xml`이 아직
-없으면(Jellyfin 설치 마법사를 마치지 않은 경우) 같은 확인이 다음 부팅 시 부팅훅을
-통해 자동으로 이루어집니다. 로직은 [`jellyfin-autoconfig.sh`](jellyfin-autoconfig.sh)
-파일 하나에만 두고, 설치기와 부팅훅 양쪽이 그 파일을 그대로 재사용합니다.
-
-## Container Manager(Docker) GPU 연동
-
-Container Manager가 설치돼 있으면 `install.sh`가 **선택 9단계**로 `docker run`
-컨테이너도 이 GPU를 쓸 수 있게 설정할지 물어봅니다(Ollama, PyTorch, vLLM 등).
-작은 런타임 레이어(`nvidia-container-cli` 등, NVIDIA 공식 upstream 바이너리로
-빌드 — 직접 컴파일 불필요)를 내려받고, Container Manager의 `daemon.json`에
-**`nvidia` 런타임을 병합**으로 등록하며(기존 `bip`/`data-root` 등은 그대로
-유지되고, 백업이 `dockerd.json.pre-nvidia.bak`에 남습니다), `ld.so.cache`도
-직접 만들어 줍니다(DSM에는 `ldconfig`도 캐시 파일도 없어 정적 바이너리를
-동봉해 사용합니다).
-
-실행 후 Container Manager를 한 번 재시작하세요:
+**7.5가 분기점입니다** — CUDA 13.0은 그 미만 아키텍처의 코드 생성을 중단했습니다.
+Pascal 카드에 580을 설치해도 CUDA 13이 열리지는 *않습니다*.
 
 ```bash
-sudo /usr/syno/bin/synopkg restart ContainerManager
+sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
 ```
 
-그다음 테스트:
+> ⚠️ **`nvidia-smi` 헤더의 CUDA 버전을 그대로 믿지 마세요.** 그건 *드라이버의*
+> 최대치이지 GPU의 능력이 아닙니다. 판단 기준은 `compute_cap`입니다.
 
-```bash
-docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
-  nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi
-```
+<br>
 
-> **`--gpus all`이 아니라 `--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all`을
-> 쓰세요.** `--gpus` 플래그는 Docker 25+의 CDI 지원이 필요한데, Synology
-> Container Manager(이 글 작성 시점 24.0.2)는 이를 갖고 있지 않고 그 버전은
-> Synology가 정합니다(사용자가 올릴 수 없음). 레거시 `--runtime=nvidia` +
-> 환경변수 방식은 Docker 버전과 무관하게 동작하며, NVIDIA의 `cuda`/`pytorch`
-> 이미지들이 이미 기대하는 방식이기도 합니다(다수가 `NVIDIA_VISIBLE_DEVICES`를
-> 이미지 자체에 설정해 둡니다).
+> 💡 **트랜스코딩에는 CUDA가 무관합니다.** Plex와 Jellyfin은 CUDA 툴킷이 아니라
+> 전용 NVENC/NVDEC 엔진을 씁니다. 하드웨어 트랜스코딩이 안 보인다면 십중팔구
+> 위에서 말한 캐시된 장치 목록 문제입니다 — 패키지를 재시작하세요.
 
-`uninstall.sh`가 이 모든 것을 역순으로 되돌립니다 — 백업이 있으면 `daemon.json`을
-그걸로 복원하고(없으면 `nvidia` 키만 제거), 런타임 파일을 삭제합니다. 전체
-설계 내용과, 작업 중 발견한 다섯 가지 비직관적인 함정(`/tmp` noexec, 시스템
-`ldconfig` 부재, 훅 경로 등 — 전부 수정하고 실기에서 왕복 검증 완료)은
-[docs/container-runtime-design.md](docs/container-runtime-design.md)에 정리돼
-있습니다. 실제로 Quadro P620과 통신하는 컨테이너 안에서 `nvidia-smi`가 정상
-동작하는 것까지 확인했습니다.
+<br>
+
+---
+
+<br>
 
 ## 🧹 제거
 
@@ -690,268 +661,19 @@ curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/u
   <img src="docs/uninstall.svg" alt="uninstall.sh 실행 화면" width="660">
 </p>
 
----
-
-## 지원 플랫폼 & 드라이버 버전
-
-**커널 5.10.55(kver5)** 와 **커널 4.4(kver4)** Synology 플랫폼을 모두 지원합니다.
-각 칸은 [`nvidia`](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/nvidia)
-Release에 올라간 사전 빌드 `.ko`이며, 공유 userspace 레이어
-(`nv-userspace-<ver>.tgz`)는 드라이버 버전별로 모든 플랫폼·커널에서 동일합니다.
-
-### 커널 5.10.55 플랫폼 — 4개 브랜치 전부
-
-| 플랫폼 | 예시 모델 | 470.256.02 | 535.230.02 | 550.163.01 | **580.173.02** |
-|---|---|:---:|:---:|:---:|:---:|
-| `epyc7002`      | SA6400                          | ✅ | ✅ | ✅ | ✅ |
-| `epyc7003`      | FS6420                          | ✅ | ✅ | ✅ | ✅ |
-| `epyc7003ntb`   | PAS7700                         | ✅ | ✅ | ✅ | ✅ |
-| `icelaked`      | FS3420 / RS3626xs / RS4826xs+   | ✅ | ✅ | ✅ | ✅ |
-| `v1000nk`       | (Ryzen Embedded V1000, no-key)  | ✅ | ✅ | ✅ | ✅ |
-| `r1000nk`       | (Ryzen Embedded R1000, no-key)  | ✅ | ✅ | ✅ | ✅ |
-| `geminilakenk`  | DS225+ / DS425+                 | ✅ | ✅ | ✅ | ✅ |
-
-### 커널 4.4 플랫폼 — 550 전용
-
-**커널 4.4에서는 550.163.01이 상한**이며, 이는 패키징 선택이 아니라 NVIDIA가 정한
-것입니다. 560부터 `common/inc/nv-linux.h`가
-`#error "This driver does not support kernels older than Linux 4.15!"` 로 즉시
-중단합니다 — 560 / 570 / 575 / 580을 실제로 받아 빌드해 전부 확인했습니다.
-
-같은 플랫폼이라도 DSM 릴리즈에 따라 커널이 달라지고 vermagic은 정확히 일치해야
-하므로, **커널 버전별로** 모듈을 따로 발행합니다:
-
-| 플랫폼 | 예시 모델 | DSM 7.0 / 7.1 (4.4.180) | DSM 7.2 / 7.3 / 7.4 (4.4.302) |
-|---|---|:---:|:---:|
-| `apollolake`      | DS918+ / DS620slim / DS1019+  | ✅ | ✅ |
-| `broadwell`       | DS3617xs / RS3617xs+          | ✅ | ✅ |
-| `broadwellnk`     | DS3622xs+ / RS4021xs+         | ✅ | ✅ |
-| `broadwellnkv2`   | RS3621xs+                     | ✅ | ✅ |
-| `broadwellntbap`  | SA3400                        | ✅ | ✅ |
-| `geminilake`      | DS220+ / DS420+ / DS720+      | ✅ | ✅ |
-| `purley`          | FS6400 / HD6500               | ✅ | ✅ |
-| `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
-| `v1000`           | DS1621+ / DS1821+ / DS2422+   | ✅ | ✅ |
-
-- **`denverton`은 의도적으로 제외했습니다.** 이 플랫폼은 DSM이 DVA(Deep Video
-  Analytics)용 바닐라 NVIDIA 드라이버를 이미 제공하므로 설치 대상이 아닙니다.
-- 설치 스크립트는 **플랫폼명이 아니라 `uname -r`** 로 빌드를 고릅니다. DSM을
-  업그레이드해 4.4.180 → 4.4.302 경계를 넘으면(7.1 → 7.2) 부팅 훅이 불일치를 감지해
-  무효가 된 모듈 로드를 거부하고 이유를 로그에 남깁니다 — 설치를 다시 실행하면 맞는
-  빌드를 받습니다.
-- `avoton` / `braswell` / `bromolow`(커널 **3.10.108**)는 **미지원**입니다. 550의
-  하한(2.6.32)상 이론적으로는 가능하나 검증하지 않았습니다.
-- 이 4.4 빌드들은 아직 **실기 검증 전**입니다 — 모듈이 정상 생성되고 vermagic도
-  맞지만, GPU가 장착된 4.4 박스에서 실제 로드까지 확인하지는 못했습니다.
-
-| 브랜치 | GPU 커버리지 | 네이티브 CUDA | 비고 |
-|---|---|:---:|---|
-| **470.256.02** | Kepler … Ampere | 11.4 | 레거시 LTSB — 535 이상이 버린 구형 GPU용. ffmpeg 레이어는 `jellyfin-ffmpeg 5.1.2-9`(NVENC API 11.1) 고정이며 535/550용 ffmpeg와 절대 섞으면 안 됩니다. |
-| **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. P620 검증. ffmpeg `6.0.1-8`(NVENC 12.0). |
-| **550.163.01** | Maxwell … Ada | 12.4 | ffmpeg `7.0.2-9`(NVENC SDK 12.0, 535 와 동일 핀). |
-| **580.173.02** | Maxwell … Ampere(Turing/GA10x) | **13.0** | 최신이자 **Maxwell/Pascal/Volta를 지원하는 마지막 브랜치**. P620에서 Plex 하드웨어 트랜스코딩까지 검증. Turing/Ampere(GA10x)용 GSP 펌웨어는 확보되어 **설치 스크립트가 자동 배치**합니다. Ada(RTX 40)/Blackwell(RTX 50)은 이 `.run`에 해당 펌웨어가 없어 여전히 경고 게이트가 적용됩니다. ffmpeg `7.1.4-3`. |
-
-- **대부분의 GPU에는 580이 권장 브랜치입니다.** 535/550을 대체하며(드라이버 측에서는
-  동일한 Maxwell→Ada 커버리지), Pascal이 실행할 수 있는 CUDA를 12.4에서 **12.9**로
-  올려줍니다. Kepler 세대 카드만 여전히 470이 필요합니다.
-- **Turing / Ampere(GA10x)용 GSP 펌웨어**(RTX 20xx, T4, GTX 16xx, RTX 30xx, A10)는
-  공식 `.run`에서 추출해 동봉했으며(`nv-gsp-580.173.02.tgz`), 설치 스크립트가 드라이버
-  로드 전에 `/lib/firmware/nvidia/580.173.02/`에 자동으로 배치합니다. 580을 선택하는
-  것 외에 별도 조치가 필요 없습니다.
-- ⚠️ **Ada(RTX 40)/Blackwell(RTX 50)** 도 GSP 펌웨어가 필요하지만, NVIDIA의
-  580.173.02 `.run`에는 `gsp_ad10x.bin`이나 Blackwell용 blob이 **들어있지 않습니다** —
-  설치 스크립트가 이를 감지해 진행 전 경고합니다(드라이버는 설치되지만 초기화에
-  실패함). 해당 GPU는 당분간 535/550을 사용하세요.
-- kver5에서는 플랫폼당 하나의 `.ko`가 **DSM 7.1–7.4**를 모두 커버합니다 —
-  `CONFIG_MODVERSIONS`가 꺼져 있고 vermagic(`5.10.55+ SMP mod_unload`)이 해당 DSM
-  릴리즈 전체에서 동일해, 모듈 로드를 오직 vermagic만 판정하기 때문입니다.
-  **커널 4.4 플랫폼은 이 성질이 성립하지 않습니다** — DSM 7.0/7.1은 `4.4.180+`,
-  7.2+는 `4.4.302+`라 각각 별도 빌드가 필요하고, 설치 스크립트가 커널 버전으로
-  판별합니다.
+<br>
 
 ---
 
-## CUDA 버전 — 내 GPU에 실제로 적용되는 것
+<br>
 
-혼동이 잦은 부분이라 정확히 짚습니다. **서로 독립적인 두 가지**가 사용 가능한 CUDA를 결정합니다:
+## 🛠️ 소스에서 빌드하기
 
-| | 결정 주체 | 제한하는 것 |
-|---|---|---|
-| **드라이버** | 설치한 브랜치 | 드라이버가 지원하는 최대 CUDA API |
-| **GPU 아키텍처**(compute capability) | 실리콘 — 변경 불가 | 어떤 CUDA 툴킷 버전이 **코드를 생성**해줄 수 있는지 |
+빌드/생산자 측 문서는 **[DEVELOPING.md](DEVELOPING.md)** 를 참고하세요 —
+툴체인, 2층 패키징, 배포, 호환 패치 관련 내용이 담겨 있습니다.
 
-CUDA 13.0은 **compute capability 7.5(Turing) 미만**에 대한 코드 생성을 삭제했습니다.
-따라서 Pascal 카드에 580을 설치해도 CUDA 13.0이 열리지 **않습니다** — CUDA 13 빌드에는
-Pascal용 바이너리가 애초에 없기 때문입니다. 드라이버는 하위 호환이므로 580 드라이버는
-CUDA 12.x 애플리케이션을 문제없이 실행합니다.
+<br>
 
-| Compute cap. | 아키텍처 | 예시 GPU | **사용 가능 최대 CUDA** |
-|:---:|---|---|:---:|
-| 6.0 / 6.1 | Pascal | **Quadro P620 / P1000**, Tesla **P4 / P40 / P100**, GTX 10xx | **12.9** |
-| 7.0 | Volta | Tesla V100 | 12.9 |
-| **7.5** | **Turing** | **Tesla T4**, RTX 20xx | **13.0** |
-| 8.0 / 8.6 | Ampere | A100 / A10, RTX 30xx | 13.0 |
-| 8.9 | Ada | L4 / L40S, RTX 40xx | 13.0 |
-| 12.0 | Blackwell | RTX 50xx | 13.0 |
-
-**7.5가 분기점입니다.** 미만이면 상한 12.9, 이상이면 13.0. 상위 카드는 하위 CUDA를 모두
-실행합니다.
-
-### 내 GPU의 실제 CUDA 상한 확인 방법
-
-```bash
-sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
-```
-```
-name, compute_cap, driver_version
-Quadro P620, 6.1, 580.173.02      →  cc 6.1 = Pascal  →  CUDA 최대 12.9
-```
-
-> **`nvidia-smi` 헤더의 CUDA 버전을 믿지 마세요.** 위 P620에서도 `CUDA Version: 13.0`으로
-> 표시되지만 이는 *드라이버의* 최대치일 뿐이고, 그 GPU는 여전히 CUDA 13.0을 실행할 수
-> 없습니다. 판정하는 값은 `compute_cap`입니다.
-
-`compute_cap` 쿼리는 드라이버 **510 이상**에서만 지원되므로 470에서는 사용할 수 없습니다.
-그 경우 모델명(`sudo nvidia-smi -q | grep "Product Name"`)을 확인해 위 표에서 찾으세요.
-
-애플리케이션이 실제로 무엇을 받는지는 컨테이너 안에서 확인합니다:
-
-```bash
-python3 -c "import torch; print(torch.version.cuda, torch.cuda.get_device_capability(), torch.cuda.is_available())"
-# 예: 12.4 (6, 1) True   →  툴킷 12.4, compute capability 6.1, 사용 가능
-```
-
-### 트랜스코딩에는 CUDA가 무관합니다
-
-Plex와 Jellyfin은 트랜스코딩에 CUDA 툴킷을 **쓰지 않습니다** — `libnvidia-encode.so.1` /
-`libnvcuvid.so.1`을 통해 전용 **NVENC/NVDEC** 엔진을 사용합니다. NVENC은 하위 호환이므로
-신형 드라이버가 플레이어의 구형 NVENC 코드를 문제없이 실행합니다. 하드웨어 트랜스코딩이
-안 보인다면 원인은 대개 위에서 설명한 낡은 장치 목록(패키지 재시작 필요)이지 CUDA 버전
-불일치가 아닙니다.
-
-실제로 깨지는 것은 반대 방향입니다 — **구형 드라이버 + 너무 새로운 ffmpeg**(예: 470 +
-NVENC 12.x 빌드). 각 브랜치에 맞는 ffmpeg 레이어를 고정해 둔 이유가 이것입니다.
-
-### 어떤 커널을 지원하며, 왜 커널 4.4에서는 550이 상한인가요?
-
-이 드라이버는 로드되는 **정확한 Synology 커널**과 일치해야 하는 커널 모듈(`.ko`)로
-배포됩니다 — 로드 시 vermagic 문자열을 비교하며, 그 외에는 아무것도 보지 않습니다.
-
-**한계는 NVIDIA가 정한 것이고, 550과 560 사이에 있습니다.** 각 브랜치는
-`common/inc/nv-linux.h`에 명시적 하한을 갖습니다:
-
-| 브랜치 | 선언된 커널 하한 |
-|---|---|
-| 470 / 535 / **550** | `2.6.32` |
-| 560 / 570 / 575 / 580 | **`4.15`** — `#error "This driver does not support kernels older than Linux 4.15!"` |
-
-추정이 아니라 실측입니다: 560 / 570 / 575 / 580을 각각 내려받아 4.4.302 트리로
-빌드해봤고, 넷 다 컴파일 전에 저 `#error`에서 멈춥니다. 550은 끝까지 빌드되어
-`4.4.302+ SMP mod_unload` vermagic을 가진 모듈을 만들어냅니다. 즉 커널 4.4에서는
-NVIDIA 소스를 직접 고치지 않는 한 **550이 답이고 우회로가 없습니다**.
-
-**한 가지 기록해둘 함정이 있습니다.** 커널 지원 문제처럼 보였지만 아니었던 건인데,
-이 프로젝트는 Synology가 `CONFIG_X86_PAT`를 끄고 빌드하는 것에 대응해 `nv-pat.c` /
-`nv-linux.h`를 패치합니다. 그런데 이 패치는 **5.10 전용**입니다 — `__flush_tlb()`를
-`native_write_cr3(__native_read_cr3())`로 바꾸는데, `__native_read_cr3`는 4.9부터
-생긴 심볼입니다. 그래서 4.4 트리에 이 패치를 적용하면 원본에는 없던 빌드 실패를
-*만들어냅니다*(4.4는 `__flush_tlb()`를 직접 정의하고 `native_write_cr4()`도 평범한
-static inline이라 고칠 것이 애초에 없습니다). 이제 `build-nvidia.sh`가 커널 헤더를
-검사해, 커널이 `__flush_tlb()`를 이미 제공하면 이 블록을 건너뜁니다.
-
-**커널 3.10(`avoton` / `braswell` / `bromolow`)은 배포하지 않습니다.** 550의 하한
-2.6.32상 서류상으로는 가능하지만 빌드·테스트를 하지 않았고, GPU passthrough를 쓰는
-구성 자체가 드문 세대입니다.
-
----
-
-## 소개 (빌드 / 생산자 측)
-
-커널 5.10.55 및 커널 4.4 Synology DSM 플랫폼용 **무인증 NVIDIA 드라이버**(2층 패키지)를 빌드합니다. 물리 /
-passthrough GPU 전용 — **vGPU · 라이선스 서버 없음**(pdbear의 폐쇄 SPK와 다름). GPU마다
-여러 드라이버 버전을 제공합니다.
-
-이 repo는 **빌드/생산자** 측입니다. `dante90/syno-compiler:<DSM>` 컨테이너(mshell-modules가
-쓰는 것과 동일한 툴체인 base)를 빌려 쓰지만, mshell-modules · tcrp-addons 양쪽으로부터
-독립적입니다.
-
-### 구조상 위치
-
-```
-mshell-modules ── 제공 ──> dante90/syno-compiler:<DSM>  +  /opt/<platform>/build
-                                     │ (컨테이너 + 커널 트리만 재사용, repo 트리는 아님)
-                                     ▼
-        이 REPO (syno_nvidia_driver, 빌드 VM 192.168.45.139에 클론)
-          build-nvidia.sh → 2층 tgz → GitHub Release (tag: nvidia)
-                                     │
-                                     ▼
-        tcrp-addons/nvidiadriver  ── 소비자: install.sh + nvidia-index.json
-          (Release URL 참조; loader가 빌드 시점에 fetch → DSM)
-```
-
-NVIDIA의 **오픈** 커널 인터페이스 glue만 재컴파일해 폐쇄 `nv-kernel` blob과 링크하므로,
-`.ko`의 vermagic + `CONFIG_MODVERSIONS` CRC가 정확한 DSM 커널과 일치합니다(이슈 #77의
-"Unknown symbol" 실패에 대한 해결책).
-
-### 2층 패키징
-
-| 레이어 | 파일 | 범위 |
-|---|---|---|
-| 커널 | `nv-ko-<ver>-<platform>-<kvershort>.tgz` | **플랫폼별** (~MB) |
-| userspace | `nv-userspace-<ver>.tgz` | **버전별** 1개, x86_64 공통(모든 플랫폼·커널 공유) |
-
-### 빌드 (VM 192.168.45.139에서)
-
-```bash
-ssh dante90@192.168.45.139
-git -C ~/syno_nvidia_driver pull            # 항상 먼저 동기화
-cd ~/syno_nvidia_driver
-# .run 을 한 번 받는다 (오픈 glue + 폐쇄 nv-kernel blob)
-curl -kLo run/NVIDIA-Linux-x86_64-535.183.06.run \
-  https://us.download.nvidia.com/XFree86/Linux-x86_64/535.183.06/NVIDIA-Linux-x86_64-535.183.06.run
-./run-on-vm.sh 535.183.06 epyc7002 7.4      # <ver> <platform> <DSM_VER>
-```
-
-결과물은 `out/`에 생성되며, sha256을 포함한 `nvidia-index.json` fragment가 출력됩니다.
-
-### 배포
-
-1. `out/*.tgz` 두 개를 이 repo의 **`nvidia`** 태그 Release에 업로드합니다.
-2. 출력된 fragment를 `tcrp-addons/nvidiadriver/src/nvidia-index.json`에 붙여넣고
-   tcrp-addons를 push합니다.
-
-### 참고 / 한계
-
-- `.ko`는 서명되지 않아 DSM이 `module verification failed … tainting`을 남깁니다 —
-  무해합니다(`MODULE_SIG_FORCE` 미설정, 모듈은 정상 로드).
-- **5.10.55**에서는 470/535/550/580이 모두 정상 빌드됩니다(각각 검증 — vermagic
-  일치, `nvUvmInterface` export 확인). **4.4.x**에서는 550이 상한이며, 560 이상은
-  `#error "... older than Linux 4.15!"`로 즉시 거부합니다(560/570/575/580 실측).
-  아래 PAT 호환 패치는 4.4에서 **건너뛰어야** 합니다 — 5.10 API를 겨냥해
-  `__native_read_cr3`를 주입하는데 4.4에는 없는 심볼입니다. `build-nvidia.sh`가
-  커널 헤더를 보고 자동 판별합니다.
-- **호환 패치의 위치는 브랜치마다 이동합니다.** Synology는 `CONFIG_X86_PAT`를 끈 채
-  빌드하므로 NVIDIA의 builtin-PAT 경로가 강제되고, 이 경로가 쓰는 `__flush_tlb()`와
-  `__write_cr4()`는 5.10에서 모듈이 사용할 수 없습니다. `build-nvidia.sh`가 둘 다
-  치환하지만 *위치*가 바뀝니다 — 550 이하는 CR4 쓰기를 `common/inc/nv-linux.h`에 두었고,
-  580은 `nvidia/nv-pat.c`에서 다른 인자 형태로 직접 호출합니다. 그래서 패처는 트리를
-  탐색하며, **호출부가 하나라도 남으면 빌드를 중단합니다** — 조용히 건너뛴 패치는 예전에
-  무관해 보이는 `native_write_cr4 undefined` modpost 에러로만 드러났기 때문입니다.
-- R515+ 브랜치는 Turing 이상에서 **GSP 펌웨어**를 로드합니다. 공식 `.run`에서
-  추출했으며(`gsp_tu10x.bin` + `gsp_ga10x.bin`만 존재 — Ada/Blackwell용 blob은
-  없음), `nv-gsp-<ver>.tgz`로 패키징해 `install.sh`가 커널 모듈 로드 **전에**
-  `/lib/firmware/nvidia/<ver>/`에 배치합니다(GSP는 probe 시점에
-  `request_firmware()`로 요청되므로 순서가 중요합니다). `/lib/firmware`는 다른
-  파일들과 같은 rw 루트에 있어 재부팅 후에도 유지되고 재배치가 필요 없습니다.
-  펌웨어가 없는 GSP 필요 GPU(Ada/Blackwell)는 여전히 `install.sh`의 경고
-  게이트에 걸립니다.
-  **한계: 다운로드/sha256/배치까지 단위 검증은 했으나, 실제 Turing/Ampere
-  하드웨어로는 아직 검증하지 못했습니다** — 이번 세션에 접근 가능한 유일한
-  박스가 Pascal GPU라 GSP 경로 자체가 스킵됩니다.
-
-### 작업 규칙
-
-소스 변경 → **여기서 먼저 commit/push** → VM에서 **`git pull`** → 그다음 빌드.
-커밋되지 않은 로컬 변경으로는 절대 빌드하지 않습니다.
+<sub>💖 [후원](https://github.com/sponsors/PeterSuh-Q3) · [PayPal](https://paypal.me/PeterSuhQ3)</sub>
 
 </details>
