@@ -4,10 +4,24 @@
 <img src="https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2FPeterSuh-Q3%2Fsyno_nvidia_driver&label=&icon=github&message=&style=flat&tz=UTC">
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/PeterSuh-Q3)
 
-**NVIDIA driver for Synology DSM — no license server, no authentication.**
+**NVIDIA driver for Synology DSM — nothing to buy, nothing to sign in to.**
 
 Physical / passthrough GPUs. One command installs it, survives reboots, and
 enables hardware transcoding in Plex and Jellyfin.
+
+<br>
+
+> 💡 **Why does that need saying?**
+>
+> The other way people get an NVIDIA GPU running on DSM goes through NVIDIA's
+> **vGPU** stack — a paid, licensed product that needs a **license server** on
+> your network, which the driver checks in with periodically to keep working.
+> It exists so one physical GPU can be split across many virtual machines.
+>
+> **A NAS doing transcoding needs none of that.** This driver talks to the card
+> directly, exactly the way a normal Linux desktop does. No license, no server,
+> no account. The trade-off is that you can't partition the GPU across VMs —
+> which is not something home users do.
 
 <br>
 
@@ -346,10 +360,24 @@ See **[DEVELOPING.md](DEVELOPING.md)** for the build/producer side — toolchain
 
 # syno_nvidia_driver
 
-**Synology DSM용 NVIDIA 드라이버 — 라이선스 서버도, 인증도 없습니다.**
+**Synology DSM용 NVIDIA 드라이버 — 살 것도, 로그인할 것도 없습니다.**
 
 물리 / passthrough GPU 전용. 명령 한 줄로 설치되고, 재부팅해도 유지되며,
 Plex와 Jellyfin의 하드웨어 트랜스코딩을 활성화합니다.
+
+<br>
+
+> 💡 **이 말이 왜 필요한가요?**
+>
+> DSM에서 NVIDIA GPU를 쓰는 다른 방식은 NVIDIA의 **vGPU** 스택을 거칩니다.
+> 유료 라이선스 제품이라 **네트워크에 라이선스 서버**를 띄워야 하고, 드라이버가
+> 주기적으로 그 서버에 확인을 받아야 계속 동작합니다. 물리 GPU 하나를 여러
+> 가상머신에 쪼개 쓰라고 만들어진 물건입니다.
+>
+> **트랜스코딩하는 NAS에는 그런 게 전혀 필요 없습니다.** 이 드라이버는 일반
+> 리눅스 데스크톱과 똑같이 그래픽카드와 직접 통신합니다. 라이선스도, 서버도,
+> 계정도 없습니다. 대신 GPU를 여러 VM에 쪼갤 수는 없는데, 가정에서 쓸 일이
+> 없는 기능입니다.
 
 <br>
 

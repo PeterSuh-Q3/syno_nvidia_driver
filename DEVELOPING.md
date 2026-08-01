@@ -7,9 +7,11 @@
 
 ## 📦 About
 
-Builds the **no-auth NVIDIA driver** (2-layer package) for Synology DSM
-platforms on kernel 5.10.55 and kernel 4.4. Physical / passthrough GPUs only — **no vGPU / license server**
-(unlike pdbear's closed SPK). Multiple driver versions per GPU.
+Builds the NVIDIA driver (2-layer package) for Synology DSM platforms on
+kernel 5.10.55 and kernel 4.4. Physical / passthrough GPUs only — no vGPU, so
+no license server to run (unlike pdbear's closed SPK). Multiple driver
+versions per GPU. See the [README](README.md#-install) for what that means
+for an end user.
 
 This repo is the **build/producer** side. It borrows the
 `dante90/syno-compiler:<DSM>` container (the same toolchain base mshell-modules
@@ -118,9 +120,11 @@ Never build from uncommitted local changes.
 
 ## 📦 소개
 
-커널 5.10.55 및 커널 4.4 Synology DSM 플랫폼용 **무인증 NVIDIA 드라이버**(2층 패키지)를 빌드합니다. 물리 /
-passthrough GPU 전용 — **vGPU · 라이선스 서버 없음**(pdbear의 폐쇄 SPK와 다름). GPU마다
-여러 드라이버 버전을 제공합니다.
+커널 5.10.55 및 커널 4.4 Synology DSM 플랫폼용 NVIDIA 드라이버(2층 패키지)를
+빌드합니다. 물리 / passthrough GPU 전용 — vGPU를 쓰지 않으니 라이선스 서버도
+필요 없습니다(pdbear의 폐쇄 SPK와 다름). GPU마다 여러 드라이버 버전을
+제공합니다. 이게 일반 사용자에게 무슨 의미인지는 [README](README.md#-설치)
+참고.
 
 이 repo는 **빌드/생산자** 측입니다. `dante90/syno-compiler:<DSM>` 컨테이너(mshell-modules가
 쓰는 것과 동일한 툴체인 base)를 빌려 쓰지만, mshell-modules · tcrp-addons 양쪽으로부터
