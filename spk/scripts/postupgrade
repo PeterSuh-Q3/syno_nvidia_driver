@@ -1,0 +1,8 @@
+#!/bin/sh
+# Re-run the same one-time setup postinst does. Safe to repeat: every step in
+# postinst (cp -f, ln -sf, mkdir -p, echo > marker) is idempotent/overwriting,
+# not additive, and start-stop-status's own start action is likewise
+# idempotent (insmod on an already-loaded module just fails harmlessly and is
+# logged, mknod checks -e first, dockerd.json/service-setup patches check
+# current state before writing).
+exec "$(dirname "$0")/postinst" "$@"

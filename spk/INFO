@@ -1,0 +1,25 @@
+package="syno-nvidia-driver"
+version="580.173.02-1"
+displayname="Synology NVIDIA Driver"
+description="No-auth NVIDIA driver (kernel modules + userspace) for physical/passthrough GPUs. No vGPU, no license server."
+arch="__PACKAGE_ARCHES__"
+os_min_ver="__OS_MIN_VER__"
+maintainer="PeterSuh-Q3"
+maintainer_url="https://github.com/PeterSuh-Q3/syno_nvidia_driver"
+distributor="PeterSuh-Q3"
+distributor_url="https://github.com/PeterSuh-Q3/syno_nvidia_driver"
+support_url="https://github.com/PeterSuh-Q3/syno_nvidia_driver/issues"
+thirdparty="yes"
+beta="false"
+# There is no persistent daemon process here, only kernel modules that must
+# be (re)inserted on every boot. DSM invokes start-stop-status's "start"
+# action at boot regardless of these flags (confirmed by syno-amdgpu-driver's
+# working package) - they only control whether a Start/Stop button is shown
+# in Package Center. Hiding them is deliberate: unloading nvidia.ko while a
+# process still holds the GPU open can hang the box, so this must not be a
+# button a user can casually click.
+startable="no"
+ctl_stop="no"
+ctl_uninstall="yes"
+support_conf_folder="yes"
+install_dep_packages=""

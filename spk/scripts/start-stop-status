@@ -1,0 +1,101 @@
+#!/bin/sh
+# DSM calls this at every boot regardless of the INFO startable/ctl_stop
+# flags (confirmed by syno-amdgpu-driver's working package) - those flags
+# only hide the Start/Stop buttons in Package Center. "start" is therefore
+# the real boot hook: it does exactly what tcrp-addons/nvidiadriver's
+# rc.d/nvidia.sh does for the mshell addon, just invoked by DSM's package
+# framework instead of a hand-written rc.d unit.
+set -u
+RUNTIME="${SYNOPKG_PKGDEST:-/var/packages/syno-nvidia-driver/target}"
+RCLOG=/var/log/nvidia-driver.log
+rclog(){ echo "$(date '+%H:%M:%S') start-stop-status: $*" >> "$RCLOG" 2>/dev/null; }
+
+do_start() {
+  rclog "=== start ==="
+
+  # Platform/kernel guard: identical reasoning to the mshell addon's
+  # rc.d/nvidia.sh. vermagic alone cannot catch a platform mismatch (it is
+  # textually identical across every kver5 platform), and a DSM upgrade can
+  # move the same platform to a different kernel point release.
+  CURP="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
+  CURK="$(uname -r | sed 's/[^0-9.].*$//')"
+  STORED="$(cat /usr/lib/modules/.nvidia-platform 2>/dev/null)"
+  STOREDP="${STORED%% *}"
+  STOREDK=""; case "$STORED" in *" "*) STOREDK="${STORED##* }" ;; esac
+  if [ -n "$STOREDP" ] && [ "$STOREDP" != "$CURP" ]; then
+    rclog "SKIPPED: installed .ko are for platform '$STOREDP' but running on '$CURP'"
+    return 0
+  fi
+  if [ -n "$STOREDK" ] && [ "$STOREDK" != "$CURK" ]; then
+    rclog "SKIPPED: installed .ko are for kernel '$STOREDK' but running '$CURK' (DSM upgraded?) - reinstall this package"
+    return 0
+  fi
+
+  for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
+    if [ -f "/usr/lib/modules/$m.ko" ]; then
+      if /sbin/insmod "/usr/lib/modules/$m.ko" 2>>"$RCLOG"; then rclog "insmod $m OK"; else rclog "insmod $m FAILED (see above)"; fi
+    fi
+  done
+
+  NGPU=$(ls -d /proc/driver/nvidia/gpus/* 2>/dev/null | wc -l); [ "$NGPU" -ge 1 ] || NGPU=1
+  MAJOR=$(awk '$2=="nvidia-frontend"||$2=="nvidia"{print $1}' /proc/devices | head -1)
+  if [ -n "$MAJOR" ]; then
+    [ -e /dev/nvidiactl ] || mknod -m 666 /dev/nvidiactl c "$MAJOR" 255
+    n=0; while [ "$n" -lt "$NGPU" ]; do [ -e "/dev/nvidia$n" ] || mknod -m 666 "/dev/nvidia$n" c "$MAJOR" "$n"; n=$((n+1)); done
+  fi
+  UMAJOR=$(awk '$2=="nvidia-uvm"{print $1}' /proc/devices | head -1)
+  [ -n "$UMAJOR" ] && [ ! -e /dev/nvidia-uvm ] && mknod -m 666 /dev/nvidia-uvm c "$UMAJOR" 0
+  [ -e /dev/nvidia-modeset ] || "$RUNTIME/bin/nvidia-modprobe" -m 2>/dev/null || true
+
+  [ -x /sbin/ldconfig ] && /sbin/ldconfig 2>/dev/null || true
+
+  # Container Manager runtime re-assertion (only if the optional layer was
+  # staged - same idempotent merge the mshell addon does).
+  CRDIR=/usr/local/nvidia-runtime
+  DJ=/var/packages/ContainerManager/etc/dockerd.json
+  if [ -x "$CRDIR/bin/nvidia-container-runtime" ] && [ -f "$DJ" ] && command -v jq >/dev/null 2>&1; then
+    CUR="$(jq -r '.runtimes.nvidia.path // empty' "$DJ" 2>/dev/null)"
+    if [ "$CUR" != "$CRDIR/bin/nvidia-container-runtime" ]; then
+      NEWDJ="$(jq --arg p "$CRDIR/bin/nvidia-container-runtime" '.runtimes.nvidia = {"path": $p, "runtimeArgs": []}' "$DJ" 2>/dev/null)"
+      [ -n "$NEWDJ" ] && echo -E "$NEWDJ" > "$DJ" && rclog "container runtime: re-registered 'nvidia' in dockerd.json"
+    fi
+  elif [ -f "$DJ" ] && command -v jq >/dev/null 2>&1; then
+    CUR="$(jq -r '.runtimes.nvidia.path // empty' "$DJ" 2>/dev/null)"
+    if [ "$CUR" = "$CRDIR/bin/nvidia-container-runtime" ]; then
+      NEWDJ="$(jq 'del(.runtimes.nvidia)' "$DJ" 2>/dev/null)"
+      [ -n "$NEWDJ" ] && echo -E "$NEWDJ" > "$DJ" && rclog "container runtime: removed stale 'nvidia' entry (layer not installed)"
+    fi
+  fi
+
+  # Jellyfin ffmpeg path + hardware-transcoding auto-configuration (only if
+  # the ffmpeg layer and the helper script were staged by postinst).
+  NVFF=/usr/local/nvidia/bin/ffmpeg
+  JF_SS=/var/packages/jellyfin/scripts/service-setup
+  if [ -x "$NVFF" ] && [ -f "$JF_SS" ] && grep -q -- '--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg' "$JF_SS"; then
+    cp -n "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
+    if sed -i "s#--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg#--ffmpeg $NVFF#" "$JF_SS" 2>/dev/null; then
+      chown root:root "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
+      chmod 755 "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
+      rclog "jellyfin: ffmpeg path repointed to $NVFF"
+    fi
+  fi
+  JF_AC="$RUNTIME/bin/jellyfin-autoconfig.sh"
+  JF_CFG=/var/packages/jellyfin/var/config/encoding.xml
+  if [ -x "$JF_AC" ] && [ -x "$NVFF" ] && [ -f "$JF_CFG" ]; then
+    OUT="$("$JF_AC" "$JF_CFG" "$NVFF" "$(cat /usr/lib/modules/.nvidia-gpuarch 2>/dev/null)" 2>&1)"
+    [ -n "$OUT" ] && rclog "$OUT"
+  fi
+
+  rclog "loaded: $(lsmod 2>/dev/null | grep -c '^nvidia') nvidia modules; nodes: $(ls /dev/nvidia* 2>/dev/null | tr '\n' ' ')"
+  rclog "=== start done ==="
+  return 0
+}
+
+case "${1:-}" in
+  start)  do_start ;;
+  status) exit 0 ;;
+  stop)   exit 0 ;;
+  log)    exit 1 ;;
+  *)      exit 1 ;;
+esac
+exit 0

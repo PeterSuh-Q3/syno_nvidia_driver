@@ -1,0 +1,5 @@
+#!/bin/sh
+# Same reasoning as syno-amdgpu-driver: nothing needs to be undone before an
+# upgrade. postupgrade re-runs postinst against the new payload in place,
+# which already overwrites every file this package owns.
+exit 0
