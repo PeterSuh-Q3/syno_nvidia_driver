@@ -32,7 +32,7 @@ enables hardware transcoding in Plex and Jellyfin.
 ## 🚀 Install
 
 ```bash
-curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
+curl -sL https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia/install.sh | sudo bash
 ```
 
 That's it. The installer detects your platform and GPU, picks the right driver,
@@ -400,7 +400,7 @@ sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
 ## 🧹 Uninstall
 
 ```bash
-curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/uninstall.sh | sudo bash
+curl -sL https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia/uninstall.sh | sudo bash
 ```
 
 <p align="center">
@@ -463,7 +463,7 @@ Plex와 Jellyfin의 하드웨어 트랜스코딩을 활성화합니다.
 ## 🚀 설치
 
 ```bash
-curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/install.sh | sudo bash
+curl -sL https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia/install.sh | sudo bash
 ```
 
 이게 전부입니다. 설치기가 플랫폼과 GPU를 자동 감지해 맞는 드라이버를 고르고,
@@ -830,7 +830,7 @@ sudo nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv
 ## 🧹 제거
 
 ```bash
-curl -sL https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main/uninstall.sh | sudo bash
+curl -sL https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia/uninstall.sh | sudo bash
 ```
 
 <p align="center">

@@ -38,9 +38,27 @@ banner(){
 }
 
 # --------------------------------------------------------- data / constants --
-REPO_RAW="https://raw.githubusercontent.com/PeterSuh-Q3/syno_nvidia_driver/main"
-IDX_URL="https://raw.githubusercontent.com/PeterSuh-Q3/tcrp-addons/main/nvidiadriver/src/nvidia-index.json"
-SUP_URL="https://raw.githubusercontent.com/PeterSuh-Q3/tcrp-addons/main/nvidiadriver/src/nvidia-gpu-support.json"
+# Pinned, not `main`: once a specific install.sh is baked into a released
+# .spk (or just recommended to a user via a "curl | bash" one-liner), it must
+# keep resolving the exact same script + index + GPU table it was verified
+# against. Floating on `main` meant a later commit to either repo could
+# silently change what a "final" build/one-liner actually installs, with no
+# way to tell after the fact which combination someone actually got.
+#
+# REPO_RAW: the "nvidia" GitHub Release tag, not the repo's default branch -
+# this is the same tag every driver/ffmpeg/gsp/container-runtime layer
+# already ships from (see release_base in nvidia-index.json), so the whole
+# distribution now resolves from one fixed point instead of two different
+# mutability models (a rolling branch for scripts, a stable tag for binaries).
+REPO_RAW="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia"
+# tcrp-addons' index/GPU-table files live on its default branch (junior
+# rebuilds fresh every boot there, so floating is correct for that consumer).
+# This installer instead pins to the exact commit verified against this
+# install.sh - bump it deliberately (and re-verify) when picking up upstream
+# changes, never silently.
+TCRP_ADDONS_SHA="40df760c9ebeafac00b8c61149c2b4dfe6141d1c"
+IDX_URL="https://raw.githubusercontent.com/PeterSuh-Q3/tcrp-addons/${TCRP_ADDONS_SHA}/nvidiadriver/src/nvidia-index.json"
+SUP_URL="https://raw.githubusercontent.com/PeterSuh-Q3/tcrp-addons/${TCRP_ADDONS_SHA}/nvidiadriver/src/nvidia-gpu-support.json"
 IDX=/tmp/nvi-index.json
 SUP=/tmp/nvi-support.json
 DL=/tmp/nv-install
