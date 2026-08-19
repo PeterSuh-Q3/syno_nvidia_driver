@@ -65,10 +65,14 @@ backup taken before it was ever patched.
 ## Verification
 
 ```
-733f6f05fa083beab1604b6fc4678a332a4e756192ba6e4cb5d3e8e8a92ec8e2  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
-0dd750e8f320607c37e4e7323cb12395f9205049f0d2e79d851fe00f4c8e10de  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
-8debaaed900879dc18c581e65e7747fb06d499a6eeef5e0c38587ca3c3ef78a3  syno-nvidia-driver-kver5-580.173.02-1.spk
+d2ec5c733dae47f892426d1725e15a7c0267af1cf6b7a9499b6bac4b06160ed0  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
+6730dadcfa2253b0c73dabadc12d4d2727114d8b82666a9b39c0e300e9d81517  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
+3eafb1a7f5344970522b8ea86f20826ef0344ca51c5c062e3e5de7fc0b6f4bf7  syno-nvidia-driver-kver5-580.173.02-1.spk
 ```
+
+Verified end-to-end on real hardware (epyc7002/SA6400 + Quadro P1000):
+`synopkg install` succeeds, all 4 NVIDIA kernel modules load, `nvidia-smi`
+correctly reports the GPU.
 
 ---
 
@@ -138,7 +142,10 @@ Jellyfin 연동이 설치되어 있으면 멱등적으로 재적용합니다. �
 ## 검증
 
 ```
-733f6f05fa083beab1604b6fc4678a332a4e756192ba6e4cb5d3e8e8a92ec8e2  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
-0dd750e8f320607c37e4e7323cb12395f9205049f0d2e79d851fe00f4c8e10de  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
-8debaaed900879dc18c581e65e7747fb06d499a6eeef5e0c38587ca3c3ef78a3  syno-nvidia-driver-kver5-580.173.02-1.spk
+d2ec5c733dae47f892426d1725e15a7c0267af1cf6b7a9499b6bac4b06160ed0  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
+6730dadcfa2253b0c73dabadc12d4d2727114d8b82666a9b39c0e300e9d81517  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
+3eafb1a7f5344970522b8ea86f20826ef0344ca51c5c062e3e5de7fc0b6f4bf7  syno-nvidia-driver-kver5-580.173.02-1.spk
 ```
+
+epyc7002(SA6400) + Quadro P1000 실기에서 end-to-end 검증 완료: `synopkg install`
+성공, NVIDIA 커널 모듈 4개 전부 로드, `nvidia-smi`가 GPU를 정상 인식.
