@@ -65,9 +65,9 @@ backup taken before it was ever patched.
 ## Verification
 
 ```
-d2ec5c733dae47f892426d1725e15a7c0267af1cf6b7a9499b6bac4b06160ed0  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
-6730dadcfa2253b0c73dabadc12d4d2727114d8b82666a9b39c0e300e9d81517  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
-3eafb1a7f5344970522b8ea86f20826ef0344ca51c5c062e3e5de7fc0b6f4bf7  syno-nvidia-driver-kver5-580.173.02-1.spk
+1483366c20e427807216dbaefb763697382c3bdd2efc707ded20bcbf73edf5ab  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
+3a80daf85880dde02ade2c6061e7eaca90acd57242fcfb6962bc4bbaaf172f46  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
+c05dffa2bb4ffc9b762b973cf159f0da5e48d3941378c6d688f70dc10f1ffe49  syno-nvidia-driver-kver5-580.173.02-1.spk
 ```
 
 Verified end-to-end on real hardware (epyc7002/SA6400 + Quadro P1000):
@@ -142,9 +142,9 @@ Jellyfin 연동이 설치되어 있으면 멱등적으로 재적용합니다. �
 ## 검증
 
 ```
-d2ec5c733dae47f892426d1725e15a7c0267af1cf6b7a9499b6bac4b06160ed0  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
-6730dadcfa2253b0c73dabadc12d4d2727114d8b82666a9b39c0e300e9d81517  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
-3eafb1a7f5344970522b8ea86f20826ef0344ca51c5c062e3e5de7fc0b6f4bf7  syno-nvidia-driver-kver5-580.173.02-1.spk
+1483366c20e427807216dbaefb763697382c3bdd2efc707ded20bcbf73edf5ab  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
+3a80daf85880dde02ade2c6061e7eaca90acd57242fcfb6962bc4bbaaf172f46  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
+c05dffa2bb4ffc9b762b973cf159f0da5e48d3941378c6d688f70dc10f1ffe49  syno-nvidia-driver-kver5-580.173.02-1.spk
 ```
 
 epyc7002(SA6400) + Quadro P1000 실기에서 end-to-end 검증 완료: `synopkg install`
