@@ -27,7 +27,7 @@ case "$VARIANT" in
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5
-    OS_MIN_VER=7.2
+    OS_MIN_VER=7.2-00000
     # Turing+ (GA10x/TU10x) is the class this branch/platform set targets.
     BUNDLE_GSP=1
     DESC="No-auth NVIDIA driver (kernel 5.10.55 platforms, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
@@ -38,7 +38,7 @@ case "$VARIANT" in
     KSUFFIX=44302
     PLATFORMS="$KVER4_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver4-dsm72
-    OS_MIN_VER=7.2
+    OS_MIN_VER=7.2-00000
     BUNDLE_GSP=0
     DESC="No-auth NVIDIA driver (kernel 4.4.302, DSM 7.2-7.4, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
     FILESUFFIX="-dsm7.2-7.4"
@@ -48,7 +48,7 @@ case "$VARIANT" in
     KSUFFIX=44180
     PLATFORMS="$KVER4_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver4-dsm70
-    OS_MIN_VER=7.0
+    OS_MIN_VER=7.0-00000
     BUNDLE_GSP=0
     DESC="No-auth NVIDIA driver (kernel 4.4.180, DSM 7.0-7.1, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
     FILESUFFIX="-dsm7.0-7.1"
@@ -56,7 +56,9 @@ case "$VARIANT" in
   *) echo "Unknown variant: $VARIANT (expected kver5 | kver4-72 | kver4-70)" >&2; exit 2 ;;
 esac
 
-rm -rf "$WORK"
+# Wipe everything except dl/ (the downloaded release assets) so re-running
+# after an INFO/script fix doesn't re-pull ~500MB-900MB over the network.
+rm -rf "$WORK/target" "$WORK/scripts" "$WORK/conf" "$WORK/INFO" "$WORK"/*.PNG
 mkdir -p "$WORK/target/lib/modules" "$WORK/target/lib/nvidia/bin" "$WORK/target/lib/nvidia/lib" \
          "$WORK/target/lib/firmware" "$WORK/target/share" "$WORK/scripts" "$WORK/conf" "$WORK/dl"
 
@@ -98,6 +100,24 @@ curl -sL --fail "https://raw.githubusercontent.com/PeterSuh-Q3/tcrp-addons/40df7
 cp "$ROOT/spk/scripts/"* "$WORK/scripts/"
 cp "$ROOT/spk/conf/"* "$WORK/conf/"
 chmod 0755 "$WORK/scripts/"*
+
+# ---- setuid helper + backend script -----------------------------------
+# postinst/start-stop-status/preuninst run as the conf/privilege-declared
+# unprivileged "package" account (confirmed on real DSM 7.4 hardware -
+# see spk/helper/nvidia-helper.c), so the actual root-requiring work
+# (kernel modules, /dev nodes, ldconfig, Container Manager/Jellyfin
+# integration) lives in nvidia-backend.sh, reachable only through this
+# setuid helper. TARGET_SCRIPT is baked in per variant because each one
+# installs to a different /var/packages/<name>/target.
+mkdir -p "$WORK/target/bin/helper"
+cp "$ROOT/spk/bin/nvidia-backend.sh" "$WORK/target/bin/nvidia-backend.sh"
+chmod 0755 "$WORK/target/bin/nvidia-backend.sh"
+docker run --rm --platform linux/amd64 \
+  -v "$ROOT/spk/helper:/src" -v "$WORK/target/bin/helper:/out" -w /src gcc:latest \
+  gcc -O2 -static -Wall -Wextra \
+  -DTARGET_SCRIPT="\"/var/packages/${PACKAGE}/target/bin/nvidia-backend.sh\"" \
+  -o /out/nvidia-helper.x86_64 nvidia-helper.c
+chmod 0755 "$WORK/target/bin/helper/nvidia-helper.x86_64"
 
 # ---- INFO templating --------------------------------------------------------
 cp "$ROOT/spk/INFO" "$WORK/INFO"

@@ -1,54 +1,12 @@
 #!/bin/sh
-# Undo everything postinst/start-stop-status did to the live system.
-# Symmetric with the mshell addon's own uninstall path and with
-# jellyfin-autoconfig.sh's own stamp - reversing this cleanly matters more
-# here than usual, since two other packages' launch config was patched
-# in place (Jellyfin's service-setup, ContainerManager's dockerd.json).
+# Runs unprivileged (see postinst) - hands off to the setuid helper for
+# the actual cleanup (unload modules, remove /dev nodes, restore Jellyfin
+# service-setup, deregister the Container Manager runtime entry).
 set -u
-NVDIR=/usr/local/nvidia
+SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
+RUNTIME="${SCRIPTDIR%/scripts}/target"
+HELPER="$RUNTIME/bin/helper/nvidia-helper.x86_64"
 
-# Jellyfin ffmpeg path: restore from the backup start-stop-status made
-# before ever patching the live file.
-JF_SS=/var/packages/jellyfin/scripts/service-setup
-if [ -f "$JF_SS.pre-nvidia.bak" ]; then
-  mv -f "$JF_SS.pre-nvidia.bak" "$JF_SS"
-  chmod 755 "$JF_SS" 2>/dev/null || true
-fi
-# Hardware-transcoding auto-configuration is deliberately NOT reverted here:
-# jellyfin-autoconfig.sh only ever touches encoding.xml once (gated by its
-# own stamp file) and from then on treats it as the user's own settings, the
-# same way it would if they had configured NVENC by hand. Uninstalling the
-# driver should not un-configure Jellyfin's playback preferences.
-
-# Container Manager runtime: remove only the entry this package registered.
-DJ=/var/packages/ContainerManager/etc/dockerd.json
-CRDIR=/usr/local/nvidia-runtime
-if [ -f "$DJ" ] && command -v jq >/dev/null 2>&1; then
-  CUR="$(jq -r '.runtimes.nvidia.path // empty' "$DJ" 2>/dev/null)"
-  if [ "$CUR" = "$CRDIR/bin/nvidia-container-runtime" ]; then
-    NEWDJ="$(jq 'del(.runtimes.nvidia)' "$DJ" 2>/dev/null)"
-    [ -n "$NEWDJ" ] && echo -E "$NEWDJ" > "$DJ"
-  fi
-fi
-rm -rf "$CRDIR"
-
-# Kernel modules: unload if present (best-effort - a process holding the GPU
-# open will make rmmod fail, which is intentionally left as a visible error
-# rather than forced, since forcing it can hang the box).
-for m in nvidia-drm nvidia-modeset nvidia-uvm nvidia; do
-  lsmod 2>/dev/null | grep -q "^$m " && rmmod "$m" 2>/dev/null || true
-done
-rm -f /usr/lib/modules/nvidia*.ko /usr/lib/modules/.nvidia-platform /usr/lib/modules/.nvidia-gpuarch
-
-# Userspace + library search path.
-rm -f /etc/ld.so.conf.d/nvidia.conf
-[ -x /sbin/ldconfig ] && /sbin/ldconfig 2>/dev/null || true
-if [ -d "$NVDIR/lib" ]; then
-  for so in "$NVDIR"/lib/*.so*; do
-    [ -e "$so" ] && [ -L "/usr/lib/$(basename "$so")" ] && rm -f "/usr/lib/$(basename "$so")"
-  done
-fi
-[ -f /usr/bin/nvidia-smi ] && rm -f /usr/bin/nvidia-smi
-rm -rf "$NVDIR"
+[ -u "$HELPER" ] && "$HELPER" uninstall
 
 exit 0

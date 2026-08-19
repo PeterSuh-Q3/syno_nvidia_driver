@@ -1,3 +1,19 @@
 {
-  "defaults": { "run-as": "package" }
+  "defaults": { "run-as": "package" },
+  "username": "sc-nvidia-driver",
+  "groupname": "nvidia-driver",
+  "tool": [
+    {
+      "relpath": "bin/helper/nvidia-helper.x86_64",
+      "user": "root",
+      "group": "package",
+      "permission": "6550"
+    },
+    {
+      "relpath": "bin/nvidia-backend.sh",
+      "user": "root",
+      "group": "package",
+      "permission": "0550"
+    }
+  ]
 }

@@ -1,75 +1,21 @@
 #!/bin/sh
-# One-time setup, shared verbatim across all three package variants
-# (kver5 / kver4-dsm7.2-7.4 / kver4-dsm7.0-7.1). $SYNOPKG_PKGDEST is DSM's
-# own env var for the install target, so nothing here needs the package
-# name hardcoded - the same script content is reused by the packaging
-# script for every variant.
+# Runs as the unprivileged "package" service account (conf/privilege
+# defaults) - confirmed directly on DSM 7.4.1 hardware that installer
+# scripts do NOT run as root by default for third-party packages, and
+# conf/privilege cannot declare "run-as": "root" (DSM rejects the whole
+# install with error 319). All real work needing root - kernel module
+# install, /dev nodes, ldconfig, Container Manager / Jellyfin integration -
+# happens in bin/nvidia-backend.sh, reached only through the setuid
+# helper conf/privilege sets up (see spk/helper/nvidia-helper.c). This
+# script just verifies that setup and invokes it.
 set -eu
-RUNTIME="${SYNOPKG_PKGDEST:-/var/packages/syno-nvidia-driver/target}"
-SUP="$RUNTIME/share/nvidia-gpu-support.json"
-NVDIR=/usr/local/nvidia
+SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
+RUNTIME="${SCRIPTDIR%/scripts}/target"
+HELPER="$RUNTIME/bin/helper/nvidia-helper.x86_64"
 
-# ---- 1) platform detection -------------------------------------------------
-# Same derivation as the standalone install.sh / mshell addon: the model
-# identity string's second underscore-field is the platform name DSM itself
-# uses (e.g. synology_epyc7002_sa6400 -> epyc7002).
-PLATFORM="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
-KREL="$(uname -r)"
-KVER="$(echo "$KREL" | sed 's/[^0-9.].*$//')"
-
-MODDIR="$RUNTIME/lib/modules/$PLATFORM"
-if [ ! -d "$MODDIR" ]; then
-  echo "nvidia-driver: no bundled kernel module for platform '$PLATFORM' - this variant does not cover this box" >&2
+if [ ! -u "$HELPER" ]; then
+  echo "nvidia-driver: setuid helper not set up correctly ($HELPER) - check conf/privilege 'tool' section" >&2
   exit 1
 fi
 
-mkdir -p /usr/lib/modules
-for ko in "$MODDIR"/*.ko; do
-  [ -f "$ko" ] && cp -f "$ko" "/usr/lib/modules/$(basename "$ko")"
-done
-# Boot-hook mismatch guard (see start-stop-status): a DSM upgrade can move
-# the same platform to a different kernel point release, invalidating the
-# bundled .ko's vermagic without changing PLATFORM.
-echo "$PLATFORM $KVER" > /usr/lib/modules/.nvidia-platform
-
-# ---- 2) userspace (shared across every platform in this variant) ----------
-mkdir -p "$NVDIR/bin" "$NVDIR/lib"
-cp -rf "$RUNTIME/lib/nvidia/bin/." "$NVDIR/bin/" 2>/dev/null || true
-cp -rf "$RUNTIME/lib/nvidia/lib/." "$NVDIR/lib/" 2>/dev/null || true
-chmod +x "$NVDIR/bin/"* 2>/dev/null || true
-( cd "$NVDIR/lib" 2>/dev/null && for so in *.so*; do [ -e "$so" ] && ln -sf "$NVDIR/lib/$so" "/usr/lib/$so"; done ) 2>/dev/null || true
-[ -f "$NVDIR/bin/nvidia-smi" ] && cp -f "$NVDIR/bin/nvidia-smi" /usr/bin/nvidia-smi && chmod +x /usr/bin/nvidia-smi
-
-mkdir -p /etc/ld.so.conf.d
-echo "$NVDIR/lib" > /etc/ld.so.conf.d/nvidia.conf
-[ -x /sbin/ldconfig ] && /sbin/ldconfig 2>/dev/null || true
-
-# ---- 3) GPU detection + GSP firmware (bundled, no network needed) ---------
-GPUID=""
-for d in /sys/bus/pci/devices/*; do
-  [ "$(cat "$d/vendor" 2>/dev/null)" = "0x10de" ] || continue
-  case "$(cat "$d/class" 2>/dev/null)" in 0x0300*|0x0302*)
-    GPUID="10de:$(sed 's/^0x//' "$d/device" 2>/dev/null | tr 'A-Z' 'a-z')"; break ;; esac
-done
-
-if [ -n "$GPUID" ] && [ -f "$SUP" ] && command -v jq >/dev/null 2>&1; then
-  # Handed to jellyfin-autoconfig.sh (via start-stop-status) at every boot,
-  # since NVDEC decode-codec support can only be inferred from the GPU
-  # architecture, not probed the way NVENC encoders are.
-  jq -r --arg g "$GPUID" '.gpus[$g].arch // "unknown"' "$SUP" 2>/dev/null > /usr/lib/modules/.nvidia-gpuarch
-  NEEDS_GSP="$(jq -r --arg g "$GPUID" '.gpus[$g].needs_gsp // false' "$SUP" 2>/dev/null)"
-  GSP_FW="$(jq -r --arg g "$GPUID" '.gpus[$g].gsp_fw // empty' "$SUP" 2>/dev/null)"
-  DRV="$(sed -n 's/^version="\([^"]*\)".*/\1/p' "$RUNTIME/../INFO" 2>/dev/null | head -1)"
-  if [ "$NEEDS_GSP" = "true" ] && [ -n "$GSP_FW" ] && [ -f "$RUNTIME/lib/firmware/$GSP_FW" ]; then
-    FWDIR="/lib/firmware/nvidia/${DRV:-unknown}"
-    mkdir -p "$FWDIR"
-    cp -f "$RUNTIME/lib/firmware/$GSP_FW" "$FWDIR/$GSP_FW"
-    echo "nvidia-driver: GSP firmware $GSP_FW staged -> $FWDIR"
-  elif [ "$NEEDS_GSP" = "true" ]; then
-    echo "nvidia-driver: WARNING - $GPUID needs GSP firmware but none is bundled for it; the driver will load but the GPU will not initialise." >&2
-  fi
-fi
-
-echo "nvidia-driver: installed for platform '$PLATFORM' (kernel $KVER)"
-echo "nvidia-driver: loading modules now (also re-runs on every future boot via start-stop-status)"
-"$(dirname "$0")/start-stop-status" start
+"$HELPER" postinst
