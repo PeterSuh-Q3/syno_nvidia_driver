@@ -1,2 +1,8 @@
 run/*.run
 out/*.tgz
+
+# scripts/build-spk.sh output: downloaded release assets + assembled .spk
+# files. These are rebuilt from the pinned "nvidia" release tag and
+# published to the "spk" release tag - not repo content.
+/work/
+/dist/
