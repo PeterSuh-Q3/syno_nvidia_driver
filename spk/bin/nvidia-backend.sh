@@ -42,6 +42,21 @@ do_postinst() {
   cp -rf "$RUNTIME/lib/nvidia/bin/." "$NVDIR/bin/" 2>/dev/null || true
   cp -rf "$RUNTIME/lib/nvidia/lib/." "$NVDIR/lib/" 2>/dev/null || true
   chmod +x "$NVDIR/bin/"* 2>/dev/null || true
+
+  # nv-userspace-*.tgz ships only the fully-versioned real files (e.g.
+  # libnvidia-ml.so.580.173.02) - none of the usual NVIDIA-installer
+  # symlink chain (libnvidia-ml.so.1, libnvidia-ml.so). nvidia-smi and
+  # every other consumer link against the SONAME (libFOO.so.1), not the
+  # full version, so without these nvidia-smi fails with "couldn't find
+  # libnvidia-ml.so" even though the real library is right there.
+  ( cd "$NVDIR/lib" 2>/dev/null && for f in *.so.*; do
+      [ -f "$f" ] || continue
+      case "$f" in *.so.1) continue ;; esac  # already at SONAME level
+      base="${f%%.so.*}.so"
+      ln -sf "$f" "$base.1"
+      ln -sf "$base.1" "$base"
+    done ) 2>/dev/null || true
+
   ( cd "$NVDIR/lib" 2>/dev/null && for so in *.so*; do [ -e "$so" ] && ln -sf "$NVDIR/lib/$so" "/usr/lib/$so"; done ) 2>/dev/null || true
   [ -f "$NVDIR/bin/nvidia-smi" ] && cp -f "$NVDIR/bin/nvidia-smi" /usr/bin/nvidia-smi && chmod +x /usr/bin/nvidia-smi
 
