@@ -4,7 +4,7 @@
 <img src="https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2FPeterSuh-Q3%2Fsyno_nvidia_driver&label=&icon=github&message=&style=flat&tz=UTC">
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/PeterSuh-Q3)
 
-**NVIDIA driver for Synology DSM — nothing to buy, nothing to sign in to.**
+**NVIDIA driver for Synology DSM — nothing to buy, nothing to sign in to (unlike vGPU).**
 
 Physical / passthrough GPUs. One command installs it, survives reboots, and
 enables hardware transcoding in Plex and Jellyfin.
@@ -465,7 +465,7 @@ See **[DEVELOPING.md](DEVELOPING.md)** for the build/producer side — toolchain
 
 # syno_nvidia_driver
 
-**Synology DSM용 NVIDIA 드라이버 — 살 것도, 로그인할 것도 없습니다.**
+**Synology DSM용 NVIDIA 드라이버 — (vGPU를 위해) 살 것도, 로그인할 것도 없습니다.**
 
 물리 / passthrough GPU 전용. 명령 한 줄로 설치되고, 재부팅해도 유지되며,
 Plex와 Jellyfin의 하드웨어 트랜스코딩을 활성화합니다.
