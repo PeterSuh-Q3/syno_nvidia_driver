@@ -15,7 +15,7 @@ set -u
 # bash` bash reads the *script* from stdin, so prompts must come from /dev/tty;
 # a global `exec </dev/tty` would break that (bash would read the rest of the
 # script from the tty). No tty (non-interactive) -> empty -> caller's default.
-ask(){ eval "$1=''"; IFS= read -r "$1" </dev/tty 2>/dev/null || true; }
+ask(){ if [ "${ASSUME_YES:-0}" = "1" ]; then eval "$1='y'"; return; fi; eval "$1=''"; IFS= read -r "$1" </dev/tty 2>/dev/null || true; }
 
 # ------------------------------------------------------------------ colours --
 R='\033[0m'; B='\033[1m'; DIM='\033[2m'

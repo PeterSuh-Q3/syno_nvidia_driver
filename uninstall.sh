@@ -7,7 +7,11 @@
 #   curl -sL <this-url> | sudo bash      # one-liner (prompts read from tty)
 #
 set -u
-ask(){ eval "$1=''"; IFS= read -r "$1" </dev/tty 2>/dev/null || true; }
+# ASSUME_YES=1 skips every /dev/tty confirmation (for headless/scripted runs,
+# e.g. `curl -sL <this-url> | ASSUME_YES=1 sudo -E bash`, or over ssh without
+# a pty). Without a real terminal, /dev/tty doesn't exist for the process at
+# all, so the prompt can't be answered any other way.
+ask(){ if [ "${ASSUME_YES:-0}" = "1" ]; then eval "$1='y'"; return; fi; eval "$1=''"; IFS= read -r "$1" </dev/tty 2>/dev/null || true; }
 
 R='\033[0m'; B='\033[1m'; DIM='\033[2m'
 RED='\033[1;31m'; GRN='\033[1;32m'; YEL='\033[1;33m'; BLU='\033[1;34m'; CYN='\033[1;36m'; WHT='\033[1;37m'
