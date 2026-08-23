@@ -62,17 +62,54 @@ optional layers are present. Uninstalling cleanly reverses every change
 (`preuninst`), including restoring Jellyfin's `service-setup` from the
 backup taken before it was ever patched.
 
+## ⚠️ Security fix (this build) — update if you installed an earlier `.spk`
+
+Earlier builds' `postinst` copied the ~450MB shared userspace tree into
+`/usr/local/nvidia` on every install. Two problems, now both fixed:
+
+1. **System-partition duplication.** The SPK's own copy already lives on
+   the data volume (`/volume1/@appstore/<pkg>/...`); the `cp` duplicated
+   it onto the system partition (`/dev/md0`) for no reason — the exact
+   space problem the `.spk` packaging exists to avoid (see the standalone
+   `install.sh` complaints in
+   [#7](https://github.com/PeterSuh-Q3/syno_nvidia_driver/issues/7)).
+   `/usr/local/nvidia` is now a symlink straight into the package
+   payload; confirmed on real hardware that install no longer grows
+   `/dev/md0` by ~450MB.
+
+2. **Privilege escalation.** That payload is owned by this package's own
+   *unprivileged* service account — DSM's `conf/privilege` `tool` section
+   only grants root ownership to individual file paths, not directories,
+   so there was no way to get the ~100 userspace files root-owned at
+   install time. Once `/usr/local/nvidia` became a symlink into that
+   tree, every consumer on the box (Plex, Jellyfin, anything
+   `dlopen()`-ing via `/usr/lib`) started loading directly from
+   service-account-owned files — which meant that account could plant a
+   trojaned `.so` and have it loaded into a root or other-user process.
+   Fixed by re-locking the payload to `root:root` (parent directories
+   included, not just the leaf files — delete-and-recreate is governed
+   by the *parent's* write bit) on every privileged entry point
+   (postinst **and** every boot), the same fix pattern
+   [SynoSmartInfo v2.0.6](https://github.com/PeterSuh-Q3/SynoSmartInfo/releases/tag/v2.0.6)
+   just applied for the identical class of bug
+   ([issue #21](https://github.com/PeterSuh-Q3/SynoSmartInfo/issues/21)).
+
+Verified on real hardware (DS1621+): confirmed the leaf-only chown left
+the parent directory service-account-writable (attack still possible),
+and that locking the parent closes it.
+
 ## Verification
 
 ```
-1c17a8823d3991f7f33a26bb778f876be0dd730f531d2302d81b80015bd7f67c  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
-23d2eddd06463a66d0fc2dfe9414cd1e7019ef5c637c6535aa981d9d38137076  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
-1d24a4287378b159b9707e6b6405995eab141e488acb952445418ab826894e16  syno-nvidia-driver-kver5-580.173.02-1.spk
+6179716ee9f15837bcf1ff653ad57139f036beed08bbac7fa323a7b51980f5d2  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
+5b5de7070c5953f1d7c0d59201477780c9d961af7de1e90ad6740890629dce31  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
+bf6e1357878b9739619121e0e670d50aded3ac4f3209cc00294723d0a989010d  syno-nvidia-driver-kver5-580.173.02-1.spk
 ```
 
 Verified end-to-end on real hardware (epyc7002/SA6400 + Quadro P1000):
 `synopkg install` succeeds, all 4 NVIDIA kernel modules load, `nvidia-smi`
-correctly reports the GPU.
+correctly reports the GPU. System-partition/ownership fix separately
+verified on DS1621+ (v1000/kver4).
 
 ---
 
@@ -139,13 +176,48 @@ Jellyfin 연동이 설치되어 있으면 멱등적으로 재적용합니다. �
 `preuninst`가 모든 변경 사항을 깔끔하게 되돌립니다 — Jellyfin의
 `service-setup`도 최초 패치 전 백업본으로 복원됩니다.
 
+## ⚠️ 보안 수정 (이번 빌드) — 이전 `.spk`를 설치하셨다면 업데이트하세요
+
+이전 빌드의 `postinst`는 매 설치마다 약 450MB짜리 공용 유저스페이스
+전체를 `/usr/local/nvidia`에 복사했습니다. 이로 인한 문제 두 가지를
+모두 이번 빌드에서 고쳤습니다.
+
+1. **시스템 파티션 중복 사용.** SPK 자체의 사본은 이미 데이터 볼륨
+   (`/volume1/@appstore/<pkg>/...`)에 있는데, `cp`가 그걸 시스템 파티션
+   (`/dev/md0`)에 또 한 번 중복 배치하고 있었습니다 — `.spk` 패키징이
+   애초에 피하려던 그 공간 문제([이슈 #7](https://github.com/PeterSuh-Q3/syno_nvidia_driver/issues/7)에
+   보고된 스탠드얼론 `install.sh`의 문제)가 그대로 재현되고 있었던
+   것입니다. `/usr/local/nvidia`는 이제 패키지 payload로 바로 향하는
+   심볼릭 링크이며, 실기에서 설치 시 `/dev/md0` 사용량이 더 이상 450MB
+   증가하지 않음을 확인했습니다.
+
+2. **권한 상승 취약점.** 그 payload는 이 패키지 전용 **저권한 서비스
+   계정** 소유입니다 — DSM의 `conf/privilege`의 `tool` 섹션은 개별
+   파일 경로에만 root 소유권을 부여할 수 있고 디렉토리는 안 되므로,
+   설치 시점에 약 100개의 유저스페이스 파일을 root 소유로 만들 방법이
+   없었습니다. `/usr/local/nvidia`가 그 트리로 향하는 심볼릭 링크가
+   되면서, Plex/Jellyfin 등 `/usr/lib`을 통해 `dlopen()`하는 모든
+   소비자가 저권한 계정 소유 파일을 직접 로드하게 됐고, 그 계정이
+   뚫리면 조작된 `.so`를 심어 root나 다른 계정 프로세스에 코드 실행을
+   심을 수 있는 구조였습니다. `postinst`뿐 아니라 **매 부팅(`start`)마다**
+   payload를(리프 파일만이 아니라 부모 디렉토리까지 — 삭제 후 재생성
+   공격은 부모의 쓰기 비트로 결정되므로) `root:root`로 재잠금하도록
+   고쳐서 해결했습니다. [SynoSmartInfo v2.0.6](https://github.com/PeterSuh-Q3/SynoSmartInfo/releases/tag/v2.0.6)이
+   동일한 종류의 버그([이슈 #21](https://github.com/PeterSuh-Q3/SynoSmartInfo/issues/21))에
+   적용한 것과 같은 수정 패턴입니다.
+
+실기(DS1621+)에서 검증: 리프 파일만 `chown`했을 때는 부모 디렉토리가
+여전히 서비스 계정 쓰기 가능 상태라 공격이 가능했고, 부모까지 잠그니
+차단됨을 확인했습니다.
+
 ## 검증
 
 ```
-1c17a8823d3991f7f33a26bb778f876be0dd730f531d2302d81b80015bd7f67c  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
-23d2eddd06463a66d0fc2dfe9414cd1e7019ef5c637c6535aa981d9d38137076  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
-1d24a4287378b159b9707e6b6405995eab141e488acb952445418ab826894e16  syno-nvidia-driver-kver5-580.173.02-1.spk
+6179716ee9f15837bcf1ff653ad57139f036beed08bbac7fa323a7b51980f5d2  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
+5b5de7070c5953f1d7c0d59201477780c9d961af7de1e90ad6740890629dce31  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
+bf6e1357878b9739619121e0e670d50aded3ac4f3209cc00294723d0a989010d  syno-nvidia-driver-kver5-580.173.02-1.spk
 ```
 
 epyc7002(SA6400) + Quadro P1000 실기에서 end-to-end 검증 완료: `synopkg install`
 성공, NVIDIA 커널 모듈 4개 전부 로드, `nvidia-smi`가 GPU를 정상 인식.
+시스템 파티션/권한 수정은 DS1621+(v1000/kver4)에서 별도 검증.
