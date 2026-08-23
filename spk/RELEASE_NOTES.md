@@ -1,6 +1,6 @@
 # syno_nvidia_driver SPK packages
 
-Offline, one-click DSM Package Center installers for the no-auth NVIDIA
+Offline, one-click DSM Package Center installers for the NVIDIA
 driver. Each `.spk` bundles the kernel modules, shared userspace, and (where
 applicable) GSP firmware for its platform group — no network access is
 needed during install. This is a companion artifact to the `nvidia` release
@@ -101,9 +101,9 @@ and that locking the parent closes it.
 ## Verification
 
 ```
-6179716ee9f15837bcf1ff653ad57139f036beed08bbac7fa323a7b51980f5d2  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
-5b5de7070c5953f1d7c0d59201477780c9d961af7de1e90ad6740890629dce31  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
-bf6e1357878b9739619121e0e670d50aded3ac4f3209cc00294723d0a989010d  syno-nvidia-driver-kver5-580.173.02-1.spk
+4110a10a2a5fd31ebe66748a9e65cb281971ffb0bb7e95eec26bd34fd69d4b51  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
+377591d343135366b14cefc48c37d33d19ea6b98da98b76932c0679a72b9ff90  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
+58f00eb0ff82040851c2fed0c32fe35abdc1e324ab58fd6000f3e120acd6c33c  syno-nvidia-driver-kver5-580.173.02-1.spk
 ```
 
 Verified end-to-end on real hardware (epyc7002/SA6400 + Quadro P1000):
@@ -115,7 +115,7 @@ verified on DS1621+ (v1000/kver4).
 
 # syno_nvidia_driver SPK 패키지
 
-DSM 패키지 센터에서 원클릭으로 설치하는 오프라인 무인증 NVIDIA 드라이버
+DSM 패키지 센터에서 원클릭으로 설치하는 오프라인 NVIDIA 드라이버
 패키지입니다. 각 `.spk`에는 해당 플랫폼 그룹의 커널 모듈, 공용 유저스페이스,
 그리고 필요한 경우 GSP 펌웨어까지 모두 포함되어 있어 설치 중 네트워크 접속이
 필요 없습니다. 이 패키지들은 `nvidia` 릴리즈 태그(원본 `.tgz` 레이어 +
@@ -213,9 +213,9 @@ Jellyfin 연동이 설치되어 있으면 멱등적으로 재적용합니다. �
 ## 검증
 
 ```
-6179716ee9f15837bcf1ff653ad57139f036beed08bbac7fa323a7b51980f5d2  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
-5b5de7070c5953f1d7c0d59201477780c9d961af7de1e90ad6740890629dce31  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
-bf6e1357878b9739619121e0e670d50aded3ac4f3209cc00294723d0a989010d  syno-nvidia-driver-kver5-580.173.02-1.spk
+4110a10a2a5fd31ebe66748a9e65cb281971ffb0bb7e95eec26bd34fd69d4b51  syno-nvidia-driver-kver4-dsm70-550.163.01-1-dsm7.0-7.1.spk
+377591d343135366b14cefc48c37d33d19ea6b98da98b76932c0679a72b9ff90  syno-nvidia-driver-kver4-dsm72-550.163.01-1-dsm7.2-7.4.spk
+58f00eb0ff82040851c2fed0c32fe35abdc1e324ab58fd6000f3e120acd6c33c  syno-nvidia-driver-kver5-580.173.02-1.spk
 ```
 
 epyc7002(SA6400) + Quadro P1000 실기에서 end-to-end 검증 완료: `synopkg install`

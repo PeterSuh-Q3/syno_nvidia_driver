@@ -30,7 +30,7 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     # Turing+ (GA10x/TU10x) is the class this branch/platform set targets.
     BUNDLE_GSP=1
-    DESC="No-auth NVIDIA driver (kernel 5.10.55 platforms, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
+    DESC="NVIDIA driver (kernel 5.10.55 platforms, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
     FILESUFFIX=""
     ;;
   kver4-72)
@@ -40,7 +40,7 @@ case "$VARIANT" in
     PACKAGE=syno-nvidia-driver-kver4-dsm72
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=0
-    DESC="No-auth NVIDIA driver (kernel 4.4.302, DSM 7.2-7.4, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
+    DESC="NVIDIA driver (kernel 4.4.302, DSM 7.2-7.4, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
     FILESUFFIX="-dsm7.2-7.4"
     ;;
   kver4-70)
@@ -50,7 +50,7 @@ case "$VARIANT" in
     PACKAGE=syno-nvidia-driver-kver4-dsm70
     OS_MIN_VER=7.0-00000
     BUNDLE_GSP=0
-    DESC="No-auth NVIDIA driver (kernel 4.4.180, DSM 7.0-7.1, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
+    DESC="NVIDIA driver (kernel 4.4.180, DSM 7.0-7.1, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
     FILESUFFIX="-dsm7.0-7.1"
     ;;
   *) echo "Unknown variant: $VARIANT (expected kver5 | kver4-72 | kver4-70)" >&2; exit 2 ;;

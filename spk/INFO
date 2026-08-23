@@ -1,7 +1,7 @@
 package="syno-nvidia-driver"
 version="580.173.02-1"
 displayname="Synology NVIDIA Driver"
-description="No-auth NVIDIA driver (kernel modules + userspace) for physical/passthrough GPUs. No vGPU, no license server."
+description="NVIDIA driver (kernel modules + userspace) for physical/passthrough GPUs. No vGPU, no license server."
 arch="__PACKAGE_ARCHES__"
 os_min_ver="__OS_MIN_VER__"
 maintainer="PeterSuh-Q3"
