@@ -472,6 +472,35 @@ Plex와 Jellyfin의 하드웨어 트랜스코딩을 활성화합니다.
 
 <br>
 
+> ⚠️ **아래 `curl | bash` 설치기보다 `.spk` 패키지를 우선 권장합니다.**
+>
+> 한 줄짜리 `install.sh` 설치기는 드라이버 전체(커널 모듈 + 유저스페이스,
+> 약 450MB)를 `/usr/local/nvidia`에 씁니다 — 이 경로는 저장 볼륨이 아니라
+> **시스템 파티션**(`/dev/md0`)입니다. 시스템 파티션이 작은 모델에서는
+> 그것만으로 여유 공간 대부분을 소진할 수 있고(실증 사례:
+> [#7](https://github.com/PeterSuh-Q3/syno_nvidia_driver/issues/7)), 드라이버를
+> 업데이트할 때마다 그 450MB를 언인스톨-재설치해야 합니다.
+>
+> `.spk` 패키지는 DSM 자체의 패키지 센터 메커니즘으로 설치됩니다. 전 과정이
+> **데이터 볼륨**(`/volume1/@appstore/...`)에서만 스테이징·저장되므로
+> (`synopkg`의 설치 로그로 직접 확인) 시스템 파티션 공간을 전혀 건드리지
+> 않고, 업데이트도 DSM 표준 방식으로 처리됩니다(수동 언인스톨-재설치 불필요).
+>
+> 사용 중인 플랫폼/DSM 버전에 맞는 `.spk`를
+> **[spk 릴리즈](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/spk)**
+> 에서 받아 패키지 센터 → 수동 설치로 설치하세요.
+>
+> <p align="center">
+>   <img src="docs/spk-menual-install1.png" alt="패키지 센터의 Synology NVIDIA Driver 수동 설치 확인 화면" width="480">
+>   <img src="docs/spk-menual-install2.png" alt="패키지 센터에서 Synology NVIDIA Driver가 Running 상태로 Volume 1에 설치된 화면" width="480">
+> </p>
+>
+> 아래의 `curl | bash` 설치기는 아직 `.spk`가 없는 플랫폼이나 스크립트/헤드리스
+> 설치가 필요한 경우를 위해 남겨뒀습니다 — 시스템 파티션 트레이드오프를
+> 감안하고 쓰세요.
+
+<br>
+
 > 💡 **이 말이 왜 필요한가요?**
 >
 > DSM에서 NVIDIA GPU를 쓰는 다른 방식은 NVIDIA의 **vGPU** 스택을 거칩니다.
