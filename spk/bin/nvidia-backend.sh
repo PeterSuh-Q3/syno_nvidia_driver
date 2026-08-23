@@ -17,7 +17,38 @@ NVDIR=/usr/local/nvidia
 RCLOG=/var/log/nvidia-driver.log
 rclog(){ echo "$(date '+%H:%M:%S') nvidia-backend: $*" >>"$RCLOG" 2>/dev/null; }
 
+# The package payload under $RUNTIME (/volume1/@appstore/<pkg>/...) is
+# owned by this package's own unprivileged service account, not root -
+# DSM's conf/privilege "tool" section only accepts individual FILE
+# relpaths (declaring a directory fails with error 313), so there is no
+# way to get DSM to hand ~100 userspace files root ownership at install
+# time the way it does for the setuid helper. NVDIR is a symlink straight
+# into this tree (see do_postinst) instead of a copy, and every consumer
+# on the box (Plex, Jellyfin, anything dlopen()-ing via /usr/lib) loads
+# from it - so if it stayed service-account-owned, that low-privilege
+# account could plant a trojaned .so and have it loaded into a root or
+# other-user process. Re-lock it to root on every privileged entry point
+# (postinst AND start, i.e. every boot), not just once, so a
+# delete-and-recreate by the service account between boots can't
+# reintroduce writable files - same fix pattern as SynoSmartInfo's
+# smartinfo-helper directory self-heal (v2.0.6, CVE-adjacent, see
+# https://github.com/PeterSuh-Q3/SynoSmartInfo/issues/21).
+lock_payload() {
+  # Locking only the leaf dirs (lib/nvidia, lib/modules) isn't enough:
+  # delete-and-recreate is governed by the PARENT directory's write bit,
+  # not the child's own ownership. If $RUNTIME/lib stayed service-account-
+  # writable, the service account could rm -rf lib/nvidia and mkdir a
+  # fresh one it fully owns, sidestepping the leaf-level chown entirely.
+  # Walk the whole payload tree, parents included.
+  for d in "$RUNTIME/lib" "$RUNTIME/share"; do
+    [ -d "$d" ] || continue
+    chown -R root:root "$d" 2>/dev/null || true
+    chmod -R go-w "$d" 2>/dev/null || true
+  done
+}
+
 do_postinst() {
+  lock_payload
   PLATFORM="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
   KREL="$(uname -r)"
   KVER="$(echo "$KREL" | sed 's/[^0-9.].*$//')"
@@ -38,9 +69,15 @@ do_postinst() {
   echo "$PLATFORM $KVER" > /usr/lib/modules/.nvidia-platform
 
   # ---- userspace (shared across every platform in this variant) ----
-  mkdir -p "$NVDIR/bin" "$NVDIR/lib"
-  cp -rf "$RUNTIME/lib/nvidia/bin/." "$NVDIR/bin/" 2>/dev/null || true
-  cp -rf "$RUNTIME/lib/nvidia/lib/." "$NVDIR/lib/" 2>/dev/null || true
+  # Symlink straight into the (now root-owned, see lock_payload) package
+  # payload instead of copying it - the previous cp duplicated ~450MB
+  # onto the system partition (/dev/md0) for no reason, since the SPK's
+  # own copy already lives on the data volume (/volume1/@appstore/...).
+  # This was the exact system-partition-exhaustion problem the .spk
+  # packaging was supposed to avoid (see the standalone install.sh
+  # complaints in issue #7) - it just moved instead of eliminated.
+  rm -rf "$NVDIR"
+  ln -sfn "$RUNTIME/lib/nvidia" "$NVDIR"
   chmod +x "$NVDIR/bin/"* 2>/dev/null || true
 
   # nv-userspace-*.tgz ships only the fully-versioned real files (e.g.
@@ -97,6 +134,7 @@ do_postinst() {
 
 do_start() {
   rclog "=== start ==="
+  lock_payload
 
   # Platform/kernel guard: vermagic alone cannot catch a platform mismatch
   # (it is textually identical across every kver5 platform), and a DSM
