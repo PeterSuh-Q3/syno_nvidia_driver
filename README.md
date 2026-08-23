@@ -11,6 +11,36 @@ enables hardware transcoding in Plex and Jellyfin.
 
 <br>
 
+> ⚠️ **Prefer the `.spk` package over the `curl | bash` installer below.**
+>
+> The one-line `install.sh` installer writes the full driver (kernel modules +
+> userspace, ~450MB) to `/usr/local/nvidia`, which lives on your **system
+> partition** (`/dev/md0`) — not your storage volume. On models with a small
+> system partition this can eat most of the free space on its own (confirmed:
+> [#7](https://github.com/PeterSuh-Q3/syno_nvidia_driver/issues/7)), and every
+> future driver update means uninstalling and reinstalling that same 450MB.
+>
+> The `.spk` package installs through DSM's own Package Center mechanism
+> instead. It's staged and stored entirely on your **data volume**
+> (`/volume1/@appstore/...`) — confirmed via `synopkg`'s own install log — so
+> it never touches system-partition space at all, and upgrades are handled
+> the normal DSM way (no manual uninstall/reinstall cycle).
+>
+> Grab the right `.spk` for your platform and DSM version from the
+> **[spk release](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/spk)**
+> and install it via Package Center → Manual Install.
+>
+> <p align="center">
+>   <img src="docs/spk-menual-install1.png" alt="Package Center manual-install confirmation screen for Synology NVIDIA Driver" width="480">
+>   <img src="docs/spk-menual-install2.png" alt="Synology NVIDIA Driver package shown as Running in Package Center, installed on Volume 1" width="480">
+> </p>
+>
+> The `curl | bash` installer below still exists for platforms without a
+> matching `.spk` build, or for scripted/headless setups — just be aware of
+> the system-partition trade-off before reaching for it.
+
+<br>
+
 > 💡 **Why does that need saying?**
 >
 > The other way people get an NVIDIA GPU running on DSM goes through NVIDIA's
