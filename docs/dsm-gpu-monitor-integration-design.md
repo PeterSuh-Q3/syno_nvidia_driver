@@ -123,6 +123,14 @@ Only after Phase 0 finds a compatible integration point, create a bridge SPK
 for one exact DSM/platform family at a time.  The initial allow-list is
 `epyc7002 / DSM 7.4.1`; do not claim universal support.
 
+## Phase 1 build artifact
+
+`scripts/build-monitor-spk.sh` builds the deliberately limited Phase 1 SPK.
+It ships an install-only, read-only NVML collector and validates the existing
+`syno-nvidia-driver` runtime at installation.  It does not implement the
+Phase 2 Resource Monitor bridge, install a daemon, alter DSM libraries, or
+set a global loader environment.
+
 If a bridge requires a DSM library overlay, it is a separate experimental
 sub-feature, not the default monitor installation.  It may ship only when its
 source/licensing and ABI provenance are understood.  A pdbear binary extracted

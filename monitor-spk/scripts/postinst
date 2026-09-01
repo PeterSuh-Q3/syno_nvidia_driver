@@ -1,0 +1,13 @@
+#!/bin/sh
+# Phase 1 deliberately installs no DSM integration, daemon, library override,
+# or global environment setting.  NVML is loaded by the package binary only.
+set -u
+
+MONITOR="/var/packages/syno-nvidia-gpu-monitor/target/bin/syno-nvidia-gpu-monitor"
+
+if [ ! -x "$MONITOR" ] || ! "$MONITOR" --check; then
+    echo "A working syno-nvidia-driver NVML runtime is required before installing Synology NVIDIA GPU Monitor." >&2
+    exit 1
+fi
+
+exit 0

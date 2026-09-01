@@ -1,0 +1,7 @@
+#!/bin/sh
+# This is an install-only utility package.  Package Center must not expose a
+# Start/Stop control and no background poller is ever launched.
+case "${1:-}" in
+    start|stop|status) exit 0 ;;
+    *) exit 1 ;;
+esac
