@@ -48,3 +48,26 @@ SNMP process state, NVIDIA modules, and the package-owned NVML JSON result.
 
 If no supported extension point is found, Phase 2 remains a diagnostic tool;
 we do not imitate pdbear by installing opaque library overlays.
+
+## First evidence: SA6400 / DSM 7.4.1
+
+The initial read-only run against `epyc7002 / DSM 7.4.1` with the open NVIDIA
+driver and a Quadro P1000 established the following:
+
+- The package-owned NVML collector reports valid GPU and VRAM values.
+- `SYNO.Core.System.GpuInfo` is a registered DSM API with the `list` method,
+  but returns `{ "support_gpu": false }` on the stock system.
+- `SYNO.Core.System.Utilization` has no `gpu` object on that same system.
+- Resource Monitor already contains GPU and GPU-memory charts.  Its UI gate
+  is `support_nvidia_gpu="yes"`, but the charts require the absent `gpu`
+  object from Utilization.
+- The relevant private modules are
+  `/usr/syno/synoman/webapi/lib/SYNO.Core.System.GpuInfo.so` and
+  `/usr/syno/synoman/webapi/lib/SYNO.Core.System.Utilization.so`, not a
+  package-owned plugin interface.
+
+Therefore setting the UI flag alone is intentionally rejected: it would show
+an empty GPU panel and would not implement monitoring.  No supported
+extension point has been identified yet.  The remaining Phase 2 work is ABI
+research only; a shipping bridge remains blocked unless it can be made
+package-owned and fully reversible without replacing DSM private modules.
