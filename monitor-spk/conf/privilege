@@ -1,0 +1,5 @@
+{
+  "defaults": { "run-as": "package" },
+  "username": "sc-nvidia-gpu-monitor",
+  "groupname": "nvidia-gpu-monitor"
+}

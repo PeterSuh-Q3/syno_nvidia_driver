@@ -23,6 +23,7 @@ chmod 0755 "$WORK/target/bin/syno-nvidia-gpu-monitor"
 
 cp "$ROOT/monitor-spk/scripts/"* "$WORK/scripts/"
 chmod 0755 "$WORK/scripts/"*
+cp "$ROOT/monitor-spk/conf/privilege" "$WORK/conf/privilege"
 cp "$ROOT/monitor-spk/INFO" "$WORK/INFO"
 for icon in PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
   cp "$ROOT/spk/$icon" "$WORK/$icon"
