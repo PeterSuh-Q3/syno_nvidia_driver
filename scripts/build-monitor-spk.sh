@@ -6,7 +6,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PACKAGE=syno-nvidia-gpu-monitor
-VERSION=0.6.2
+VERSION=0.6.3
 PLATFORM=x86_64
 IMAGE=${SYNOCOMPILER_IMAGE:-dante90/syno-compiler:7.4}
 CC=${SYNOCOMPILER_CC:-/opt/epyc7002/bin/x86_64-pc-linux-gnu-gcc}
@@ -51,7 +51,7 @@ EXTRACT_SIZE=$(du -sk "$WORK/target" | awk '{print $1}')
   printf 'checksum="%s"\n' "$CHECKSUM"
 } >> "$WORK/INFO"
 
-SPK="$OUT/${PACKAGE}-${VERSION}-dsm7.4-${PLATFORM}.spk"
+SPK="$OUT/${PACKAGE}-${VERSION}-${PLATFORM}.spk"
 tar -C "$WORK" -cf "$SPK" INFO package.tgz scripts conf webapi PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG
 
 echo "Built $SPK ($(du -h "$SPK" | cut -f1))"
