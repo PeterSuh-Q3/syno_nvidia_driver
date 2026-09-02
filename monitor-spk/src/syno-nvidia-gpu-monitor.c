@@ -35,6 +35,8 @@ typedef nvmlReturn_t (*nvmlDeviceGetMemoryInfo_fn)(nvmlDevice_t, nvmlMemory_t *)
 typedef nvmlReturn_t (*nvmlDeviceGetTemperature_fn)(nvmlDevice_t, unsigned int, unsigned int *);
 typedef nvmlReturn_t (*nvmlDeviceGetFanSpeed_fn)(nvmlDevice_t, unsigned int *);
 typedef nvmlReturn_t (*nvmlDeviceGetClockInfo_fn)(nvmlDevice_t, unsigned int, unsigned int *);
+typedef nvmlReturn_t (*nvmlDeviceGetEncoderUtilization_fn)(nvmlDevice_t, unsigned int *, unsigned int *);
+typedef nvmlReturn_t (*nvmlDeviceGetDecoderUtilization_fn)(nvmlDevice_t, unsigned int *, unsigned int *);
 
 struct nvml_api {
     void *handle;
@@ -47,6 +49,8 @@ struct nvml_api {
     nvmlDeviceGetTemperature_fn temperature;
     nvmlDeviceGetFanSpeed_fn fan;
     nvmlDeviceGetClockInfo_fn clock;
+    nvmlDeviceGetEncoderUtilization_fn encoder;
+    nvmlDeviceGetDecoderUtilization_fn decoder;
 };
 
 static int load_nvml(struct nvml_api *api) {
@@ -73,6 +77,8 @@ static int load_nvml(struct nvml_api *api) {
     api->temperature = (nvmlDeviceGetTemperature_fn)dlsym(api->handle, "nvmlDeviceGetTemperature");
     api->fan = (nvmlDeviceGetFanSpeed_fn)dlsym(api->handle, "nvmlDeviceGetFanSpeed");
     api->clock = (nvmlDeviceGetClockInfo_fn)dlsym(api->handle, "nvmlDeviceGetClockInfo");
+    api->encoder = (nvmlDeviceGetEncoderUtilization_fn)dlsym(api->handle, "nvmlDeviceGetEncoderUtilization");
+    api->decoder = (nvmlDeviceGetDecoderUtilization_fn)dlsym(api->handle, "nvmlDeviceGetDecoderUtilization");
     if (api->init == NULL || api->shutdown == NULL || api->count == NULL ||
         api->device == NULL || api->utilization == NULL || api->memory == NULL) {
         dlclose(api->handle);
@@ -90,7 +96,7 @@ int main(int argc, char **argv) {
     unsigned int count = 0;
     unsigned long long total_kib, used_kib, free_kib;
     unsigned int memory_percent;
-    unsigned int temperature = 0, fan = 0, gpu_clock = 0, memory_clock = 0;
+    unsigned int temperature = 0, fan = 0, gpu_clock = 0, memory_clock = 0, sample = 0;
     int check_only = 0;
     int rc = 1;
 
@@ -129,6 +135,9 @@ int main(int argc, char **argv) {
         (void)api.clock(device, 0, &gpu_clock);
         (void)api.clock(device, 2, &memory_clock);
     }
+    if (api.encoder) (void)api.encoder(device, &utilization.encoder, &sample);
+    sample = 0;
+    if (api.decoder) (void)api.decoder(device, &utilization.decoder, &sample);
     printf("{\"device\":\"Gpu\",\"gpu_utilization\":%u,\"encoder_utilization\":%u,"
            "\"decoder_utilization\":%u,\"gpu_memory_total\":%llu,\"gpu_memory_used\":%llu,"
            "\"gpu_memory_free\":%llu,\"gpu_memory_utilization\":%u,\"temperature_c\":%u,"
