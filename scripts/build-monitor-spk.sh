@@ -14,7 +14,7 @@ WORK="$ROOT/work/$PACKAGE-$PLATFORM"
 OUT="$ROOT/dist"
 
 rm -rf "$WORK"
-mkdir -p "$WORK/target/bin/helper" "$WORK/scripts" "$WORK/conf" "$WORK/webapi" "$WORK/webui" "$OUT"
+mkdir -p "$WORK/target/bin/helper" "$WORK/scripts" "$WORK/conf" "$WORK/webapi" "$WORK/target/ui" "$OUT"
 
 docker run --rm --platform linux/amd64 --entrypoint /bin/bash \
   -u 0 -v "$ROOT:/work" -w /work "$IMAGE" -lc \
@@ -33,7 +33,9 @@ chmod 0755 "$WORK/scripts/"*
 cp "$ROOT/monitor-spk/conf/privilege" "$WORK/conf/privilege"
 cp "$ROOT/monitor-spk/webapi/SYNO.NvidiaGpuMonitor" "$WORK/webapi/SYNO.NvidiaGpuMonitor"
 chmod 0755 "$WORK/webapi/SYNO.NvidiaGpuMonitor"
-cp "$ROOT/monitor-spk/webui/index.html" "$WORK/webui/index.html"
+cp "$ROOT/monitor-spk/webui/index.html" "$WORK/target/ui/index.html"
+cp "$ROOT/monitor-spk/webui/api.cgi" "$WORK/target/ui/api.cgi"
+chmod 0755 "$WORK/target/ui/api.cgi"
 cp "$ROOT/monitor-spk/INFO" "$WORK/INFO"
 for icon in PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
   cp "$ROOT/spk/$icon" "$WORK/$icon"
