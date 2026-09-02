@@ -56,7 +56,9 @@ gzip -c -n "$JS" > "${STATE}/resource.js.gz.tmp"
 cp -p "${STATE}/resource.js.gz.tmp" "$GZ"
 rm -f "${STATE}/resource.js.gz.tmp"
 
-systemctl restart synoscgi.service nginx.service 2>/dev/null || true
+# Do not restart synoscgi/nginx from Package Center's postinst context.  DSM
+# can block this script while those services reload; the UI symlink is picked
+# up on the next web session (or normal DSM service reload).
 mkdir -p /usr/syno/synoman/webman/3rdparty
 ln -sfn /var/packages/syno-nvidia-gpu-monitor/target/ui /usr/syno/synoman/webman/3rdparty/SynoNvidiaGpuMonitor
 
