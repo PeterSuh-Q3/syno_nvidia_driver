@@ -1,7 +1,6 @@
 #!/bin/sh
-# This is an install-only utility package.  Package Center must not expose a
-# Start/Stop control and no background poller is ever launched.
+# Request-driven WebUI package; no persistent service is required.
 case "${1:-}" in
-    start|stop|status) exit 0 ;;
-    *) exit 1 ;;
+  start|stop|status) exit 0 ;;
+  *) exit 1 ;;
 esac

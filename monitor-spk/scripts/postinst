@@ -1,13 +1,56 @@
 #!/bin/sh
-# Phase 1 deliberately installs no DSM integration, daemon, library override,
-# or global environment setting.  NVML is loaded by the package binary only.
+# Experimental UI phase: expose DSM's existing GPU panels while preserving
+# every DSM-owned file so preuninst can restore the exact baseline.
 set -u
+if [ "${1:-}" != "--root" ] && [ "$(id -u)" -ne 0 ]; then
+    exec /var/packages/syno-nvidia-gpu-monitor/target/bin/helper/monitor-helper postinst
+fi
 
 MONITOR="/var/packages/syno-nvidia-gpu-monitor/target/bin/syno-nvidia-gpu-monitor"
+STATE="/var/packages/syno-nvidia-gpu-monitor/var/ui-backup"
+JS="/usr/syno/synoman/webman/modules/ResourceMonitor/resource.js"
+GZ="${JS}.gz"
+SYNOS="/etc/synoinfo.conf"
+SYNODEF="/etc.defaults/synoinfo.conf"
+
+mkdir -p "$STATE"
 
 if [ ! -x "$MONITOR" ] || ! "$MONITOR" --check; then
     echo "A working syno-nvidia-driver NVML runtime is required before installing Synology NVIDIA GPU Monitor." >&2
     exit 1
 fi
+
+backup_once() {
+    src="$1"; dst="$2"
+    [ -e "$dst" ] || cp -p "$src" "$dst"
+}
+
+backup_once "$SYNOS" "$STATE/synoinfo.conf"
+backup_once "$SYNODEF" "$STATE/synoinfo.defaults.conf"
+backup_once "$JS" "$STATE/resource.js"
+backup_once "$GZ" "$STATE/resource.js.gz"
+
+/usr/syno/bin/synosetkeyvalue "$SYNOS" support_nvidia_gpu yes
+/usr/syno/bin/synosetkeyvalue "$SYNODEF" support_nvidia_gpu yes
+
+# Do not touch DSM's GPU API or libraries.  Only suppress the UI mask that
+# says "no GPU installed" when Utilization.gpu is absent.  The two files are
+# both updated because nginx serves the pre-compressed asset when available.
+TMP="${STATE}/resource.js.tmp"
+sed 's@if(!i||0===i.gpu_memory_total)@if(0)                         @g; s@this.turnOnMask?this.mask@0?this.mask@g' "$JS" > "$TMP"
+if cmp -s "$JS" "$TMP" && ! grep -q 'if(0)' "$JS"; then
+    echo "Resource Monitor GPU mask pattern was not found; refusing partial UI install." >&2
+    rm -f "$TMP"
+    exit 1
+fi
+cp -p "$TMP" "$JS"
+rm -f "$TMP"
+gzip -c -n "$JS" > "${STATE}/resource.js.gz.tmp"
+cp -p "${STATE}/resource.js.gz.tmp" "$GZ"
+rm -f "${STATE}/resource.js.gz.tmp"
+
+systemctl restart synoscgi.service nginx.service 2>/dev/null || true
+mkdir -p /usr/syno/synoman/webman/3rdparty
+ln -sfn /var/packages/syno-nvidia-gpu-monitor/target/ui /usr/syno/synoman/webman/3rdparty/SynoNvidiaGpuMonitor
 
 exit 0
