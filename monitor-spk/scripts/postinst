@@ -52,6 +52,5 @@ rm -f "${STATE}/resource.js.gz.tmp"
 systemctl restart synoscgi.service nginx.service 2>/dev/null || true
 mkdir -p /usr/syno/synoman/webman/3rdparty
 ln -sfn /var/packages/syno-nvidia-gpu-monitor/target/ui /usr/syno/synoman/webman/3rdparty/SynoNvidiaGpuMonitor
-"/var/packages/syno-nvidia-gpu-monitor/target/bin/syno-nvidia-gpu-monitor-daemon.sh" >/dev/null 2>&1 &
 
 exit 0
