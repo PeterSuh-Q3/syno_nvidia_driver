@@ -2,10 +2,7 @@ package="syno-nvidia-gpu-monitor"
 version="0.6.2"
 displayname="Synology NVIDIA GPU Monitor (Experimental UI)"
 description="Read-only NVIDIA GPU, encoder, decoder, and memory telemetry collector with an experimental DSM Resource Monitor GPU panel."
-# DSM uses model platform identifiers for package compatibility rather than
-# the generic CPU name. Keep this list broad so the noarch-style runtime can
-# be installed on supported x86 Synology platforms.
-arch="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap geminilake purley r1000 v1000 epyc7002 epyc7003 epyc7003ntb geminilakenk icelaked r1000nk v1000nk kvmx64"
+arch="x86_64"
 os_min_ver="7.0-00000"
 os_max_ver="9.9-99999"
 maintainer="PeterSuh-Q3"

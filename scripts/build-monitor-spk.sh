@@ -10,7 +10,7 @@ VERSION=0.6.2
 PLATFORM=x86_64
 # Synology validates arch against model platform identifiers. This package is
 # userspace-only, so advertise all supported x86 platforms in INFO.
-DSM_ARCHES="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap geminilake purley r1000 v1000 epyc7002 epyc7003 epyc7003ntb geminilakenk icelaked r1000nk v1000nk kvmx64"
+DSM_ARCHES="x86_64"
 IMAGE=${SYNOCOMPILER_IMAGE:-dante90/syno-compiler:7.4}
 CC=${SYNOCOMPILER_CC:-/opt/epyc7002/bin/x86_64-pc-linux-gnu-gcc}
 WORK="$ROOT/work/$PACKAGE-$PLATFORM"
