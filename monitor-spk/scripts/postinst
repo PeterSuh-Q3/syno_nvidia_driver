@@ -1,9 +1,16 @@
 #!/bin/sh
 # Experimental UI phase: expose DSM's existing GPU panels while preserving
 # every DSM-owned file so preuninst can restore the exact baseline.
-set -u
-if [ "${1:-}" != "--root" ] && [ "$(id -u)" -ne 0 ]; then
-    exec /var/packages/syno-nvidia-gpu-monitor/target/bin/helper/monitor-helper postinst
+set -eu
+SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
+RUNTIME="${SCRIPTDIR%/scripts}/target"
+HELPER="$RUNTIME/bin/helper/monitor-helper"
+if [ "${1:-}" != "--root" ]; then
+    if [ ! -u "$HELPER" ]; then
+        echo "nvidia-gpu-monitor: setuid helper not set up correctly ($HELPER)" >&2
+        exit 1
+    fi
+    exec "$HELPER" postinst
 fi
 
 MONITOR="/var/packages/syno-nvidia-gpu-monitor/target/bin/syno-nvidia-gpu-monitor"
