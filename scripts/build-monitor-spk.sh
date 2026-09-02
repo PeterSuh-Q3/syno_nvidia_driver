@@ -6,7 +6,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PACKAGE=syno-nvidia-gpu-monitor
-VERSION=0.5.3
+VERSION=0.5.4
 PLATFORM=epyc7002
 IMAGE=${SYNOCOMPILER_IMAGE:-dante90/syno-compiler:7.4}
 CC=${SYNOCOMPILER_CC:-/opt/epyc7002/bin/x86_64-pc-linux-gnu-gcc}
