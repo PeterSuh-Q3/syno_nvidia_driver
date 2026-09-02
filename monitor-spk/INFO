@@ -1,5 +1,5 @@
 package="syno-nvidia-gpu-monitor"
-version="0.5.2"
+version="0.5.3"
 displayname="Synology NVIDIA GPU Monitor (Experimental UI)"
 description="Read-only NVIDIA GPU, encoder, decoder, and memory telemetry collector with an experimental DSM Resource Monitor GPU panel."
 arch="epyc7002"
