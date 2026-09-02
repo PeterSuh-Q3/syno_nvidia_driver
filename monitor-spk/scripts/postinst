@@ -38,7 +38,7 @@ backup_once "$GZ" "$STATE/resource.js.gz"
 # both updated because nginx serves the pre-compressed asset when available.
 TMP="${STATE}/resource.js.tmp"
 sed 's@if(!i||0===i.gpu_memory_total)@if(0)                         @g; s@this.turnOnMask?this.mask@0?this.mask@g' "$JS" > "$TMP"
-if cmp -s "$JS" "$TMP"; then
+if cmp -s "$JS" "$TMP" && ! grep -q 'if(0)' "$JS"; then
     echo "Resource Monitor GPU mask pattern was not found; refusing partial UI install." >&2
     rm -f "$TMP"
     exit 1
