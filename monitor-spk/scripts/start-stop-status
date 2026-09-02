@@ -1,7 +1,11 @@
 #!/bin/sh
-# This is an install-only utility package.  Package Center must not expose a
-# Start/Stop control and no background poller is ever launched.
+#!/bin/sh
+BASE="/var/packages/syno-nvidia-gpu-monitor"
+PID="$BASE/var/monitor.pid"
+DAEMON="$BASE/target/bin/syno-nvidia-gpu-monitor-daemon.sh"
 case "${1:-}" in
-    start|stop|status) exit 0 ;;
-    *) exit 1 ;;
+ start) [ -r "$PID" ] && kill -0 "$(cat "$PID")" 2>/dev/null && exit 0; nohup "$DAEMON" >/dev/null 2>&1 & exit 0 ;;
+ stop) [ -r "$PID" ] && kill "$(cat "$PID")" 2>/dev/null || true; rm -f "$PID"; exit 0 ;;
+ status) [ -r "$PID" ] && kill -0 "$(cat "$PID")" 2>/dev/null; exit $? ;;
+ *) exit 1 ;;
 esac

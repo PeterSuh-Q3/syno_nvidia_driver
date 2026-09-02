@@ -20,6 +20,8 @@ docker run --rm --platform linux/amd64 --entrypoint /bin/bash \
   -u 0 -v "$ROOT:/work" -w /work "$IMAGE" -lc \
   "'$CC' -O2 -s -Wall -Wextra -Werror -o '/work/work/$PACKAGE-$PLATFORM/target/bin/syno-nvidia-gpu-monitor' '/work/monitor-spk/src/syno-nvidia-gpu-monitor.c' -ldl"
 chmod 0755 "$WORK/target/bin/syno-nvidia-gpu-monitor"
+cp "$ROOT/monitor-spk/src/syno-nvidia-gpu-monitor-daemon.sh" "$WORK/target/bin/"
+chmod 0755 "$WORK/target/bin/syno-nvidia-gpu-monitor-daemon.sh"
 
 cp "$ROOT/monitor-spk/scripts/"* "$WORK/scripts/"
 chmod 0755 "$WORK/scripts/"*

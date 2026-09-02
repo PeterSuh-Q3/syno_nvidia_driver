@@ -2,6 +2,9 @@
 # Restore the exact files and settings captured by postinst.  This is a
 # reversible UI experiment; never leave a DSM-owned overlay behind.
 set -u
+if [ -r /var/packages/syno-nvidia-gpu-monitor/var/monitor.pid ]; then
+    kill "$(cat /var/packages/syno-nvidia-gpu-monitor/var/monitor.pid)" 2>/dev/null || true
+fi
 STATE="/var/packages/syno-nvidia-gpu-monitor/var/ui-backup"
 [ -f "$STATE/synoinfo.conf" ] && cp -p "$STATE/synoinfo.conf" /etc/synoinfo.conf
 [ -f "$STATE/synoinfo.defaults.conf" ] && cp -p "$STATE/synoinfo.defaults.conf" /etc.defaults/synoinfo.conf

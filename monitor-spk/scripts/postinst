@@ -47,5 +47,6 @@ cp -p "${STATE}/resource.js.gz.tmp" "$GZ"
 rm -f "${STATE}/resource.js.gz.tmp"
 
 systemctl restart synoscgi.service nginx.service 2>/dev/null || true
+"$SYNOPKG_PKGDEST/target/bin/syno-nvidia-gpu-monitor-daemon.sh" >/dev/null 2>&1 &
 
 exit 0
