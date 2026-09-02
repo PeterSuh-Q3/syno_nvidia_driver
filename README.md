@@ -11,6 +11,18 @@
 Physical / passthrough GPUs. One command installs it, survives reboots, and
 enables hardware transcoding in Plex and Jellyfin.
 
+## Synology NVIDIA GPU Monitor
+
+The companion **Synology NVIDIA GPU Monitor** package provides a lightweight,
+read-only floating dashboard for NVIDIA GPUs on DSM. It displays GPU and VRAM
+utilization, NVENC/NVDEC activity, temperature, fan speed, and clock rates
+using NVIDIA NVML. Install the SPK from the [0.6.2 release](https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/tag/0.6.2),
+then launch it from the DSM main menu.
+
+<p align="center">
+  <img src="docs/GPU-MONITOR.png" alt="Synology NVIDIA GPU Monitor floating dashboard" width="820">
+</p>
+
 <br>
 
 > ⚠️ **Prefer the `.spk` package over the `curl | bash` installer below.**
