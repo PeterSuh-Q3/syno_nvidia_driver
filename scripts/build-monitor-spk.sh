@@ -14,7 +14,7 @@ WORK="$ROOT/work/$PACKAGE-$PLATFORM"
 OUT="$ROOT/dist"
 
 rm -rf "$WORK"
-mkdir -p "$WORK/target/bin" "$WORK/scripts" "$WORK/conf" "$OUT"
+mkdir -p "$WORK/target/bin" "$WORK/scripts" "$WORK/conf" "$WORK/webapi" "$OUT"
 
 docker run --rm --platform linux/amd64 --entrypoint /bin/bash \
   -u 0 -v "$ROOT:/work" -w /work "$IMAGE" -lc \
@@ -26,6 +26,8 @@ chmod 0755 "$WORK/target/bin/syno-nvidia-gpu-monitor-daemon.sh"
 cp "$ROOT/monitor-spk/scripts/"* "$WORK/scripts/"
 chmod 0755 "$WORK/scripts/"*
 cp "$ROOT/monitor-spk/conf/privilege" "$WORK/conf/privilege"
+cp "$ROOT/monitor-spk/webapi/SYNO.NvidiaGpuMonitor" "$WORK/webapi/SYNO.NvidiaGpuMonitor"
+chmod 0755 "$WORK/webapi/SYNO.NvidiaGpuMonitor"
 cp "$ROOT/monitor-spk/INFO" "$WORK/INFO"
 for icon in PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
   cp "$ROOT/spk/$icon" "$WORK/$icon"
@@ -41,7 +43,7 @@ EXTRACT_SIZE=$(du -sk "$WORK/target" | awk '{print $1}')
 } >> "$WORK/INFO"
 
 SPK="$OUT/${PACKAGE}-${VERSION}-dsm7.4-${PLATFORM}.spk"
-tar -C "$WORK" -cf "$SPK" INFO package.tgz scripts conf PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG
+tar -C "$WORK" -cf "$SPK" INFO package.tgz scripts conf webapi PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG
 
 echo "Built $SPK ($(du -h "$SPK" | cut -f1))"
 tar -tf "$SPK"
