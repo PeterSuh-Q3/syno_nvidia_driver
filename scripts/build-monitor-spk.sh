@@ -6,7 +6,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PACKAGE=syno-nvidia-gpu-monitor
-VERSION=0.3.0-1
+VERSION=0.3.1-1
 PLATFORM=epyc7002
 IMAGE=${SYNOCOMPILER_IMAGE:-dante90/syno-compiler:7.4}
 CC=${SYNOCOMPILER_CC:-/opt/epyc7002/bin/x86_64-pc-linux-gnu-gcc}
@@ -14,12 +14,15 @@ WORK="$ROOT/work/$PACKAGE-$PLATFORM"
 OUT="$ROOT/dist"
 
 rm -rf "$WORK"
-mkdir -p "$WORK/target/bin" "$WORK/scripts" "$WORK/conf" "$WORK/webapi" "$OUT"
+mkdir -p "$WORK/target/bin/helper" "$WORK/scripts" "$WORK/conf" "$WORK/webapi" "$OUT"
 
 docker run --rm --platform linux/amd64 --entrypoint /bin/bash \
   -u 0 -v "$ROOT:/work" -w /work "$IMAGE" -lc \
   "'$CC' -O2 -s -Wall -Wextra -Werror -o '/work/work/$PACKAGE-$PLATFORM/target/bin/syno-nvidia-gpu-monitor' '/work/monitor-spk/src/syno-nvidia-gpu-monitor.c' -ldl"
 chmod 0755 "$WORK/target/bin/syno-nvidia-gpu-monitor"
+docker run --rm --platform linux/amd64 --entrypoint /bin/bash -u 0 -v "$ROOT:/work" -w /work "$IMAGE" -lc \
+  "'$CC' -O2 -s -Wall -Wextra -Werror -o '/work/work/$PACKAGE-$PLATFORM/target/bin/helper/monitor-helper' '/work/monitor-spk/src/monitor-helper.c'"
+chmod 0550 "$WORK/target/bin/helper/monitor-helper"
 cp "$ROOT/monitor-spk/src/syno-nvidia-gpu-monitor-daemon.sh" "$WORK/target/bin/"
 chmod 0755 "$WORK/target/bin/syno-nvidia-gpu-monitor-daemon.sh"
 
