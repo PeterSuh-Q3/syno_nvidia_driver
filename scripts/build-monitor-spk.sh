@@ -6,7 +6,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PACKAGE=syno-nvidia-gpu-monitor
-VERSION=0.3.1-1
+VERSION=0.4.0-1
 PLATFORM=epyc7002
 IMAGE=${SYNOCOMPILER_IMAGE:-dante90/syno-compiler:7.4}
 CC=${SYNOCOMPILER_CC:-/opt/epyc7002/bin/x86_64-pc-linux-gnu-gcc}
@@ -14,7 +14,7 @@ WORK="$ROOT/work/$PACKAGE-$PLATFORM"
 OUT="$ROOT/dist"
 
 rm -rf "$WORK"
-mkdir -p "$WORK/target/bin/helper" "$WORK/scripts" "$WORK/conf" "$WORK/webapi" "$OUT"
+mkdir -p "$WORK/target/bin/helper" "$WORK/scripts" "$WORK/conf" "$WORK/webapi" "$WORK/webui" "$OUT"
 
 docker run --rm --platform linux/amd64 --entrypoint /bin/bash \
   -u 0 -v "$ROOT:/work" -w /work "$IMAGE" -lc \
@@ -33,6 +33,7 @@ chmod 0755 "$WORK/scripts/"*
 cp "$ROOT/monitor-spk/conf/privilege" "$WORK/conf/privilege"
 cp "$ROOT/monitor-spk/webapi/SYNO.NvidiaGpuMonitor" "$WORK/webapi/SYNO.NvidiaGpuMonitor"
 chmod 0755 "$WORK/webapi/SYNO.NvidiaGpuMonitor"
+cp "$ROOT/monitor-spk/webui/index.html" "$WORK/webui/index.html"
 cp "$ROOT/monitor-spk/INFO" "$WORK/INFO"
 for icon in PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
   cp "$ROOT/spk/$icon" "$WORK/$icon"
