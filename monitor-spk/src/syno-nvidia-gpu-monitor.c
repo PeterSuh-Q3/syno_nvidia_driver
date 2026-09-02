@@ -15,6 +15,8 @@ typedef struct nvmlDevice_st *nvmlDevice_t;
 typedef struct {
     unsigned int gpu;
     unsigned int memory;
+    unsigned int encoder;
+    unsigned int decoder;
 } nvmlUtilization_t;
 typedef struct {
     unsigned long long total;
@@ -111,9 +113,11 @@ int main(int argc, char **argv) {
     used_kib = memory.used / 1024ULL;
     free_kib = memory.free / 1024ULL;
     memory_percent = total_kib == 0 ? 0U : (unsigned int)((used_kib * 100ULL) / total_kib);
-    printf("{\"device\":\"Gpu\",\"gpu_utilization\":%u,\"gpu_memory_total\":%llu,"
-           "\"gpu_memory_used\":%llu,\"gpu_memory_free\":%llu,\"gpu_memory_utilization\":%u}\n",
-           utilization.gpu, total_kib, used_kib, free_kib, memory_percent);
+    printf("{\"device\":\"Gpu\",\"gpu_utilization\":%u,\"encoder_utilization\":%u,"
+           "\"decoder_utilization\":%u,\"gpu_memory_total\":%llu,\"gpu_memory_used\":%llu,"
+           "\"gpu_memory_free\":%llu,\"gpu_memory_utilization\":%u}\n",
+           utilization.gpu, utilization.encoder, utilization.decoder,
+           total_kib, used_kib, free_kib, memory_percent);
     rc = 0;
 out:
     api.shutdown();
