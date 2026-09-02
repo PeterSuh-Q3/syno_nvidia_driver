@@ -76,7 +76,7 @@ static int load_nvml(struct nvml_api *api) {
 int main(int argc, char **argv) {
     struct nvml_api api;
     nvmlDevice_t device;
-    nvmlUtilization_t utilization;
+    nvmlUtilization_t utilization = {0};
     nvmlMemory_t memory;
     unsigned int count = 0;
     unsigned long long total_kib, used_kib, free_kib;
