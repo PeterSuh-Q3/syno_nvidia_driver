@@ -1,6 +1,6 @@
 # Synology NVIDIA GPU Monitor — Phase 1
 
-This experimental SPK provides one read-only command and an optional UI
+This SPK provides one read-only command and an optional UI
 experiment:
 
 ```sh

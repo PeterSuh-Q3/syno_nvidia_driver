@@ -1,5 +1,5 @@
 #!/bin/sh
-# Experimental UI phase: expose DSM's existing GPU panels while preserving
+# Expose DSM's existing GPU panels while preserving
 # every DSM-owned file so preuninst can restore the exact baseline.
 set -eu
 SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
