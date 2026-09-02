@@ -1,3 +1,11 @@
 #!/bin/sh
-# No process or DSM state is owned by this package.
+# Restore the exact files and settings captured by postinst.  This is a
+# reversible UI experiment; never leave a DSM-owned overlay behind.
+set -u
+STATE="/var/packages/syno-nvidia-gpu-monitor/var/ui-backup"
+[ -f "$STATE/synoinfo.conf" ] && cp -p "$STATE/synoinfo.conf" /etc/synoinfo.conf
+[ -f "$STATE/synoinfo.defaults.conf" ] && cp -p "$STATE/synoinfo.defaults.conf" /etc.defaults/synoinfo.conf
+[ -f "$STATE/resource.js" ] && cp -p "$STATE/resource.js" /usr/syno/synoman/webman/modules/ResourceMonitor/resource.js
+[ -f "$STATE/resource.js.gz" ] && cp -p "$STATE/resource.js.gz" /usr/syno/synoman/webman/modules/ResourceMonitor/resource.js.gz
+systemctl restart synoscgi.service nginx.service 2>/dev/null || true
 exit 0
