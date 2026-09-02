@@ -1,0 +1,43 @@
+name: Build NVIDIA GPU Monitor SPK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'monitor-spk/**'
+      - 'scripts/build-monitor-spk.sh'
+      - 'spk/PACKAGE_ICON*.PNG'
+      - '.github/workflows/build-gpu-monitor.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build SPK with DSM 7.4 compiler image
+        env:
+          SYNOCOMPILER_IMAGE: dante90/syno-compiler:7.4
+          SYNOCOMPILER_CC: /opt/epyc7002/bin/x86_64-pc-linux-gnu-gcc
+        run: ./scripts/build-monitor-spk.sh
+
+      - name: Validate SPK metadata
+        run: |
+          set -euo pipefail
+          spk=$(find dist -maxdepth 1 -name 'syno-nvidia-gpu-monitor-*.spk' -print -quit)
+          test -n "$spk"
+          tar -xOf "$spk" INFO | grep -E '^(package|version|arch|dsmappname)='
+          tar -xOf "$spk" package.tgz | tar -tzf - | grep -E '(^|/)ui/(config|dsm-wrapper.js|index.html)$'
+
+      - name: Upload SPK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: syno-nvidia-gpu-monitor-spk
+          path: dist/syno-nvidia-gpu-monitor-*.spk
+          if-no-files-found: error
+          retention-days: 30
