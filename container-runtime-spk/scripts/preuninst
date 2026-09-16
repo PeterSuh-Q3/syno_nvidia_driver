@@ -1,0 +1,6 @@
+#!/bin/sh
+set -u
+RUNTIME="$(cd "$(dirname "$0")/.." && pwd)/target"
+HELPER="$RUNTIME/bin/helper/container-runtime-helper.x86_64"
+[ -u "$HELPER" ] && "$HELPER" uninstall
+exit 0

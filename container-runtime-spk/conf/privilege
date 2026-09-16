@@ -1,0 +1,19 @@
+{
+  "defaults": { "run-as": "package" },
+  "username": "sc-nvidia-container-runtime",
+  "groupname": "nvidia-container-runtime",
+  "tool": [
+    {
+      "relpath": "bin/helper/container-runtime-helper.x86_64",
+      "user": "root",
+      "group": "package",
+      "permission": "6550"
+    },
+    {
+      "relpath": "bin/container-runtime-backend.sh",
+      "user": "root",
+      "group": "package",
+      "permission": "0550"
+    }
+  ]
+}
