@@ -23,7 +23,8 @@ KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap g
 
 case "$VARIANT" in
   kver5)
-    DRIVER=580.173.02
+    DRIVER=595.99.02 
+    #DRIVER=580.173.02
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5
