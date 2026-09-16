@@ -51,7 +51,7 @@ write_config() {
 [nvidia-container-cli]
 root = "/"
 path = "$CRDIR/bin/nvidia-container-cli"
-ldcache = "$CRDIR/ld.so.cache"
+ldcache = "/etc/ld.so.cache"
 ldconfig = "@/usr/sbin/ldconfig"
 environment = ["LD_LIBRARY_PATH=$CRDIR/lib"]
 
@@ -67,10 +67,28 @@ EOF
 }
 
 build_ldcache() {
-  "$CRDIR/tools/ldconfig" -C "$CRDIR/ld.so.cache" /usr/lib "$CRDIR/lib" 2>/dev/null || {
-    echo "NVIDIA Container Runtime: unable to generate ld.so.cache" >&2
+  # libnvidia-container consults the system cache while collecting the host
+  # driver files.  A private cache is therefore insufficient: after a driver
+  # upgrade it can leave an obsolete fully-versioned NVIDIA path selected.
+  # Generate one complete replacement in /etc, never a symlink into package
+  # storage, so it also remains a normal DSM loader cache after this package
+  # is upgraded or removed.
+  cache_tmp=/etc/.ld.so.cache.syno-nvidia-container-runtime.$$
+  rm -f "$cache_tmp"
+  "$CRDIR/tools/ldconfig" -C "$cache_tmp" /lib /usr/lib "$CRDIR/lib" 2>/dev/null || {
+    rm -f "$cache_tmp"
+    echo "NVIDIA Container Runtime: unable to generate system ld.so.cache" >&2
     return 1
   }
+  if ! "$CRDIR/tools/ldconfig" -p -C "$cache_tmp" 2>/dev/null | grep -q 'libnvidia-ml\.so'; then
+    rm -f "$cache_tmp"
+    echo "NVIDIA Container Runtime: generated cache does not contain NVIDIA libraries" >&2
+    return 1
+  fi
+  chown root:root "$cache_tmp"
+  chmod 644 "$cache_tmp"
+  mv -f "$cache_tmp" /etc/ld.so.cache
+  log "rebuilt /etc/ld.so.cache from current /lib and /usr/lib libraries"
   # DSM normally has no ldconfig.  Keep a package-owned copy only when absent;
   # never replace a binary supplied by DSM or another package.
   if [ ! -e /usr/sbin/ldconfig ]; then
