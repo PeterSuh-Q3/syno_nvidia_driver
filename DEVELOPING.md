@@ -56,6 +56,21 @@ curl -kLo run/NVIDIA-Linux-x86_64-535.183.06.run \
 
 Outputs land in `out/` with a printed `nvidia-index.json` fragment (incl. sha256).
 
+### GSP firmware layer
+
+GSP firmware is NVIDIA-supplied signed binary firmware, not code compiled by
+this project. For a branch that needs it (Turing or newer), extract the
+firmware from the same official `.run` file and create the release asset with:
+
+```bash
+scripts/make-gsp-layer.sh 595.99.02
+```
+
+This produces `out/nv-gsp-595.99.02.tgz`. The archive contains `gsp_*.bin`
+files at its root so `scripts/build-spk.sh` can place them in the SPK runtime.
+Upload it with the matching module and userspace archives, then update the
+GPU-support index with the archive SHA-256 and the firmware-to-GPU mapping.
+
 ## Publish
 
 1. Upload both `out/*.tgz` to this repo's Release tagged **`nvidia`**.
