@@ -1,5 +1,5 @@
 package="syno-nvidia-container-runtime"
-version="1.19.1-1"
+version="1.19.1-2"
 displayname="Synology NVIDIA Container Runtime"
 description="NVIDIA Container Runtime for Synology Container Manager. Requires an active NVIDIA driver and runtime library."
 arch="x86_64"

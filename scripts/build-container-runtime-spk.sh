@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SOURCE="$ROOT/container-runtime-spk"
 PACKAGE=syno-nvidia-container-runtime
-VERSION=1.19.1-1
+VERSION=1.19.1-2
 ARCH=x86_64
 ASSET=nv-container-runtime-1.19.1.tgz
 ASSET_SHA256=5c39123aa2cc2a2539828aa557f812b14a789fc865ce2cf242e625381de0257e

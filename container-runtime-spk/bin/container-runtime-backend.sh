@@ -70,6 +70,19 @@ build_ldcache() {
   # libnvidia-container consults the system cache while collecting the host
   # driver files.  A private cache is therefore insufficient: after a driver
   # upgrade it can leave an obsolete fully-versioned NVIDIA path selected.
+  #
+  # DSM may invoke this package's boot hook before the NVIDIA driver package
+  # has staged its userspace libraries.  That is an expected ordering race,
+  # not a broken container-runtime installation.  Returning an error here
+  # makes Package Center leave a persistent startFailed marker and repeatedly
+  # offer Repair even though the runtime registration itself is valid.  Leave
+  # the existing system cache alone until the next normal runtime activation.
+  if ! find /usr/local/nvidia/lib /usr/lib -maxdepth 1 -type f -name 'libnvidia-ml.so.*' \
+      -print -quit 2>/dev/null | grep -q .; then
+    log "NVIDIA userspace is not available yet; skipped ld.so.cache rebuild"
+    return 0
+  fi
+
   # Generate one complete replacement in /etc, never a symlink into package
   # storage, so it also remains a normal DSM loader cache after this package
   # is upgraded or removed.

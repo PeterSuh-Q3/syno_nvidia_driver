@@ -1,0 +1,5 @@
+#!/bin/sh
+# Keep the existing Docker registration and runtime symlink intact while DSM
+# replaces the payload.  postupgrade re-runs the idempotent root setup after
+# the new target is in place.
+exit 0

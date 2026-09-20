@@ -1,0 +1,5 @@
+#!/bin/sh
+# DSM requires explicit upgrade hooks for third-party SPKs.  The normal
+# post-install setup is idempotent and safely refreshes the runtime link,
+# configuration, cache (when NVIDIA userspace is available), and Docker entry.
+exec "$(dirname "$0")/postinst" "$@"
