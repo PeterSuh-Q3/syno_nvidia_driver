@@ -15,7 +15,35 @@ RUNTIME="${SCRIPTDIR%/bin}"
 SUP="$RUNTIME/share/nvidia-gpu-support.json"
 NVDIR=/usr/local/nvidia
 RCLOG=/var/log/nvidia-driver.log
+ACTIVATION_STATE=/usr/lib/modules/.nvidia-activation-state
 rclog(){ echo "$(date '+%H:%M:%S') nvidia-backend: $*" >>"$RCLOG" 2>/dev/null; }
+
+# The payload's VERSION is the authoritative userspace driver version. Do not
+# derive it from a neighbouring INFO file: resolving the target symlink puts
+# this script under @appstore, where that relative INFO path does not exist.
+expected_driver_version() {
+  sed -n '1{s/[[:space:]]*$//;p;}' "$NVDIR/VERSION" 2>/dev/null
+}
+
+# /proc reports the module already resident in memory. modinfo would instead
+# report the newly installed file on disk and cannot detect an unsafe upgrade.
+running_driver_version() {
+  sed -n 's/.*Kernel Module[[:space:]][[:space:]]*\([^[:space:]]*\).*/\1/p' \
+    /proc/driver/nvidia/version 2>/dev/null | head -1
+}
+
+record_activation_state() {
+  expected=$1 running=$2 status=$3
+  tmp="${ACTIVATION_STATE}.tmp.$$"
+  umask 022
+  {
+    printf 'expected_driver=%s\n' "$expected"
+    printf 'running_driver=%s\n' "$running"
+    printf 'status=%s\n' "$status"
+    printf 'updated_at=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')"
+  } > "$tmp"
+  mv -f "$tmp" "$ACTIVATION_STATE"
+}
 
 # The package payload under $RUNTIME (/volume1/@appstore/<pkg>/...) is
 # owned by this package's own unprivileged service account, not root -
@@ -116,7 +144,7 @@ do_postinst() {
     jq -r --arg g "$GPUID" '.gpus[$g].arch // "unknown"' "$SUP" 2>/dev/null > /usr/lib/modules/.nvidia-gpuarch
     NEEDS_GSP="$(jq -r --arg g "$GPUID" '.gpus[$g].needs_gsp // false' "$SUP" 2>/dev/null)"
     GSP_FW="$(jq -r --arg g "$GPUID" '.gpus[$g].gsp_fw // empty' "$SUP" 2>/dev/null)"
-    DRV="$(sed -n 's/^version="\([^"]*\)".*/\1/p' "$RUNTIME/../INFO" 2>/dev/null | head -1)"
+    DRV="$(expected_driver_version)"
     if [ "$NEEDS_GSP" = "true" ] && [ -n "$GSP_FW" ] && [ -f "$RUNTIME/lib/firmware/$GSP_FW" ]; then
       FWDIR="/lib/firmware/nvidia/${DRV:-unknown}"
       mkdir -p "$FWDIR"
@@ -153,6 +181,20 @@ do_start() {
     return 0
   fi
 
+  # A package upgrade replaces .ko files and userspace immediately, but it
+  # cannot safely unload a live NVIDIA stack: Plex/Jellyfin/Docker/CUDA may
+  # own /dev/nvidia*, and forced unloads can hang DSM. At boot no old module
+  # remains, so the normal path below loads the new files and clears the marker.
+  EXPECTED_DRV="$(expected_driver_version)"
+  RUNNING_DRV="$(running_driver_version)"
+  if [ -n "$EXPECTED_DRV" ] && [ -n "$RUNNING_DRV" ] && [ "$EXPECTED_DRV" != "$RUNNING_DRV" ]; then
+    record_activation_state "$EXPECTED_DRV" "$RUNNING_DRV" reboot_required
+    rclog "REBOOT REQUIRED: userspace=$EXPECTED_DRV, loaded module=$RUNNING_DRV; refusing unsafe live replacement"
+    echo "nvidia-driver: upgrade files installed (userspace $EXPECTED_DRV), but loaded kernel module is $RUNNING_DRV." >&2
+    echo "nvidia-driver: reboot DSM before using NVIDIA. The package will activate $EXPECTED_DRV at boot." >&2
+    return 0
+  fi
+
   for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
     if [ -f "/usr/lib/modules/$m.ko" ]; then
       if /sbin/insmod "/usr/lib/modules/$m.ko" 2>>"$RCLOG"; then rclog "insmod $m OK"; else rclog "insmod $m FAILED (see above)"; fi
@@ -168,6 +210,17 @@ do_start() {
   UMAJOR=$(awk '$2=="nvidia-uvm"{print $1}' /proc/devices | head -1)
   [ -n "$UMAJOR" ] && [ ! -e /dev/nvidia-uvm ] && mknod -m 666 /dev/nvidia-uvm c "$UMAJOR" 0
   [ -e /dev/nvidia-modeset ] || "$RUNTIME/bin/nvidia-modprobe" -m 2>/dev/null || true
+
+  RUNNING_DRV="$(running_driver_version)"
+  if [ -n "$EXPECTED_DRV" ] && [ -n "$RUNNING_DRV" ]; then
+    if [ "$EXPECTED_DRV" = "$RUNNING_DRV" ]; then
+      rm -f "$ACTIVATION_STATE"
+      rclog "driver active: kernel module and userspace both $EXPECTED_DRV"
+    else
+      record_activation_state "$EXPECTED_DRV" "$RUNNING_DRV" reboot_required
+      rclog "REBOOT REQUIRED after load attempt: userspace=$EXPECTED_DRV, loaded module=$RUNNING_DRV"
+    fi
+  fi
 
   [ -x /sbin/ldconfig ] && /sbin/ldconfig 2>/dev/null || true
 
@@ -243,7 +296,7 @@ do_uninstall() {
   for m in nvidia-drm nvidia-modeset nvidia-uvm nvidia; do
     lsmod 2>/dev/null | grep -q "^$m " && rmmod "$m" 2>/dev/null || true
   done
-  rm -f /usr/lib/modules/nvidia*.ko /usr/lib/modules/.nvidia-platform /usr/lib/modules/.nvidia-gpuarch
+  rm -f /usr/lib/modules/nvidia*.ko /usr/lib/modules/.nvidia-platform /usr/lib/modules/.nvidia-gpuarch "$ACTIVATION_STATE"
 
   # Userspace + library search path.
   rm -f /etc/ld.so.conf.d/nvidia.conf

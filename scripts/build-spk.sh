@@ -13,6 +13,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REL="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia"
 OUT="$ROOT/dist"
 WORK="$ROOT/work/spk-$VARIANT"
+PACKAGE_REVISION=2
 
 # ---- per-variant configuration ---------------------------------------------
 # Platform lists and kernel-suffix/file-naming convention come straight from
@@ -124,7 +125,7 @@ chmod 0755 "$WORK/target/bin/helper/nvidia-helper.x86_64"
 cp "$ROOT/spk/INFO" "$WORK/INFO"
 sed -i.bak \
   -e "s/^package=\"[^\"]*\"/package=\"$PACKAGE\"/" \
-  -e "s/^version=\"[^\"]*\"/version=\"${DRIVER}-1\"/" \
+  -e "s/^version=\"[^\"]*\"/version=\"${DRIVER}-${PACKAGE_REVISION}\"/" \
   -e "s/^arch=\"[^\"]*\"/arch=\"$PLATFORMS\"/" \
   -e "s/^os_min_ver=\"[^\"]*\"/os_min_ver=\"$OS_MIN_VER\"/" \
   -e "s#^description=\".*\"#description=\"$DESC\"#" \
