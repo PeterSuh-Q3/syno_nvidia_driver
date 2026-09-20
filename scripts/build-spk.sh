@@ -13,7 +13,6 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REL="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia"
 OUT="$ROOT/dist"
 WORK="$ROOT/work/spk-$VARIANT"
-PACKAGE_REVISION=2
 
 # ---- per-variant configuration ---------------------------------------------
 # Platform lists and kernel-suffix/file-naming convention come straight from
@@ -24,8 +23,12 @@ KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap g
 
 case "$VARIANT" in
   kver5)
-    DRIVER=595.99.02 
-    #DRIVER=580.173.02
+    DRIVER=${KVER5_DRIVER:-595.99.02}
+    case "$DRIVER" in
+      580.173.02) PACKAGE_REVISION=2 ;;
+      595.99.02) PACKAGE_REVISION=3 ;;
+      *) echo "Unsupported KVER5_DRIVER '$DRIVER' (expected 580.173.02 or 595.99.02)" >&2; exit 2 ;;
+    esac
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5
@@ -36,6 +39,7 @@ case "$VARIANT" in
     FILESUFFIX=""
     ;;
   kver4-72)
+    PACKAGE_REVISION=2
     DRIVER=550.163.01
     KSUFFIX=44302
     PLATFORMS="$KVER4_PLATFORMS"
@@ -46,6 +50,7 @@ case "$VARIANT" in
     FILESUFFIX="-dsm7.2-7.4"
     ;;
   kver4-70)
+    PACKAGE_REVISION=2
     DRIVER=550.163.01
     KSUFFIX=44180
     PLATFORMS="$KVER4_PLATFORMS"

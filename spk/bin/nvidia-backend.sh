@@ -75,26 +75,80 @@ lock_payload() {
   done
 }
 
+# RR/PML configurations can rebuild /usr/lib/modules during boot after the
+# package was installed but before DSM starts package services.  The immutable
+# package payload remains on the data volume, so kver5 packages can restore
+# their platform-specific modules safely at that point.  Limit this recovery
+# to the 5.10.55 family for now; kver4 package behaviour is intentionally
+# unchanged.
+stage_kver5_modules() {
+  platform=$1
+  kver=$2
+  moddir="$RUNTIME/lib/modules/$platform"
+
+  [ "$kver" = "5.10.55" ] || return 0
+  if [ ! -d "$moddir" ]; then
+    rclog "module recovery unavailable: no payload for platform '$platform'"
+    return 1
+  fi
+
+  mkdir -p /usr/lib/modules
+  found=0
+  for ko in "$moddir"/*.ko; do
+    [ -f "$ko" ] || continue
+    cp -f "$ko" "/usr/lib/modules/$(basename "$ko")"
+    found=1
+  done
+  if [ "$found" -ne 1 ]; then
+    rclog "module recovery unavailable: payload for '$platform' has no .ko files"
+    return 1
+  fi
+  echo "$platform $kver" > /usr/lib/modules/.nvidia-platform
+  return 0
+}
+
+restore_kver5_modules_if_missing() {
+  platform=$1
+  kver=$2
+
+  [ "$kver" = "5.10.55" ] || return 0
+  missing=0
+  for module in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
+    [ -f "/usr/lib/modules/$module.ko" ] || missing=1
+  done
+  [ "$missing" -eq 1 ] || return 0
+
+  rclog "module recovery: /usr/lib/modules NVIDIA files missing; restoring payload for '$platform'"
+  if stage_kver5_modules "$platform" "$kver"; then
+    rclog "module recovery: restored NVIDIA modules for '$platform'"
+  else
+    rclog "module recovery: failed for '$platform'"
+  fi
+}
+
 do_postinst() {
   lock_payload
   PLATFORM="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
   KREL="$(uname -r)"
   KVER="$(echo "$KREL" | sed 's/[^0-9.].*$//')"
 
-  MODDIR="$RUNTIME/lib/modules/$PLATFORM"
-  if [ ! -d "$MODDIR" ]; then
+  if [ ! -d "$RUNTIME/lib/modules/$PLATFORM" ]; then
     echo "nvidia-driver: no bundled kernel module for platform '$PLATFORM' - this variant does not cover this box" >&2
     exit 1
   fi
 
-  mkdir -p /usr/lib/modules
-  for ko in "$MODDIR"/*.ko; do
-    [ -f "$ko" ] && cp -f "$ko" "/usr/lib/modules/$(basename "$ko")"
-  done
-  # Boot-hook mismatch guard (see do_start): a DSM upgrade can move the
-  # same platform to a different kernel point release, invalidating the
-  # bundled .ko's vermagic without changing PLATFORM.
-  echo "$PLATFORM $KVER" > /usr/lib/modules/.nvidia-platform
+  # The kver5 helper also writes the platform marker used by do_start.
+  # Keep the existing direct copy fallback for kver4 package builds, which
+  # are deliberately not receiving boot-time recovery in this change.
+  if [ "$KVER" = "5.10.55" ]; then
+    stage_kver5_modules "$PLATFORM" "$KVER" || exit 1
+  else
+    mkdir -p /usr/lib/modules
+    for ko in "$RUNTIME/lib/modules/$PLATFORM"/*.ko; do
+      [ -f "$ko" ] && cp -f "$ko" "/usr/lib/modules/$(basename "$ko")"
+    done
+    echo "$PLATFORM $KVER" > /usr/lib/modules/.nvidia-platform
+  fi
 
   # ---- userspace (shared across every platform in this variant) ----
   # Symlink straight into the (now root-owned, see lock_payload) package
@@ -180,6 +234,11 @@ do_start() {
     rclog "SKIPPED: installed .ko are for kernel '$STOREDK' but running '$CURK' (DSM upgraded?) - reinstall this package"
     return 0
   fi
+
+  # This self-heals only kver5 packages.  It runs after compatibility guards
+  # but before any insmod attempt, so a RR/PML boot-time module-directory
+  # rebuild cannot leave a superficially "running" package with no driver.
+  restore_kver5_modules_if_missing "$CURP" "$CURK"
 
   # A package upgrade replaces .ko files and userspace immediately, but it
   # cannot safely unload a live NVIDIA stack: Plex/Jellyfin/Docker/CUDA may
