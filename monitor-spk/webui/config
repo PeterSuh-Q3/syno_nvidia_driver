@@ -1,1 +1,0 @@
-{"dsm-wrapper.js":{"NvidiaGpuMonitor.AppInstance":{"type":"app","title":"NVIDIA GPU Monitor","version":"0.5.0-1","icon":"images/icon_256.png","allowMultiInstance":false,"allUsers":true,"appWindow":"NvidiaGpuMonitor.AppWindow","depend":["NvidiaGpuMonitor.AppWindow"]},"NvidiaGpuMonitor.AppWindow":{"type":"lib","title":"NVIDIA GPU Monitor"}}}

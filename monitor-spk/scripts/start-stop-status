@@ -1,6 +1,0 @@
-#!/bin/sh
-# Request-driven WebUI package; no persistent service is required.
-case "${1:-}" in
-  start|stop|status) exit 0 ;;
-  *) exit 1 ;;
-esac
