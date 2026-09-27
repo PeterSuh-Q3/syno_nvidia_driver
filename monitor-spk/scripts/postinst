@@ -46,15 +46,18 @@ backup_once "$GZ" "$STATE/resource.js.gz"
 TMP="${STATE}/resource.js.tmp"
 sed 's@if(!i||0===i.gpu_memory_total)@if(0)                         @g; s@this.turnOnMask?this.mask@0?this.mask@g' "$JS" > "$TMP"
 if cmp -s "$JS" "$TMP" && ! grep -q 'if(0)' "$JS"; then
-    echo "Resource Monitor GPU mask pattern was not found; refusing partial UI install." >&2
+    # DSM changes this private, version-dependent JavaScript across releases.
+    # The standalone monitor does not depend on this optional UI workaround;
+    # keep the original DSM assets untouched and allow package installation.
+    echo "Resource Monitor GPU mask pattern was not found; skipping optional DSM UI patch." >&2
     rm -f "$TMP"
-    exit 1
+else
+    cp -p "$TMP" "$JS"
+    rm -f "$TMP"
+    gzip -c -n "$JS" > "${STATE}/resource.js.gz.tmp"
+    cp -p "${STATE}/resource.js.gz.tmp" "$GZ"
+    rm -f "${STATE}/resource.js.gz.tmp"
 fi
-cp -p "$TMP" "$JS"
-rm -f "$TMP"
-gzip -c -n "$JS" > "${STATE}/resource.js.gz.tmp"
-cp -p "${STATE}/resource.js.gz.tmp" "$GZ"
-rm -f "${STATE}/resource.js.gz.tmp"
 
 # Do not restart synoscgi/nginx from Package Center's postinst context.  DSM
 # can block this script while those services reload; the UI symlink is picked
