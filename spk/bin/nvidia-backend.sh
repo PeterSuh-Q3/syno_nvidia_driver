@@ -305,7 +305,7 @@ do_start() {
   # the ffmpeg layer and the helper script were staged by do_postinst).
   NVFF=/usr/local/nvidia/bin/ffmpeg
   JF_SS=/var/packages/jellyfin/scripts/service-setup
-  if [ -x "$NVFF" ] && [ -f "$JF_SS" ] && grep -q -- '--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg' "$JF_SS"; then
+  if [ ! -d /var/packages/syno-nvidia-ffmpeg ] && [ -x "$NVFF" ] && [ -f "$JF_SS" ] && grep -q -- '--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg' "$JF_SS"; then
     cp -n "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
     if sed -i "s#--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg#--ffmpeg $NVFF#" "$JF_SS" 2>/dev/null; then
       chown root:root "$JF_SS" "$JF_SS.pre-nvidia.bak" 2>/dev/null
@@ -329,7 +329,7 @@ do_uninstall() {
   # Jellyfin ffmpeg path: restore from the backup do_start made before ever
   # patching the live file.
   JF_SS=/var/packages/jellyfin/scripts/service-setup
-  if [ -f "$JF_SS.pre-nvidia.bak" ]; then
+  if [ -f "$JF_SS.pre-nvidia.bak" ] && [ -f "$JF_SS" ] && grep -Fq -- '--ffmpeg /usr/local/nvidia/bin/ffmpeg' "$JF_SS"; then
     mv -f "$JF_SS.pre-nvidia.bak" "$JF_SS"
     chmod 755 "$JF_SS" 2>/dev/null || true
   fi

@@ -1,0 +1,19 @@
+{
+  "defaults": { "run-as": "package" },
+  "username": "sc-nvidia-ffmpeg",
+  "groupname": "nvidia-ffmpeg",
+  "tool": [
+    {
+      "relpath": "bin/helper/nvidia-ffmpeg-helper.x86_64",
+      "user": "root",
+      "group": "package",
+      "permission": "6550"
+    },
+    {
+      "relpath": "bin/nvidia-ffmpeg-backend.sh",
+      "user": "root",
+      "group": "package",
+      "permission": "0550"
+    }
+  ]
+}

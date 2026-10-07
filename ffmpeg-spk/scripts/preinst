@@ -1,0 +1,16 @@
+#!/bin/sh
+# INFO dependency checks package presence; this exact-version gate prevents a
+# 550/580/595 FFmpeg payload from being paired with another driver release.
+set -eu
+EXPECTED=__DRIVER__
+FOUND=""
+for PACKAGE in syno-nvidia-driver-kver5 syno-nvidia-driver-kver4-dsm72 syno-nvidia-driver-kver4-dsm70; do
+    INFO="/var/packages/$PACKAGE/INFO"
+    [ -r "$INFO" ] || continue
+    INSTALLED="$(sed -n 's/^version="\([0-9][0-9.]*\)-[0-9][0-9]*"$/\1/p' "$INFO" | head -1)"
+    [ "$INSTALLED" = "$EXPECTED" ] && FOUND="$PACKAGE"
+done
+[ -n "$FOUND" ] || {
+    echo "NVIDIA FFmpeg: install the matching NVIDIA driver SPK ($EXPECTED) first" >&2
+    exit 1
+}

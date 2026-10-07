@@ -1,6 +1,6 @@
 # NVIDIA FFmpeg 독립 SPK 설계
 
-상태: 사이드 설계 (구현·빌드 전)
+상태: 드라이버별 SPK 빌드 및 애드온 자동설치 연결 구현 완료 (NAS 실기 설치·트랜스코딩 검증 전)
 
 소유 저장소: `syno_nvidia_driver` — FFmpeg 패키지의 소스·빌드·릴리즈. 로더의 선택 및 전달 방식은 `tcrp-addons/nvidiadriver/docs/spk-delivery-design.md`를 따른다.
 
@@ -19,17 +19,17 @@ FFmpeg와 ffprobe를 한 SPK에 넣는다. 다른 패키지의 `target` 또는 `
 
 ## 패키지·버전 정책
 
-패키지 ID는 `syno-nvidia-ffmpeg`, 아키텍처는 `x86_64`를 제안한다. `INFO`의 DSM 최소 버전은 실제 테스트 범위에 맞춰 정한다. 단일 FFmpeg 빌드가 여러 드라이버에서 검증되지 않았다면 **드라이버별 호환 자산**으로 나눈다. 같은 패키지 ID를 유지해 패키지 센터의 교체 설치가 가능하게 하고, SPK 버전은 대상 드라이버 버전과 패키지 개정 번호를 포함한다(예: `580.173.02-1`). `SOURCE`/메타데이터에는 Jellyfin FFmpeg의 정확한 태그, 원본 URL·SHA-256, FFmpeg 자체 버전·빌드 옵션, NVENC API 요구사항을 별도로 남긴다. 파일명만으로 호환성을 추정하지 않는다.
+패키지 ID는 `syno-nvidia-ffmpeg`, 아키텍처는 `x86_64`이다. **메인 드라이버 버전과 일대일로 종속**시키며, 550/580/595용 SPK를 별개 자산으로 빌드한다. 드라이버 SPK ID는 DSM/커널 변형별로 다르므로 `INFO`의 정적 `install_dep_packages`는 비워 두고, `preinst`에서 세 변형 패키지(`syno-nvidia-driver-kver5`, `syno-nvidia-driver-kver4-dsm72`, `syno-nvidia-driver-kver4-dsm70`) 중 정확히 일치하는 드라이버 버전이 있는지 검사한다. 설치 후에도 활성 커널 드라이버 버전을 다시 검사해 일치할 때만 Jellyfin 경로를 전환한다. 드라이버가 아직 재부팅 전의 이전 버전이면 FFmpeg SPK는 경로를 변경하지 않는다. 같은 패키지 ID를 유지해 패키지 센터의 교체 설치가 가능하게 하고, SPK 버전은 대상 드라이버 버전과 패키지 개정 번호를 포함한다(예: `580.173.02-1`). `SOURCE`/메타데이터에 Jellyfin FFmpeg의 정확한 태그, 원본 URL·SHA-256을 기록한다. 파일명만으로 호환성을 추정하지 않는다.
 
 실제로 드라이버 SPK가 게시된 조합부터 시작한다.
 
 | 드라이버 SPK | FFmpeg 후보 | 상태 |
 |---|---|---|
-| K4 `550.163.01` | 기존 `nv-ffmpeg-550.163.01.tgz`에서 재패키징 후보 | 바이너리·ffprobe·DSM 7.0–7.4 실기 검증 필요 |
-| K5 `580.173.02` | 기존 `nv-ffmpeg-580.173.02.tgz`에서 재패키징 후보 | 바이너리·ffprobe·DSM 7.2+ 실기 검증 필요 |
-| K5 `595.99.02` | 새로 고정 빌드하거나 580 후보와 **별도 호환 검증** | 검증된 자산을 게시하기 전까지 FFmpeg 선택을 설치 가능 항목으로 표시하지 않음 |
+| K4 `550.163.01` | Jellyfin FFmpeg `7.0.2-9` portable x86_64 | SPK 빌드 완료. 기존 동등 `.tgz`의 K4 실기 동작은 확인됐으며, SPK 교체 설치·연동은 실기 확인 전 |
+| K5 `580.173.02` | Jellyfin FFmpeg `7.1.4-3` portable x86_64 | SPK 빌드 완료, NAS 실기 설치·NVENC 테스트 전 |
+| K5 `595.99.02` | Jellyfin FFmpeg `8.1.3-1` GPL portable x86_64 (SHA-256 고정) | SPK 빌드 완료. FFmpeg 8.1은 Jellyfin 12 대상으로 안내되어 10.11에는 자동 경로 전환하지 않음. DSM 실기 실행·NVENC·Jellyfin 12 호환 테스트 전 |
 
-470/535 계층은 보존하지만 해당 버전의 통합 드라이버 SPK가 게시되지 않은 상태에서는 새 SPK 자동 설치 조합으로 광고하지 않는다. 한 바이너리가 580/595 모두에서 실제로 검증되면 추후 공통 자산 하나로 합칠 수 있다. 그때도 호환성 매니페스트와 테스트 결과를 먼저 갱신한다.
+470/535 계층은 보존하지만 해당 버전의 통합 드라이버 SPK가 게시되지 않은 상태에서는 새 SPK 자동 설치 조합으로 광고하지 않는다. 595용 FFmpeg 8은 580용 FFmpeg 7의 대체품으로 자동 취급하지 않는다. 공식 portable 배포 안내의 Linux 4.18 이상 조건과 550 자산의 ELF ABI 태그는 기록하되, **기존 동일 `.tgz`의 K4 실기 동작 검증보다 우선해 설치를 막는 조건으로 사용하지 않는다.** `preinst`는 커널 버전을 제한하지 않고 정확한 드라이버 패키지 버전만 검사한다. SPK로 재패킹한 결과의 K4 설치·실행은 별도로 재확인한다. 595용은 K5에서도 DSM glibc와 실제 NVENC 트랜스코딩을 확인해야 한다.
 
 ## 로더·DSM 설치 흐름
 
@@ -48,9 +48,9 @@ FFmpeg와 ffprobe를 한 SPK에 넣는다. 다른 패키지의 `target` 또는 `
 
 ## 빌드·배포 검증
 
-1. `make-ffmpeg-layer.sh` 또는 새 빌더에서 원본 Jellyfin FFmpeg 아카이브의 SHA-256을 고정하고 TLS 인증을 검사한다. `ffmpeg`와 `ffprobe`의 실행 가능 여부, `ffmpeg -encoders`의 NVENC 항목, 동적 라이브러리 의존성, 해당 GPL 빌드의 출처·라이선스/소스 제공 고지를 검증한다.
+1. `scripts/build-ffmpeg-spk.sh`는 원본 Jellyfin FFmpeg 아카이브의 SHA-256을 고정하고 TLS 인증을 검사한다. `ffmpeg`와 `ffprobe` 실행, `ffmpeg -encoders`의 NVENC 항목, 동적 라이브러리 의존성, GPL 빌드 출처·라이선스/소스 제공 고지를 확인한다. 550/580/595 산출물은 생성했고 릴리즈 자산의 크기·SHA-256을 자동설치 매니페스트에 반영했다.
 2. `syno-nvidia-ffmpeg` SPK의 `INFO`, `package.tgz`, `conf/privilege`, lifecycle, helper 권한을 검사한다. 실제 릴리즈 자산의 크기·SHA-256을 드라이버 선택 매니페스트에 고정한다.
-3. K4 550, K5 580을 먼저 설치·재부팅·Jellyfin 트랜스코딩·ffprobe·제거·업그레이드 시험한다. K5 595는 새 자산 또는 580 바이너리의 **실기 검증이 완료된 뒤에만** 제공한다. Plex와 Docker Jellyfin은 이 패키지 설치 여부와 관계없이 기존 동작을 유지해야 한다.
+3. K4 550, K5 580을 먼저 설치·재부팅·Jellyfin 트랜스코딩·ffprobe·제거·업그레이드 시험한다. K5 595는 FFmpeg 8 바이너리 실행 및 Jellyfin 서버 호환성의 **실기 검증이 완료된 뒤에만** 자동 설치 대상으로 제공한다. Plex와 Docker Jellyfin은 이 패키지 설치 여부와 관계없이 기존 동작을 유지해야 한다.
 4. Jellyfin 미설치/설치 후 추가/패키지 업데이트/인자 형식 변경/권한 제한/재시작 실패, FFmpeg 다운로드 중단·해시 오류·공간 부족, 드라이버 버전 불일치 및 레거시 `/usr/local/nvidia/bin/ffmpeg` 잔존을 각각 시험한다. 실패가 NAS 부팅이나 드라이버·Monitor의 정상 상태를 해치지 않아야 한다.
 
-이 문서는 설계만 확정한다. **현재 릴리즈에 FFmpeg SPK가 있다는 뜻이 아니며**, 구현·실기 검증 전에는 로더의 기존 FFmpeg 계층 옵션을 새 SPK 설치 완료로 표시하면 안 된다.
+릴리즈 자산 게시와 애드온 자동 설치 연결은 반영했지만, 이는 NAS 실기 성공을 뜻하지 않는다. 다음 단계는 K4 550, K5 580, K5 595 각각에 대해 드라이버 버전 매칭·재부팅 대기·ffprobe·NVENC/Jellyfin 연동을 실기 검증하는 것이다. 특히 공식 Jellyfin FFmpeg 8.1 [릴리즈 주의](https://github.com/jellyfin/jellyfin-ffmpeg/releases)는 서버 12 대상으로 명시돼 있다.
