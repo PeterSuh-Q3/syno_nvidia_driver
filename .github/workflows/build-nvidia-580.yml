@@ -31,6 +31,10 @@ on:
         description: "kernel version"
         required: true
         default: "5.10.55"
+      no_backlight:
+        description: "Build for a headless platform without backlight symbol references (do not use for geminilakenk)"
+        type: boolean
+        default: false
       upload_release:
         description: "upload the .tgz layers to the Release tagged 'nvidia'"
         type: boolean
@@ -55,12 +59,19 @@ jobs:
       - name: Build 2-layer package inside syno-compiler
         run: |
           set -o pipefail
+          if [[ "$NO_BACKLIGHT" == "1" && "${{ inputs.platform }}" == "geminilakenk" ]]; then
+            echo "NO_BACKLIGHT is not supported for geminilakenk" >&2
+            exit 2
+          fi
           docker run --rm -t -u 0 \
+            -e "NO_BACKLIGHT=$NO_BACKLIGHT" \
             -v "$PWD":/work \
             "dante90/syno-compiler:${{ inputs.dsm_ver }}" \
             bash /work/build-nvidia.sh "${{ inputs.driver_ver }}" "${{ inputs.platform }}" "${{ inputs.kver }}" \
             | tee index-fragment.txt
           sudo chown -R "$(id -u):$(id -g)" out
+        env:
+          NO_BACKLIGHT: ${{ inputs.no_backlight && '1' || '0' }}
 
       - name: Package GSP firmware layer (Turing+ only, harmless extra)
         run: |
