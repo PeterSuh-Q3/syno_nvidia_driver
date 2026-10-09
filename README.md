@@ -1,3 +1,5 @@
+> 💬 **Community discussion:** Join the [Syno Custom Nvidia Driver Discussion](https://t.me/+_d-kieI5b-RkY2Rl) Telegram group for questions, troubleshooting, and feedback.
+
 # syno_nvidia_driver
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/PeterSuhQ3)
