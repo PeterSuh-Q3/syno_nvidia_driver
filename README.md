@@ -1,3 +1,7 @@
+> **DSM Package Center source:** Add [https://nas.dante90.mmv.kr/](https://nas.dante90.mmv.kr/) in **Package Center → Settings → Package Sources** to browse compatible PeterSuh-Q3 packages.
+
+[![English DSM Package Center Community catalog showing PeterSuh-Q3 packages](docs/package-center-community-en.png)](https://nas.dante90.mmv.kr/)
+
 > 💬 **Community discussion:** Join the [Syno Custom Nvidia Driver Discussion](https://t.me/SynoCustomNvidiaDriver) Telegram group for questions, troubleshooting, and feedback.
 
 # syno_nvidia_driver
