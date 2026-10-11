@@ -9,6 +9,7 @@ PKG_TARGET="${SCRIPTDIR%/bin}"
 PACKAGE="syno-nvidia-container-runtime"
 PAYLOAD="$PKG_TARGET/runtime"
 CRDIR=/usr/local/nvidia-runtime
+HOOK_LINK=/usr/local/bin/nvidia-container-runtime-hook
 LEGACY_BACKUP=/usr/local/.nvidia-runtime.pre-syno-container-runtime
 CFGDIR=/etc/nvidia-container-runtime
 CFG="$CFGDIR/config.toml"
@@ -16,6 +17,7 @@ CFG_BACKUP="$CFGDIR/config.toml.pre-syno-container-runtime"
 CMPKG=/var/packages/ContainerManager
 DOCKER_JSON="$CMPKG/etc/dockerd.json"
 LOG=/var/log/nvidia-container-runtime.log
+HOOK_LINK_CREATED=0
 
 log() { echo "$(date '+%F %T') nvidia-container-runtime: $*" >> "$LOG" 2>/dev/null || true; }
 
@@ -41,6 +43,48 @@ adopt_runtime_path() {
   ln -s "$PAYLOAD" "$CRDIR"
 }
 
+expose_docker_device_hook() {
+  expected="$CRDIR/bin/nvidia-container-runtime-hook"
+  if [ -L "$HOOK_LINK" ]; then
+    current="$(readlink "$HOOK_LINK" 2>/dev/null || true)"
+    if [ "$current" = "$expected" ]; then
+      return 0
+    fi
+    echo "NVIDIA Container Runtime: refusing to replace foreign hook path $HOOK_LINK -> $current" >&2
+    return 1
+  fi
+  if [ -e "$HOOK_LINK" ]; then
+    echo "NVIDIA Container Runtime: refusing to overwrite existing $HOOK_LINK" >&2
+    return 1
+  fi
+  ln -s "$expected" "$HOOK_LINK"
+  HOOK_LINK_CREATED=1
+  log "exposed NVIDIA device hook at $HOOK_LINK for Docker daemon PATH discovery"
+}
+
+restart_docker_for_device_hook() {
+  [ "$HOOK_LINK_CREATED" -eq 1 ] || return 0
+  [ -d "$CMPKG" ] || return 0
+
+  # Docker 24 registers its built-in NVIDIA DeviceDriver only when the
+  # nvidia-container-runtime-hook executable is visible in dockerd's PATH
+  # during daemon startup.  Registering runtimes.nvidia alone is insufficient
+  # for Compose DeviceRequests (deploy.resources.reservations.devices).
+  # Restart only when this package has just created the link; routine package
+  # starts/boots with the existing link do not bounce Container Manager.
+  if command -v synosystemctl >/dev/null 2>&1; then
+    if synosystemctl try-restart pkg-ContainerManager-dockerd.service >/dev/null 2>&1; then
+      log "restarted Container Manager dockerd after exposing NVIDIA device hook"
+    else
+      log "Container Manager dockerd was not restarted automatically; restart it to enable Compose GPU reservations"
+      echo "NVIDIA Container Runtime: restart Container Manager to enable Compose GPU device reservations" >&2
+    fi
+  else
+    log "synosystemctl unavailable; restart Container Manager to enable Compose GPU device reservations"
+    echo "NVIDIA Container Runtime: restart Container Manager to enable Compose GPU device reservations" >&2
+  fi
+}
+
 write_config() {
   mkdir -p "$CFGDIR"
   if [ -f "$CFG" ] && ! grep -q '^# managed by syno-nvidia-container-runtime$' "$CFG" 2>/dev/null; then
@@ -53,9 +97,10 @@ root = "/"
 path = "$CRDIR/bin/nvidia-container-cli"
 ldcache = "/etc/ld.so.cache"
 ldconfig = "@/usr/sbin/ldconfig"
-environment = ["LD_LIBRARY_PATH=$CRDIR/lib"]
+environment = ["LD_LIBRARY_PATH=$CRDIR/lib", "NVC_INSECURE_MODE=1"]
 
 [nvidia-container-runtime]
+mode = "legacy"
 runtimes = ["/var/packages/ContainerManager/target/usr/bin/runc"]
 
 [nvidia-container-runtime-hook]
@@ -127,9 +172,11 @@ register_docker_runtime() {
 configure() {
   lock_payload
   adopt_runtime_path
+  expose_docker_device_hook
   build_ldcache
   write_config
   register_docker_runtime
+  restart_docker_for_device_hook
 }
 
 cleanup() {
@@ -146,6 +193,12 @@ cleanup() {
   if [ -L "$CRDIR" ] && [ "$(readlink "$CRDIR" 2>/dev/null || true)" = "$PAYLOAD" ]; then
     rm -f "$CRDIR"
     [ -e "$LEGACY_BACKUP" ] || [ -L "$LEGACY_BACKUP" ] && mv "$LEGACY_BACKUP" "$CRDIR"
+  fi
+  # Remove only the exact symlink this package owns; preserve any replacement
+  # installed by DSM or another package.
+  if [ -L "$HOOK_LINK" ] && [ "$(readlink "$HOOK_LINK" 2>/dev/null || true)" = "$CRDIR/bin/nvidia-container-runtime-hook" ]; then
+    rm -f "$HOOK_LINK"
+    log "removed package-owned Docker device hook link at $HOOK_LINK"
   fi
   # Delete only the ldconfig binary this package installed.
   if [ -f /usr/sbin/ldconfig ] && [ -f "$PAYLOAD/tools/ldconfig" ] && cmp -s /usr/sbin/ldconfig "$PAYLOAD/tools/ldconfig"; then

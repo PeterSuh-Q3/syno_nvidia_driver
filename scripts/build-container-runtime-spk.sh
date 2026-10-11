@@ -7,12 +7,12 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SOURCE="$ROOT/container-runtime-spk"
 PACKAGE=syno-nvidia-container-runtime
-VERSION=1.19.1-5
+VERSION=1.19.1-7
 ARCH=x86_64
 ASSET=nv-container-runtime-1.19.1.tgz
 ASSET_SHA256=5c39123aa2cc2a2539828aa557f812b14a789fc865ce2cf242e625381de0257e
 RELEASE=https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia
-WORK="$ROOT/work/$PACKAGE-$ARCH"
+WORK="$ROOT/work/$PACKAGE-$ARCH-$VERSION"
 OUT="$ROOT/dist"
 BUILD_IMAGE=${CONTAINER_RUNTIME_BUILD_IMAGE:-gcc:14-bookworm}
 
@@ -23,6 +23,14 @@ curl -sL --fail "$RELEASE/$ASSET" -o "$WORK/dl/$ASSET"
 echo "$ASSET_SHA256  $WORK/dl/$ASSET" | sha256sum -c -
 mkdir -p "$WORK/target/runtime"
 tar -xzf "$WORK/dl/$ASSET" -C "$WORK/target/runtime"
+
+# Synology DSM's kernel/seccomp implementation can reject the seccomp filter
+# setup used by NVIDIA's stock libnvidia-container during the ldconfig hook.
+# Build the matching upstream v1.19.1 library for CentOS 7 ABI with seccomp
+# disabled, then package it with NVC_INSECURE_MODE=1 (configured by the
+# backend). The narrowed behavior is limited to this helper's syscall filter.
+NOSECCOMP_LIB=$("$ROOT/scripts/build-libnvidia-container-noseccomp.sh")
+install -m 0755 "$NOSECCOMP_LIB" "$WORK/target/runtime/lib/libnvidia-container.so.1"
 
 cp "$SOURCE/bin/container-runtime-backend.sh" "$WORK/target/bin/"
 chmod 0755 "$WORK/target/bin/container-runtime-backend.sh"
