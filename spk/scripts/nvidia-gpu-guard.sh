@@ -5,7 +5,7 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 TABLE="$SCRIPT_DIR/nvidia-gpu-support.tsv"
 BRANCH_FILE="$SCRIPT_DIR/target-driver.txt"
 LOGFILE="${SYNOPKG_TEMP_LOGFILE:-}"
-URL_580="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/spk/syno-nvidia-driver-kver5-580.173.02-4.spk"
+URL_580="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/spk/syno-nvidia-driver-kver5-580.173.02-5.spk"
 ACTION="${1:-installation}"
 DRIVER="$(cat "$BRANCH_FILE" 2>/dev/null || true)"
 
@@ -45,7 +45,10 @@ for dev in "$DEV_ROOT"/*; do
     name="Unknown NVIDIA GPU"
     branches=""
   fi
-  say "NVIDIA GPU detected: $name ($arch, $id)"
+  case "${SYNOPKG_DSM_LANGUAGE:-enu}" in
+    krn) say "NVIDIA GPU 감지: $name ($arch, $id)" ;;
+    *) say "NVIDIA GPU detected: $name ($arch, $id)" ;;
+  esac
 
   if [ "$DRIVER" = "595.99.02" ]; then
     case "$arch" in
@@ -69,11 +72,16 @@ if [ "$FOUND" -eq 0 ]; then
 fi
 
 if [ "$DRIVER" = "595.99.02" ] && [ -n "$OLDER_GPU" ]; then
-  say "감지된 GPU는 595 계열과 호환되지 않습니다. 580 SPK를 수동 설치하세요:"
-  say "$OLDER_GPU"
-  say "$URL_580"
-  say "DSM에서 패키지 센터 > 수동 설치를 선택하고 위 SPK 파일을 지정하세요. 595 ${ACTION}은 변경 없이 취소됩니다."
-  say "These GPU generation(s) are not supported by driver 595. Install the 580 SPK manually from Package Center > Manual Install. The 595 ${ACTION} has been canceled without changing the installed package."
+  case "${SYNOPKG_DSM_LANGUAGE:-enu}" in
+    krn)
+      say "감지된 GPU: $OLDER_GPU. NVIDIA 595와 호환되지 않아 드라이버 설치/업데이트를 취소했습니다."
+      say "패키지 센터 > 수동 설치에서 NVIDIA 580.173.02-5를 설치하세요: $URL_580"
+      ;;
+    *)
+      say "Detected GPU: $OLDER_GPU. NVIDIA 595 is incompatible; driver installation/upgrade was canceled."
+      say "In Package Center, choose Manual Install and install NVIDIA 580.173.02-5: $URL_580"
+      ;;
+  esac
   exit 1
 fi
 
