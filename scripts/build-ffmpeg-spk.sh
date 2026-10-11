@@ -12,6 +12,7 @@ RELEASE=https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvid
 
 usage() { echo "Usage: $0 {550.163.01|580.173.02|595.99.02|all}" >&2; exit 2; }
 selected=${1:-all}
+package_revision=2
 case "$selected" in
     all) versions=(550.163.01 580.173.02 595.99.02) ;;
     550.163.01|580.173.02|595.99.02) versions=("$selected") ;;
@@ -87,9 +88,9 @@ for driver in "${versions[@]}"; do
     sed "s/__DRIVER__/$driver/g" "$SOURCE/scripts/preinst" > "$work/scripts/preinst"
     chmod 0755 "$work/scripts/"*
     cp "$SOURCE/conf/privilege" "$work/conf/privilege"
-    sed -e "s/__VERSION__/$driver-1/g" -e "s/__DRIVER__/$driver/g" \
+    sed -e "s/__VERSION__/$driver-$package_revision/g" -e "s/__DRIVER__/$driver/g" \
         -e "s/__OS_MIN_VER__/$dsm_min/g" "$SOURCE/INFO" > "$work/INFO"
-    cp "$ROOT/spk/PACKAGE_ICON.PNG" "$ROOT/spk/PACKAGE_ICON_256.PNG" "$work/"
+    cp "$SOURCE/PACKAGE_ICON.PNG" "$SOURCE/PACKAGE_ICON_256.PNG" "$work/"
 
     tar -C "$work/target" -czf "$work/package.tgz" .
     checksum=$(md5sum "$work/package.tgz" | awk '{print $1}')
@@ -99,7 +100,7 @@ for driver in "${versions[@]}"; do
         printf 'create_time="%s"\n' "$(date +%Y%m%d-%H:%M:%S)"
         printf 'checksum="%s"\n' "$checksum"
     } >> "$work/INFO"
-    spk="$OUT/syno-nvidia-ffmpeg-$driver-1-x86_64.spk"
+    spk="$OUT/syno-nvidia-ffmpeg-$driver-$package_revision-x86_64.spk"
     tar -C "$work" -cf "$spk" INFO package.tgz scripts conf PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG
     tar -tf "$spk" | grep -qx package.tgz
     printf 'Built %s\n' "$spk"
