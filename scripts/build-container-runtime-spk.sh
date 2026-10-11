@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SOURCE="$ROOT/container-runtime-spk"
 PACKAGE=syno-nvidia-container-runtime
-VERSION=1.19.1-2
+VERSION=1.19.1-4
 ARCH=x86_64
 ASSET=nv-container-runtime-1.19.1.tgz
 ASSET_SHA256=5c39123aa2cc2a2539828aa557f812b14a789fc865ce2cf242e625381de0257e
@@ -29,6 +29,7 @@ chmod 0755 "$WORK/target/bin/container-runtime-backend.sh"
 cp "$SOURCE/scripts/"* "$WORK/scripts/"
 chmod 0755 "$WORK/scripts/"*
 cp "$SOURCE/conf/privilege" "$WORK/conf/privilege"
+cp "$SOURCE/PACKAGE_ICON.PNG" "$SOURCE/PACKAGE_ICON_256.PNG" "$WORK/"
 
 docker run --rm --platform linux/amd64 \
   -v "$SOURCE/helper:/src:ro" -v "$WORK/target/bin/helper:/out" -w /src "$BUILD_IMAGE" \
@@ -48,6 +49,6 @@ EXTRACT_SIZE=$(du -sk "$WORK/target" | awk '{print $1}')
 } >> "$WORK/INFO"
 
 SPK="$OUT/$PACKAGE-$VERSION-$ARCH.spk"
-tar -C "$WORK" -cf "$SPK" INFO package.tgz scripts conf
+tar -C "$WORK" -cf "$SPK" INFO package.tgz scripts conf PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG
 echo "Built $SPK ($(du -h "$SPK" | cut -f1))"
 tar -tf "$SPK"
