@@ -25,8 +25,10 @@ case "$VARIANT" in
   kver5)
     DRIVER=${KVER5_DRIVER:-595.99.02}
     case "$DRIVER" in
-      580.173.02) PACKAGE_REVISION=2 ;;
-      595.99.02) PACKAGE_REVISION=3 ;;
+      # Keep the 580 branch available for Maxwell/Pascal/Volta GPUs; 595 is
+      # Turing+ and is not a replacement for those older GPU generations.
+      580.173.02) PACKAGE_REVISION=3 ;;
+      595.99.02) PACKAGE_REVISION=4 ;;
       *) echo "Unsupported KVER5_DRIVER '$DRIVER' (expected 580.173.02 or 595.99.02)" >&2; exit 2 ;;
     esac
     KSUFFIX=51055
