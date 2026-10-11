@@ -12,7 +12,7 @@ RELEASE=https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvid
 
 usage() { echo "Usage: $0 {550.163.01|580.173.02|595.99.02|all}" >&2; exit 2; }
 selected=${1:-all}
-package_revision=2
+package_revision=3
 case "$selected" in
     all) versions=(550.163.01 580.173.02 595.99.02) ;;
     550.163.01|580.173.02|595.99.02) versions=("$selected") ;;

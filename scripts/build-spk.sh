@@ -27,8 +27,8 @@ case "$VARIANT" in
     case "$DRIVER" in
       # Keep the 580 branch available for Maxwell/Pascal/Volta GPUs; 595 is
       # Turing+ and is not a replacement for those older GPU generations.
-      580.173.02) PACKAGE_REVISION=4 ;;
-      595.99.02) PACKAGE_REVISION=5 ;;
+      580.173.02) PACKAGE_REVISION=5 ;;
+      595.99.02) PACKAGE_REVISION=6 ;;
       *) echo "Unsupported KVER5_DRIVER '$DRIVER' (expected 580.173.02 or 595.99.02)" >&2; exit 2 ;;
     esac
     KSUFFIX=51055
@@ -41,7 +41,7 @@ case "$VARIANT" in
     FILESUFFIX=""
     ;;
   kver4-72)
-    PACKAGE_REVISION=3
+    PACKAGE_REVISION=4
     DRIVER=550.163.01
     KSUFFIX=44302
     PLATFORMS="$KVER4_PLATFORMS"
@@ -52,7 +52,7 @@ case "$VARIANT" in
     FILESUFFIX="-dsm7.2-7.4"
     ;;
   kver4-70)
-    PACKAGE_REVISION=3
+    PACKAGE_REVISION=4
     DRIVER=550.163.01
     KSUFFIX=44180
     PLATFORMS="$KVER4_PLATFORMS"
