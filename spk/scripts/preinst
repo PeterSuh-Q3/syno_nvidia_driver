@@ -1,0 +1,5 @@
+#!/bin/sh
+# Verify GPU presence and driver-branch compatibility before package files are
+# installed. A nonzero result aborts installation without touching the system.
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec "$SCRIPT_DIR/nvidia-gpu-guard.sh" install

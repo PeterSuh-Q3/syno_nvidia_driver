@@ -27,8 +27,8 @@ case "$VARIANT" in
     case "$DRIVER" in
       # Keep the 580 branch available for Maxwell/Pascal/Volta GPUs; 595 is
       # Turing+ and is not a replacement for those older GPU generations.
-      580.173.02) PACKAGE_REVISION=3 ;;
-      595.99.02) PACKAGE_REVISION=4 ;;
+      580.173.02) PACKAGE_REVISION=4 ;;
+      595.99.02) PACKAGE_REVISION=5 ;;
       *) echo "Unsupported KVER5_DRIVER '$DRIVER' (expected 580.173.02 or 595.99.02)" >&2; exit 2 ;;
     esac
     KSUFFIX=51055
@@ -41,7 +41,7 @@ case "$VARIANT" in
     FILESUFFIX=""
     ;;
   kver4-72)
-    PACKAGE_REVISION=2
+    PACKAGE_REVISION=3
     DRIVER=550.163.01
     KSUFFIX=44302
     PLATFORMS="$KVER4_PLATFORMS"
@@ -52,7 +52,7 @@ case "$VARIANT" in
     FILESUFFIX="-dsm7.2-7.4"
     ;;
   kver4-70)
-    PACKAGE_REVISION=2
+    PACKAGE_REVISION=3
     DRIVER=550.163.01
     KSUFFIX=44180
     PLATFORMS="$KVER4_PLATFORMS"
@@ -104,6 +104,27 @@ fi
 # resolve to the same table until this SHA is deliberately bumped.
 curl -sL --fail "https://raw.githubusercontent.com/PeterSuh-Q3/tcrp-addons/40df760c9ebeafac00b8c61149c2b4dfe6141d1c/nvidiadriver/src/nvidia-gpu-support.json" \
   -o "$WORK/target/share/nvidia-gpu-support.json"
+
+# Package Center's preinst/preupgrade checks need a small PCI-ID table before
+# package.tgz is unpacked. Keep it beside the lifecycle scripts and generate it
+# from the same pinned GPU support database bundled into the installed package.
+python3 - "$WORK/target/share/nvidia-gpu-support.json" "$WORK/scripts/nvidia-gpu-support.tsv" <<'PY'
+import json
+import sys
+
+source, target = sys.argv[1:]
+data = json.load(open(source, encoding="utf-8"))
+with open(target, "w", encoding="utf-8") as out:
+    for pci, gpu in sorted(data.get("gpus", {}).items()):
+        fields = (
+            pci,
+            (gpu.get("arch") or "").replace("\t", " ").replace("\n", " "),
+            (gpu.get("name") or "Unknown NVIDIA GPU").replace("\t", " ").replace("\n", " "),
+            " ".join(gpu.get("branches") or []),
+        )
+        out.write("\t".join(fields) + "\n")
+PY
+printf '%s\n' "$DRIVER" > "$WORK/scripts/target-driver.txt"
 
 # ---- lifecycle scripts + conf (shared verbatim across all 3 variants) -----
 cp "$ROOT/spk/scripts/"* "$WORK/scripts/"
