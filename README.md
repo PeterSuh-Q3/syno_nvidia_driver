@@ -324,7 +324,7 @@ Your existing `daemon.json` settings are preserved (merged, with a backup), and
 
 <br>
 
-### Kernel 5.10.55 — all four branches
+### Kernel 5.10.55 — driver-layer matrix
 
 | Platform | Example models | 470 | 535 | 550 | **580** |
 |---|---|:---:|:---:|:---:|:---:|
@@ -335,6 +335,10 @@ Your existing `daemon.json` settings are preserved (merged, with a backup), and
 | `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | ✅ |
+
+`epyc7003ntb` remains in the general driver-layer matrix above, but is not
+bundled in the current offline SPKs because it is no longer supported by
+mshell.
 
 <br>
 
@@ -352,9 +356,28 @@ Your existing `daemon.json` settings are preserved (merged, with a backup), and
 | `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
 | `v1000`           | DS1621+ / DS1821+ / DS2422+   | ✅ | ✅ |
 
-> ⚠️ These 4.4 builds are **not yet verified on real hardware**. They compile
-> cleanly with the correct vermagic, but no GPU-equipped 4.4 box has been
-> tested. Reports welcome.
+### Current DSM Package Center SPKs
+
+The offline SPK release contains six packages. Each K5 package supports
+`epyc7002`, `epyc7003`, `geminilakenk`, `icelaked`, `r1000nk`, and `v1000nk`;
+`epyc7003ntb` is intentionally not bundled because it is no longer supported
+by mshell. The K4 packages support the nine platforms listed above.
+
+| Package | Kernel / DSM | Module flavor | Offline platforms |
+|---|---|---|---|
+| `syno-nvidia-driver-kver5-580-proprietary-580.173.02-1.spk` | 5.10.55 / DSM 7.2+ | Proprietary | 6 K5 platforms above |
+| `syno-nvidia-driver-kver5-580-open-580.173.02-1.spk` | 5.10.55 / DSM 7.2+ | Open | 6 K5 platforms above |
+| `syno-nvidia-driver-kver5-595-proprietary-595.99.02-1.spk` | 5.10.55 / DSM 7.2+ | Proprietary | 6 K5 platforms above |
+| `syno-nvidia-driver-kver5-595-open-595.99.02-1.spk` | 5.10.55 / DSM 7.2+ | Open | 6 K5 platforms above |
+| `syno-nvidia-driver-kver4-dsm72-550.163.01-4-dsm7.2-7.4.spk` | 4.4.302 / DSM 7.2–7.4 | Proprietary | 9 K4 platforms above |
+| `syno-nvidia-driver-kver4-dsm70-550.163.01-4-dsm7.0-7.1.spk` | 4.4.180 / DSM 7.0–7.1 | Proprietary | 9 K4 platforms above |
+
+The 580/595 K5 packages include matching GSP firmware where required. For
+download and verification details, see the [SPK release notes](spk/RELEASE_NOTES.md).
+
+The platform matrix identifies package targets; it does not mean every
+platform has been individually tested on hardware. See the [SPK release
+notes](spk/RELEASE_NOTES.md) for the hardware checks that were performed.
 
 **Not supported:** `denverton` (DSM already ships a vanilla NVIDIA driver there
 for DVA) and kernel 3.10 platforms — `avoton` / `braswell` / `bromolow`.
@@ -387,19 +410,24 @@ boot hook detects the mismatch, refuses to load, and logs why.
 
 ### Driver branches
 
-| Branch | GPU coverage | Native CUDA | Notes |
+| Driver branch / package flavor | GPU coverage | Driver CUDA API | Notes |
 |---|---|:---:|---|
-| **470.256.02** | Kepler … Ampere | 11.4 | Legacy LTSB — for old GPUs 535+ dropped |
-| **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. Verified on P620 |
-| **550.163.01** | Maxwell … Ada | 12.4 | Ceiling for kernel 4.4 |
-| **580.173.02** | Maxwell … Ampere | **13.0** | ⭐ **Recommended.** Last branch supporting Maxwell/Pascal/Volta |
+| **470.256.02** | Kepler … Ampere | 11.4 | Legacy branch for older GPUs; install-script assets |
+| **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS; install-script assets |
+| **550.163.01 proprietary** | Maxwell … Ada | 12.4 | K4 SPKs; newest branch for kernel 4.4 |
+| **580.173.02 proprietary** | Maxwell … Ampere | **13.0** | K5 SPK; includes Maxwell/Pascal/Volta support |
+| **580.173.02 open** | Turing … Ampere | **13.0** | K5 SPK; open kernel-module flavor |
+| **595.99.02 proprietary** | Turing and newer, per bundled GPU table | **13.2** | K5 SPK |
+| **595.99.02 open** | Turing and newer, per bundled GPU table | **13.2** | K5 SPK; open kernel-module flavor |
 
-> ⭐ **580 is the right choice for most GPUs.** It supersedes 535/550 and raises
-> what Pascal can run from CUDA 12.4 to 12.9. Only Kepler-era cards still need 470.
+> ⭐ Choose **580 proprietary** for Maxwell/Pascal/Volta and other GPUs in its
+> bundled support table; choose **595** for supported Turing-and-newer GPUs.
+> The 470/535 install-script assets remain available for legacy compatibility.
+> CUDA toolkit compatibility also depends on the GPU's compute capability.
 >
-> ⚠️ **Ada (RTX 40) / Blackwell (RTX 50)** need GSP firmware that NVIDIA doesn't
-> bundle in the 580 `.run` — the installer warns you. Use 535/550 on those cards.
-> Turing / Ampere GSP firmware **is** bundled and deployed automatically.
+> ⚠️ Open and proprietary are kernel-module flavors, not separate user-space
+> stacks. The SPKs bundle version-matched GSP firmware where required; use the
+> package matching both your GPU generation and module flavor.
 
 <br>
 
@@ -783,7 +811,7 @@ docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
 
 <br>
 
-### 커널 5.10.55 — 4개 브랜치 전부
+### 커널 5.10.55 — 드라이버 레이어 지원표
 
 | 플랫폼 | 예시 모델 | 470 | 535 | 550 | **580** |
 |---|---|:---:|:---:|:---:|:---:|
@@ -794,6 +822,9 @@ docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
 | `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | ✅ |
+
+`epyc7003ntb`는 일반 드라이버 레이어 지원표에는 남아 있지만, mshell에서 더 이상
+지원되지 않으므로 현재 오프라인 SPK에는 포함되지 않습니다.
 
 <br>
 
@@ -811,9 +842,29 @@ docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
 | `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
 | `v1000`           | DS1621+ / DS1821+ / DS2422+   | ✅ | ✅ |
 
-> ⚠️ 이 4.4 빌드들은 **아직 실기 검증이 되지 않았습니다.** 정상적으로 컴파일되고
-> vermagic도 올바르지만, GPU가 장착된 4.4 박스에서 테스트한 적이 없습니다.
-> 제보 환영합니다.
+### 현재 패키지 센터용 SPK
+
+오프라인 SPK 릴리즈에는 총 6개 패키지가 있습니다. K5 패키지 4개는
+`epyc7002`, `epyc7003`, `geminilakenk`, `icelaked`, `r1000nk`, `v1000nk`를
+각각 지원합니다. `epyc7003ntb`는 mshell에서 더 이상 지원하지 않아 의도적으로
+포함하지 않았습니다. K4 패키지는 위 표의 9개 플랫폼을 지원합니다.
+
+| 패키지 | 커널 / DSM | 모듈 flavor | 오프라인 플랫폼 |
+|---|---|---|---|
+| `syno-nvidia-driver-kver5-580-proprietary-580.173.02-1.spk` | 5.10.55 / DSM 7.2+ | proprietary | 위 K5 플랫폼 6개 |
+| `syno-nvidia-driver-kver5-580-open-580.173.02-1.spk` | 5.10.55 / DSM 7.2+ | open | 위 K5 플랫폼 6개 |
+| `syno-nvidia-driver-kver5-595-proprietary-595.99.02-1.spk` | 5.10.55 / DSM 7.2+ | proprietary | 위 K5 플랫폼 6개 |
+| `syno-nvidia-driver-kver5-595-open-595.99.02-1.spk` | 5.10.55 / DSM 7.2+ | open | 위 K5 플랫폼 6개 |
+| `syno-nvidia-driver-kver4-dsm72-550.163.01-4-dsm7.2-7.4.spk` | 4.4.302 / DSM 7.2–7.4 | proprietary | 위 K4 플랫폼 9개 |
+| `syno-nvidia-driver-kver4-dsm70-550.163.01-4-dsm7.0-7.1.spk` | 4.4.180 / DSM 7.0–7.1 | proprietary | 위 K4 플랫폼 9개 |
+
+580/595 K5 패키지는 필요한 GPU에서 사용할 수 있도록 해당 드라이버 버전과
+일치하는 GSP 펌웨어를 포함합니다. 다운로드와 해시는
+[SPK 릴리즈 노트](spk/RELEASE_NOTES.md)를 참고하세요.
+
+플랫폼 표는 패키지 대상 범위를 나타내며, 모든 플랫폼을 실기에서 각각
+시험했다는 뜻은 아닙니다. 실제 하드웨어 검증 범위는
+[SPK 릴리즈 노트](spk/RELEASE_NOTES.md)를 참고하세요.
 
 **미지원:** `denverton`(DSM이 DVA용으로 이미 정식 NVIDIA 드라이버를 탑재),
 그리고 커널 3.10 플랫폼 — `avoton` / `braswell` / `bromolow`.
@@ -846,19 +897,24 @@ docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
 
 ### 드라이버 브랜치
 
-| 브랜치 | GPU 커버리지 | 네이티브 CUDA | 비고 |
+| 드라이버 브랜치 / 패키지 flavor | GPU 커버리지 | 드라이버 CUDA API | 비고 |
 |---|---|:---:|---|
-| **470.256.02** | Kepler … Ampere | 11.4 | 레거시 LTSB — 535+ 가 버린 구형 GPU용 |
-| **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS. P620 검증 완료 |
-| **550.163.01** | Maxwell … Ada | 12.4 | 커널 4.4의 상한 |
-| **580.173.02** | Maxwell … Ampere | **13.0** | ⭐ **권장.** Maxwell/Pascal/Volta를 지원하는 마지막 브랜치 |
+| **470.256.02** | Kepler … Ampere | 11.4 | 구형 GPU용 레거시 브랜치; 설치 스크립트 자산 |
+| **535.230.02** | Maxwell … Ada | 12.2 | Production/LTS; 설치 스크립트 자산 |
+| **550.163.01 proprietary** | Maxwell … Ada | 12.4 | K4 SPK; 커널 4.4용 최신 브랜치 |
+| **580.173.02 proprietary** | Maxwell … Ampere | **13.0** | K5 SPK; Maxwell/Pascal/Volta 등 지원 |
+| **580.173.02 open** | Turing … Ampere | **13.0** | K5 SPK; 공개 커널 모듈 flavor |
+| **595.99.02 proprietary** | 동봉된 GPU 지원표 기준 Turing 이상 | **13.2** | K5 SPK |
+| **595.99.02 open** | 동봉된 GPU 지원표 기준 Turing 이상 | **13.2** | K5 SPK; 공개 커널 모듈 flavor |
 
-> ⭐ **대부분의 GPU에는 580이 정답입니다.** 535/550을 대체하며, Pascal이 쓸 수 있는
-> CUDA를 12.4에서 12.9로 올려줍니다. 470이 여전히 필요한 것은 Kepler 세대뿐입니다.
+> ⭐ Maxwell/Pascal/Volta 등 지원표에 포함된 GPU에는 **580 proprietary**를,
+> 지원되는 Turing 이후 GPU에는 **595**를 선택하세요. 470/535 설치 스크립트
+> 자산은 레거시 호환을 위해 계속 제공됩니다. CUDA 툴킷 호환성은 GPU의 compute
+> capability에도 좌우됩니다.
 >
-> ⚠️ **Ada(RTX 40) / Blackwell(RTX 50)** 은 GSP 펌웨어가 필요한데 NVIDIA가 580
-> `.run`에 동봉하지 않았습니다 — 설치기가 경고합니다. 이 카드들은 535/550을
-> 쓰세요. Turing / Ampere용 GSP 펌웨어는 동봉되어 **자동 배치**됩니다.
+> ⚠️ open/proprietary는 커널 모듈 flavor 차이이며 사용자 공간 드라이버는
+> 동일 버전입니다. SPK에는 필요한 GPU용 버전 일치 GSP 펌웨어가 포함되어 있으니,
+> GPU 세대와 모듈 flavor에 맞는 패키지를 사용하세요.
 
 <br>
 
