@@ -66,6 +66,26 @@ supports them.
 the matching driver-version GSP firmware for GPUs that require it. The two
 550-branch kver4 packages do not bundle GSP firmware.
 
+## K5 upgrade and boot behavior
+
+**Reboot after a driver-version upgrade.** A running NVIDIA kernel module cannot
+be safely replaced while applications may be using it. If the installed
+userspace version differs from the loaded module, the package records that
+activation is pending and refuses an unsafe live replacement. Reboot DSM before
+starting NVIDIA workloads; the package activates the matching module at boot.
+
+**GSP firmware staging.** For a GPU marked as requiring GSP in the bundled
+compatibility table, the package copies its matching firmware into
+`/lib/firmware/nvidia/<driver-version>/` before loading the module. For example,
+an Ampere GPU on 595 uses
+`/lib/firmware/nvidia/595.99.02/gsp_ga10x.bin`. Firmware, kernel modules, and
+userspace must come from the same driver version.
+
+**K5 module recovery.** On kernel 5.10.55 only, if RR/PML or another boot-time
+loader step removes NVIDIA `.ko` files from `/usr/lib/modules`, the package
+restores the modules for the detected platform from its immutable SPK payload
+before attempting to load them. This recovery is not enabled for K4 packages.
+
 ## What's actually inside
 
 Each package is a standard DSM `.spk` — `INFO` + `package.tgz` + lifecycle
@@ -206,6 +226,25 @@ DSM의 4.4.x 커널은 이 조건을 만족하지 못하므로, 이 커널들을
 **GSP 펌웨어**: kver5 패키지 네 종류(580/595, open/proprietary)는 해당 드라이버
 버전과 일치하는 GSP 펌웨어를 포함합니다. 펌웨어는 이를 요구하는 GPU에서 사용됩니다.
 550 브랜치의 kver4 패키지 두 종류에는 GSP 펌웨어가 포함되지 않습니다.
+
+## K5 업그레이드 및 부팅 동작
+
+**드라이버 버전 업그레이드 후 재부팅:** 애플리케이션이 사용 중일 수 있는 NVIDIA
+커널 모듈은 실행 중 안전하게 교체할 수 없습니다. 설치된 사용자 공간 버전과 현재
+로드된 모듈 버전이 다르면 패키지는 활성화 대기 상태를 기록하고, 위험한 실시간
+교체를 하지 않습니다. NVIDIA 작업을 다시 시작하기 전에 DSM을 재부팅하면 부팅
+과정에서 일치하는 모듈을 활성화합니다.
+
+**GSP 펌웨어 배치:** 동봉된 호환성 표에서 GPU가 GSP를 요구한다고 표시된 경우,
+패키지는 해당 드라이버 버전의 펌웨어를 모듈 로드 전에
+`/lib/firmware/nvidia/<드라이버 버전>/`에 배치합니다. 예를 들어 595를 사용하는
+Ampere GPU는 `/lib/firmware/nvidia/595.99.02/gsp_ga10x.bin`을 사용합니다.
+펌웨어·커널 모듈·사용자 공간 구성요소는 동일한 드라이버 버전으로 맞춰야 합니다.
+
+**K5 모듈 자동복원:** 커널 5.10.55에서만 RR/PML 또는 다른 부팅 단계가
+`/usr/lib/modules`의 NVIDIA `.ko` 파일을 지운 경우, 패키지는 모듈 적재 전에
+불변 SPK payload에서 현재 플랫폼에 맞는 모듈을 복원합니다. 이 복구 동작은 K4
+패키지에는 적용되지 않습니다.
 
 ## 내부 구성
 
