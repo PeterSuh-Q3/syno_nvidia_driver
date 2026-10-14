@@ -92,6 +92,9 @@ KREL="$(uname -r)"
 # the index keys kernels by the bare x.y.z.
 KVER="$(echo "$KREL" | sed 's/[^0-9.].*$//')"
 say "  platform : ${B}${PLATFORM}${R}   kernel: ${B}${KREL}${R}"
+if [ "$PLATFORM" = "epyc7003ntb" ]; then
+  die "platform ${B}${PLATFORM}${R} (PAS7700) is no longer supported by this driver."
+fi
 if ! jq -e --arg p "$PLATFORM" '.platforms[$p]' "$IDX" >/dev/null 2>&1; then
   err "platform ${B}${PLATFORM}${R} is ${RED}NOT supported${R} by this driver package."
   say "  supported platforms: ${YEL}$(jq -r '.platforms|keys|join(", ")' "$IDX")${R}"

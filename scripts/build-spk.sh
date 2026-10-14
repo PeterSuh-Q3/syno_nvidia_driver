@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build one of the three offline .spk variants by downloading the already-
+# Build an offline .spk variant by downloading the already-
 # published GitHub Release assets (from the pinned "nvidia" tag - see
 # install.sh's REPO_RAW) and repacking them into DSM's package format,
 # following the same INFO-templating / package.tgz / final-tar pattern as
@@ -18,7 +18,8 @@ WORK="$ROOT/work/spk-$VARIANT"
 # Platform lists and kernel-suffix/file-naming convention come straight from
 # tcrp-addons/nvidiadriver/src/nvidia-index.json (pinned commit
 # 40df760c9ebeafac00b8c61149c2b4dfe6141d1c, the same one install.sh reads).
-KVER5_PLATFORMS="epyc7002 epyc7003 epyc7003ntb geminilakenk icelaked r1000nk v1000nk"
+# epyc7003ntb (PAS7700) is no longer supported by this driver.
+KVER5_PLATFORMS="epyc7002 epyc7003 geminilakenk icelaked r1000nk v1000nk"
 KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap geminilake purley r1000 v1000"
 
 case "$VARIANT" in

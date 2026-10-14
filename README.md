@@ -330,15 +330,13 @@ Your existing `daemon.json` settings are preserved (merged, with a backup), and
 |---|---|:---:|:---:|:---:|:---:|
 | `epyc7002`      | SA6400                         | ✅ | ✅ | ✅ | ✅ |
 | `epyc7003`      | FS6420                         | ✅ | ✅ | ✅ | ✅ |
-| `epyc7003ntb`   | PAS7700                        | ✅ | ✅ | ✅ | ✅ |
 | `icelaked`      | FS3420 / RS3626xs / RS4826xs+  | ✅ | ✅ | ✅ | ✅ |
 | `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | ✅ |
 
-`epyc7003ntb` remains in the general driver-layer matrix above, but is not
-bundled in the current offline SPKs because it is no longer supported by
-mshell.
+`epyc7003ntb` (PAS7700) is not supported by this driver and is excluded from
+both the installer and offline SPKs.
 
 <br>
 
@@ -360,8 +358,8 @@ mshell.
 
 The offline SPK release contains six packages. Each K5 package supports
 `epyc7002`, `epyc7003`, `geminilakenk`, `icelaked`, `r1000nk`, and `v1000nk`;
-`epyc7003ntb` is intentionally not bundled because it is no longer supported
-by mshell. The K4 packages support the nine platforms listed above.
+`epyc7003ntb` (PAS7700) is unsupported by this driver and is not included in
+any package. The K4 packages support the nine platforms listed above.
 
 | Package | Kernel / DSM | Module flavor | Offline platforms |
 |---|---|---|---|
@@ -374,6 +372,36 @@ by mshell. The K4 packages support the nine platforms listed above.
 
 The 580/595 K5 packages include matching GSP firmware where required. For
 download and verification details, see the [SPK release notes](spk/RELEASE_NOTES.md).
+
+### Open vs. proprietary kernel-module flavor
+
+For K5 packages, **open** and **proprietary** describe the NVIDIA kernel
+module only. Both flavors of the same driver branch use the same versioned,
+proprietary NVIDIA user-space stack (including NVML and `nvidia-smi`); the
+flavor alone does not add codecs or promise a performance difference. The
+GPU-support table bundled in each package determines which exact GPU IDs are
+accepted.
+
+- **Open** modules are NVIDIA's dual MIT/GPL-licensed kernel modules and are
+  supported on Turing and newer GPUs. The 580 open package is limited by its
+  bundled support table to Turing/Ampere; 595 open supports the Turing-and-newer
+  IDs listed in its table. Use open when your GPU is listed for that branch and
+  you prefer the open kernel-module implementation.
+- **Proprietary** modules are NVIDIA's traditional closed-source kernel
+  modules. They are the option for older GPU generations where supported: the
+  580 proprietary package covers listed Maxwell-through-Ampere GPUs, while the
+  595 proprietary package covers listed Turing-and-newer GPUs. The K4 550
+  packages also use proprietary modules.
+
+**How to choose:** first identify the GPU generation and select a driver branch
+whose bundled compatibility table lists your exact GPU. For Maxwell/Pascal/Volta,
+use 580 proprietary when listed. For Turing or newer, compare the 580/595
+branch's supported GPU tables. Choose open when your exact GPU is listed there
+and you prefer NVIDIA's open kernel-module implementation. Choose proprietary
+when your GPU is listed for that flavor but not for open, or when you explicitly
+prefer the traditional closed kernel module. The installer blocks a package
+when the detected GPU is not supported by that branch/flavor. Keep the module,
+user-space driver, and any required GSP firmware on the same driver version.
 
 The platform matrix identifies package targets; it does not mean every
 platform has been individually tested on hardware. See the [SPK release
@@ -817,14 +845,13 @@ docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
 |---|---|:---:|:---:|:---:|:---:|
 | `epyc7002`      | SA6400                         | ✅ | ✅ | ✅ | ✅ |
 | `epyc7003`      | FS6420                         | ✅ | ✅ | ✅ | ✅ |
-| `epyc7003ntb`   | PAS7700                        | ✅ | ✅ | ✅ | ✅ |
 | `icelaked`      | FS3420 / RS3626xs / RS4826xs+  | ✅ | ✅ | ✅ | ✅ |
 | `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `geminilakenk`  | DS225+ / DS425+                | ✅ | ✅ | ✅ | ✅ |
 
-`epyc7003ntb`는 일반 드라이버 레이어 지원표에는 남아 있지만, mshell에서 더 이상
-지원되지 않으므로 현재 오프라인 SPK에는 포함되지 않습니다.
+`epyc7003ntb`(PAS7700)는 이 드라이버의 미지원 플랫폼이며 설치기와 오프라인
+SPK 모두에서 제외되어 있습니다.
 
 <br>
 
@@ -846,8 +873,8 @@ docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
 
 오프라인 SPK 릴리즈에는 총 6개 패키지가 있습니다. K5 패키지 4개는
 `epyc7002`, `epyc7003`, `geminilakenk`, `icelaked`, `r1000nk`, `v1000nk`를
-각각 지원합니다. `epyc7003ntb`는 mshell에서 더 이상 지원하지 않아 의도적으로
-포함하지 않았습니다. K4 패키지는 위 표의 9개 플랫폼을 지원합니다.
+각각 지원합니다. `epyc7003ntb`(PAS7700)는 이 드라이버의 미지원 플랫폼으로
+어떤 패키지에도 포함되지 않습니다. K4 패키지는 위 표의 9개 플랫폼을 지원합니다.
 
 | 패키지 | 커널 / DSM | 모듈 flavor | 오프라인 플랫폼 |
 |---|---|---|---|
@@ -861,6 +888,31 @@ docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
 580/595 K5 패키지는 필요한 GPU에서 사용할 수 있도록 해당 드라이버 버전과
 일치하는 GSP 펌웨어를 포함합니다. 다운로드와 해시는
 [SPK 릴리즈 노트](spk/RELEASE_NOTES.md)를 참고하세요.
+
+### Open과 proprietary 커널 모듈 flavor
+
+K5 패키지에서 **open**과 **proprietary**는 NVIDIA 커널 모듈의 종류를
+구분합니다. 같은 드라이버 브랜치라면 두 flavor가 같은 버전의 비공개 NVIDIA
+사용자 공간 구성요소(NVML, `nvidia-smi` 등)를 사용합니다. flavor 자체가 코덱을
+추가하거나 성능 향상을 보장하지는 않습니다. 각 패키지에 포함된 GPU 지원표가
+설치 가능한 정확한 GPU ID를 결정합니다.
+
+- **Open** 모듈은 NVIDIA가 공개한 dual MIT/GPL 라이선스 커널 모듈이며 Turing
+  이상 GPU를 대상으로 합니다. 580 open 패키지는 동봉된 지원표에 따라
+  Turing/Ampere까지만 지원하고, 595 open은 지원표에 기재된 Turing 이상 GPU를
+  지원합니다. 해당 브랜치에서 GPU가 지원되고 공개 커널 모듈을 원하면 선택합니다.
+- **Proprietary** 모듈은 NVIDIA의 기존 비공개 커널 모듈입니다. 지원되는 구형
+  GPU에 사용할 수 있습니다. 580 proprietary는 지원표에 기재된 Maxwell–Ampere
+  GPU를, 595 proprietary는 지원표에 기재된 Turing 이상 GPU를 대상으로 합니다.
+  K4 550 패키지도 proprietary 모듈을 사용합니다.
+
+**선택 방법:** 먼저 GPU 세대를 확인하고 동봉된 호환성 표에 정확한 GPU ID가 있는
+드라이버 브랜치를 선택하세요. Maxwell/Pascal/Volta GPU는 지원표에 있다면
+580 proprietary를 선택하세요. Turing 이상은 580/595 브랜치별 지원표를 비교하세요.
+정확한 GPU ID가 open 표에 있고 공개 커널 모듈을 선호하면 open을 선택합니다.
+GPU가 proprietary 표에만 있거나 기존 비공개 커널 모듈을 선호하면 proprietary를
+선택하세요. GPU와 브랜치/flavor가 호환되지 않으면 설치 전 검사가 설치를 차단합니다.
+커널 모듈, 사용자 공간 드라이버, 필요한 GSP 펌웨어는 같은 드라이버 버전이어야 합니다.
 
 플랫폼 표는 패키지 대상 범위를 나타내며, 모든 플랫폼을 실기에서 각각
 시험했다는 뜻은 아닙니다. 실제 하드웨어 검증 범위는

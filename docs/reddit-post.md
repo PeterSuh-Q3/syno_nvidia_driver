@@ -12,7 +12,8 @@ run, which trips up a lot of people.
 ## 🚀 Install (on a running DSM)
 
 **Requirements:** root/`sudo`, internet, a **supported kver5 (5.10.55) platform**
-(all 7 — see the support matrix below)
+(one of the six listed in the support matrix below; `epyc7003ntb` / PAS7700 is
+not supported by this driver)
 with an NVIDIA GPU (physical or passthrough). The installer auto-detects your
 platform + GPU and refuses to run on anything it can't support.
 
@@ -166,7 +167,6 @@ driver version across every platform.
 |---|---|:---:|:---:|:---:|:---:|
 | `epyc7002`      | SA6400                         | ✅ | ✅ | ✅ | ✅ |
 | `epyc7003`      | FS6420                         | ✅ | ✅ | ✅ | ✅ |
-| `epyc7003ntb`   | PAS7700                        | ✅ | ✅ | ✅ | ✅ |
 | `icelaked`      | FS3420 / RS3626xs / RS4826xs+  | ✅ | ✅ | ✅ | ✅ |
 | `v1000nk`       | (Ryzen Embedded V1000, no-key) | ✅ | ✅ | ✅ | ✅ |
 | `r1000nk`       | (Ryzen Embedded R1000, no-key) | ✅ | ✅ | ✅ | ✅ |

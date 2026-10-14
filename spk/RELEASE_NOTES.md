@@ -18,6 +18,33 @@ remain the source of truth these packages are built from.
 | `syno-nvidia-driver-kver4-dsm72-550.163.01-4-dsm7.2-7.4.spk` | 550.163.01 proprietary | 4.4.302 | 7.2 – 7.4 | apollolake, broadwell, broadwellnk, broadwellnkv2, broadwellntbap, geminilake, purley, r1000, v1000 |
 | `syno-nvidia-driver-kver4-dsm70-550.163.01-4-dsm7.0-7.1.spk` | 550.163.01 proprietary | 4.4.180 | 7.0 – 7.1 | (same 9 platforms as above) |
 
+## Open vs. proprietary kernel-module flavor
+
+For K5 packages, **open** and **proprietary** identify the kernel-module
+implementation only. Both use the same versioned NVIDIA proprietary user-space
+stack for a given driver branch. The flavor alone does not add codec support or
+promise a performance difference; the package's bundled GPU table is
+authoritative for exact GPU-ID compatibility.
+
+- **Open**: NVIDIA's dual MIT/GPL-licensed kernel modules, supported on Turing
+  and newer GPUs. The 580 open package is limited to Turing/Ampere GPUs listed
+  in its bundled table; 595 open supports the Turing-and-newer GPU IDs listed
+  in its table.
+- **Proprietary**: NVIDIA's traditional closed-source kernel modules. The 580
+  proprietary package supports listed Maxwell-through-Ampere GPUs; 595
+  proprietary supports listed Turing-and-newer GPUs. The K4 550 packages also
+  use proprietary modules.
+
+**Choosing a package:** check the GPU generation and exact PCI ID against the
+package's bundled compatibility table. For Maxwell/Pascal/Volta, choose 580
+proprietary when listed. For Turing or newer, compare the 580/595 tables. Choose
+open when your exact GPU is listed there and you prefer NVIDIA's open
+kernel-module implementation. Choose proprietary when your GPU is listed for
+that flavor but not for open, or when you explicitly prefer the traditional
+closed kernel module. The pre-install check rejects unsupported
+GPU/branch/flavor combinations. Keep the kernel module, user-space stack, and
+any required GSP firmware on the same driver version.
+
 Find your platform with `uname -a` — the token right after `synology_` is
 the platform name (e.g. `synology_apollolake_ds218` → `apollolake`).
 
@@ -137,6 +164,28 @@ DSM 패키지 센터에서 원클릭으로 설치하는 오프라인 NVIDIA 드�
 | `syno-nvidia-driver-kver5-595-open-595.99.02-1.spk` | 595.99.02 open | 5.10.55 | 7.2+ | epyc7002, epyc7003, geminilakenk, icelaked, r1000nk, v1000nk |
 | `syno-nvidia-driver-kver4-dsm72-550.163.01-4-dsm7.2-7.4.spk` | 550.163.01 proprietary | 4.4.302 | 7.2 ~ 7.4 | apollolake, broadwell, broadwellnk, broadwellnkv2, broadwellntbap, geminilake, purley, r1000, v1000 |
 | `syno-nvidia-driver-kver4-dsm70-550.163.01-4-dsm7.0-7.1.spk` | 550.163.01 proprietary | 4.4.180 | 7.0 ~ 7.1 | (위와 동일한 9개 플랫폼) |
+
+## Open과 proprietary 커널 모듈 flavor
+
+K5 패키지에서 **open**과 **proprietary**는 커널 모듈 구현 방식만 구분합니다.
+같은 드라이버 브랜치라면 두 flavor 모두 동일 버전의 NVIDIA 비공개 사용자 공간
+구성요소를 사용합니다. flavor만으로 코덱 지원이나 성능 차이가 생기지는 않으며,
+패키지에 포함된 GPU 지원표가 정확한 GPU ID의 호환성을 결정합니다.
+
+- **Open**: NVIDIA의 dual MIT/GPL 라이선스 커널 모듈이며 Turing 이상 GPU를
+  대상으로 합니다. 580 open은 동봉된 표에 기재된 Turing/Ampere GPU를 지원하고,
+  595 open은 동봉된 표의 Turing 이상 GPU ID를 지원합니다.
+- **Proprietary**: NVIDIA의 기존 비공개 커널 모듈입니다. 580 proprietary는
+  지원표의 Maxwell–Ampere GPU를, 595 proprietary는 지원표의 Turing 이상 GPU를
+  지원합니다. K4 550 패키지도 proprietary 모듈을 사용합니다.
+
+**선택 방법:** GPU 세대와 정확한 PCI ID가 패키지의 호환성 표에 포함되어 있는지
+먼저 확인하세요. Maxwell/Pascal/Volta는 지원되는 경우 580 proprietary를
+선택합니다. Turing 이상은 580/595 지원표를 비교하세요. 정확한 GPU ID가 open
+지원표에 있고 공개 커널 모듈을 선호하면 open을 선택합니다. GPU가 proprietary
+지원표에만 있거나 기존 비공개 커널 모듈을 선호하면 proprietary를 선택하세요.
+설치 전 검사는 지원되지 않는 GPU/브랜치/flavor 조합을 차단합니다. 커널 모듈,
+사용자 공간 구성요소, 필요한 GSP 펌웨어는 같은 드라이버 버전으로 맞춰야 합니다.
 
 내 플랫폼은 `uname -a` 실행 결과에서 `synology_` 바로 뒤 토큰으로 확인할 수
 있습니다 (예: `synology_apollolake_ds218` → `apollolake`).
