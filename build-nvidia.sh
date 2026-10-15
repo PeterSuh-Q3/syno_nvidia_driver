@@ -27,6 +27,7 @@
 #   RUN_FILE : NVIDIA-Linux-x86_64-<ver>.run   (default: ./run/<that name>)
 #   KSRC     : kernel build tree (default: /opt/<platform>/build)
 #   OUT      : output dir (default: ./out)
+#   JOBS     : parallel make jobs (default: nproc)
 #   CC / LD / CROSS_COMPILE : toolchain (default: container's, x86_64 native)
 #
 set -euo pipefail
@@ -38,9 +39,12 @@ KVERSHORT="$(echo "$KVER" | tr -d '.')"        # 5.10.55 -> 51055
 ARCH=x86_64
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="${OUT:-$HERE/out}"
+JOBS="${JOBS:-$(nproc)}"
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
 
 log(){ echo "[build-nvidia] $*" >&2; }
 die(){ log "ERROR: $*"; exit 1; }
+[[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || die "JOBS must be a positive integer, got '$JOBS'"
 
 # --- kernel tree (container-internal, matches mshell-modules convention) ------
 KSRC="${KSRC:-/opt/${PLATFORM}/build}"
@@ -59,6 +63,7 @@ fi
 : "${CC:=${CROSS_COMPILE:-}gcc}"
 : "${LD:=${CROSS_COMPILE:-}ld}"
 log "toolchain: CC=$CC ($($CC --version 2>/dev/null | head -1))"
+log "parallel jobs: $JOBS"
 
 # --- locate the .run ----------------------------------------------------------
 RUN_FILE="${RUN_FILE:-$HERE/run/NVIDIA-Linux-${ARCH}-${DRV}.run}"
@@ -183,13 +188,21 @@ fi
 # LAYER 1 - kernel modules (.ko), platform-specific
 # =============================================================================
 log "compiling glue against $KVER / $PLATFORM (NVIDIA kbuild drives conftest.sh)"
-make -C "$SRC/kernel" modules \
-     SYSSRC="$KSRC" SYSOUT="$KSRC" \
-     ARCH="$ARCH" \
-     ${CROSS_COMPILE:+CROSS_COMPILE="$CROSS_COMPILE"} \
-     ${CC:+CC="$CC"} ${LD:+LD="$LD"} \
-     KERNEL_UNAME="$KVER" \
-     -j"$(nproc)"
+KBUILD_ARGS=(
+  SYSSRC="$KSRC" SYSOUT="$KSRC"
+  ARCH="$ARCH"
+  KERNEL_UNAME="$KVER"
+  -j"$JOBS"
+)
+[[ -n "${CROSS_COMPILE:-}" ]] && KBUILD_ARGS+=(CROSS_COMPILE="$CROSS_COMPILE")
+[[ -n "${CC:-}" ]] && KBUILD_ARGS+=(CC="$CC")
+[[ -n "${LD:-}" ]] && KBUILD_ARGS+=(LD="$LD")
+# These are make variables, not reliably inherited from the environment by
+# nested Kbuild invocations. Pass them on the command line when explicitly set
+# (used by the focused DRM-provider compatibility build).
+[[ -n "${KBUILD_EXTRA_SYMBOLS:-}" ]] && KBUILD_ARGS+=(KBUILD_EXTRA_SYMBOLS="$KBUILD_EXTRA_SYMBOLS")
+[[ -n "${EXTRA_CFLAGS:-}" ]] && KBUILD_ARGS+=(EXTRA_CFLAGS="$EXTRA_CFLAGS")
+make -C "$SRC/kernel" modules "${KBUILD_ARGS[@]}"
 
 KO_STAGE="$WORK/ko"; mkdir -p "$KO_STAGE"
 STRIP="${CROSS_COMPILE:-}strip"
@@ -229,7 +242,8 @@ fi
 
 echo "$DRV" > "$KO_STAGE/VERSION"; echo "$KVER" > "$KO_STAGE/KVER"; echo "$PLATFORM" > "$KO_STAGE/PLATFORM"
 KO_TGZ="$OUT/nv-ko-${DRV}-${PLATFORM}-${KVERSHORT}.tgz"
-tar -C "$KO_STAGE" -czf "$KO_TGZ" .
+  tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
+      -C "$KO_STAGE" -cf - . | gzip -n > "$KO_TGZ"
 KO_SHA="$(sha256sum "$KO_TGZ" | cut -d' ' -f1)"
 log "kernel layer -> $KO_TGZ  ($KO_SHA)"
 
@@ -251,7 +265,8 @@ else
     cp -a "$so" "$US/lib/"
   done
   echo "$DRV" > "$US/VERSION"
-  tar -C "$US" -czf "$US_TGZ" .
+  tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
+      -C "$US" -cf - . | gzip -n > "$US_TGZ"
 fi
 US_SHA="$(sha256sum "$US_TGZ" | cut -d' ' -f1)"
 log "userspace layer -> $US_TGZ  ($US_SHA)"
