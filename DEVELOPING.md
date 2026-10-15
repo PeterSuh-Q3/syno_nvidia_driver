@@ -119,6 +119,29 @@ GPU-support index with the archive SHA-256 and the firmware-to-GPU mapping.
 Source change → **commit/push here first** → on the VM **`git pull`** → then build.
 Never build from uncommitted local changes.
 
+## Build provenance and reproducibility
+
+The 580 K5 EPYC7002/EPYC7003 comparison exposed a process gap: moving a build
+from GitHub Actions to Docker Desktop is not inherently unsafe, but an ad-hoc
+local command is hard to compare later if its exact script and inputs were not
+committed or recorded. The same compiler image alone does not prove that two
+builds used equivalent inputs or options. In this investigation, the historical
+EPYC7002 success did not retain enough command/configuration provenance to
+identify a single cause for its difference from EPYC7003; the available A/B
+checks narrowed possibilities but did not establish that root cause.
+
+For future platform comparisons, preserve the successful pilot path before
+expanding the matrix. Both local Docker Desktop and any GitHub workflow should
+call the same versioned build script, with platform-specific values passed as
+explicit configuration rather than undocumented shell edits. Record at least:
+the source commit and script hash, compiler image digest, NVIDIA `.run` hash,
+platform/kernel build tree and its `.config`/`Module.symvers` identity, full
+build command and environment/options, applied patches, conftest results,
+build log, output archive hash, and module metadata. A successful result should
+be reproducible from that record before it is treated as the reference method.
+Keep diagnostic outputs separate from canonical release assets, and promote
+them only after review.
+
 ---
 
 <details>
@@ -223,5 +246,24 @@ curl -kLo run/NVIDIA-Linux-x86_64-535.183.06.run \
 
 소스 변경 → **여기서 먼저 commit/push** → VM에서 **`git pull`** → 그다음 빌드.
 커밋되지 않은 로컬 변경으로는 절대 빌드하지 않습니다.
+
+### 빌드 출처와 재현성
+
+580 K5 EPYC7002/EPYC7003 비교에서는 절차상의 공백이 드러났습니다. GitHub Actions에서
+Docker Desktop으로 빌드 환경을 바꾼 행위 자체가 잘못인 것은 아니지만, 임시 로컬 명령의
+스크립트와 입력값을 커밋하거나 기록하지 않으면 나중에 결과를 정확히 비교하기 어렵습니다.
+같은 컴파일러 이미지라는 사실만으로 두 빌드의 입력과 옵션까지 같았다고 볼 수 없습니다.
+이번 조사에서는 과거 EPYC7002 성공 빌드의 명령·설정 기록이 충분하지 않아 EPYC7003과의
+차이를 만든 단일 원인을 특정하지 못했습니다. 확보된 A/B 검사는 가능성을 좁혔지만 원인을
+확정하지는 못했습니다.
+
+앞으로 플랫폼 비교를 시작할 때는 성공한 파일럿 경로부터 보존한 뒤 매트릭스를 확장합니다.
+Docker Desktop과 GitHub Actions는 동일한 버전 관리 빌드 스크립트를 호출하고, 플랫폼별
+차이는 문서화된 명시적 설정으로 전달해야 합니다. 최소한 소스 커밋과 스크립트 해시,
+컴파일러 이미지 digest, NVIDIA `.run` 해시, 플랫폼/커널 빌드 트리 및 `.config`와
+`Module.symvers` 식별값, 전체 명령과 환경·옵션, 적용 패치, conftest 결과, 빌드 로그,
+산출물 아카이브 해시와 모듈 메타데이터를 남깁니다. 이 기록으로 성공 경로를 재현하기 전에는
+이를 기준 빌드 방식으로 간주하지 않습니다. 진단 산출물은 정규 릴리즈 자산과 분리하고,
+검토를 마친 뒤에만 승격합니다.
 
 </details>
