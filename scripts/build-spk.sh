@@ -5,10 +5,10 @@
 # following the same INFO-templating / package.tgz / final-tar pattern as
 # syno-amdgpu-driver/scripts/package-spk.sh.
 #
-# Usage: build-spk.sh <kver5|kver4-72|kver4-70>
+# Usage: build-spk.sh <kver5-580-proprietary|kver5|kver4-72|kver4-70>
 set -euo pipefail
 
-VARIANT=${1:?variant required: kver5 | kver4-72 | kver4-70}
+VARIANT=${1:?variant required: kver5-580-proprietary | kver5 | kver4-72 | kver4-70}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REL="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia"
 OUT="$ROOT/dist"
@@ -21,8 +21,26 @@ WORK="$ROOT/work/spk-$VARIANT"
 # epyc7003ntb (PAS7700) is no longer supported by this driver.
 KVER5_PLATFORMS="epyc7002 epyc7003 geminilakenk icelaked r1000nk v1000nk"
 KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap geminilake purley r1000 v1000"
+KO_FLAVOR_PREFIX=""
+ENABLE_NVIDIA_DRM_MODESET=0
 
 case "$VARIANT" in
+  kver5-580-proprietary)
+    # Keep this revision's assembly tree separate from older split-package
+    # workspaces, which may contain cached or manually staged files.
+    WORK="$ROOT/work/spk-kver5-580-proprietary-rev2"
+    DRIVER=580.173.02
+    PACKAGE_REVISION=2
+    KSUFFIX=51055
+    PLATFORMS="$KVER5_PLATFORMS"
+    PACKAGE=syno-nvidia-driver-kver5-580-proprietary
+    OS_MIN_VER=7.2-00000
+    BUNDLE_GSP=1
+    KO_FLAVOR_PREFIX="proprietary-"
+    ENABLE_NVIDIA_DRM_MODESET=1
+    DESC="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; Maxwell-through-Ampere GPUs in the bundled compatibility table; kernel 5.10.55. DRM/KMS modesetting (nvidia-drm modeset=1) enabled and validated on all six platforms: ${PLATFORMS}."
+    FILESUFFIX=""
+    ;;
   kver5)
     DRIVER=${KVER5_DRIVER:-595.99.02}
     case "$DRIVER" in
@@ -82,7 +100,7 @@ fetch() {
 
 # ---- kernel modules (one nv-ko tgz per platform, this variant's kernel) ----
 for p in $PLATFORMS; do
-  KO="nv-ko-${DRIVER}-${p}-${KSUFFIX}.tgz"
+  KO="nv-ko-${DRIVER}-${KO_FLAVOR_PREFIX}${p}-${KSUFFIX}.tgz"
   fetch "$KO"
   mkdir -p "$WORK/target/lib/modules/$p"
   tar -xzf "$WORK/dl/$KO" -C "$WORK/target/lib/modules/$p"
@@ -100,6 +118,11 @@ fi
 US_VERSION=$(tar -xOzf "$SHARED_US" ./VERSION 2>/dev/null | tr -d '\r\n')
 [ "$US_VERSION" = "$DRIVER" ] || { echo "shared userspace version mismatch: $SHARED_US" >&2; exit 1; }
 tar -xzf "$SHARED_US" -C "$WORK/target/lib/nvidia"
+
+if [ "$ENABLE_NVIDIA_DRM_MODESET" = 1 ]; then
+  mkdir -p "$WORK/target/share"
+  : > "$WORK/target/share/nvidia-drm-kms-modeset.enabled"
+fi
 
 # ---- GSP firmware (kver5/580 only - no gsp_fw entries exist for 550) ------
 if [ "$BUNDLE_GSP" = 1 ]; then

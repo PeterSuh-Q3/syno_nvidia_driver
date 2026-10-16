@@ -5,7 +5,7 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 TABLE="$SCRIPT_DIR/nvidia-gpu-support.tsv"
 BRANCH_FILE="$SCRIPT_DIR/target-driver.txt"
 LOGFILE="${SYNOPKG_TEMP_LOGFILE:-}"
-URL_580="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/spk/syno-nvidia-driver-kver5-580.173.02-5.spk"
+URL_580="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/spk/syno-nvidia-driver-kver5-580-proprietary-580.173.02-2.spk"
 ACTION="${1:-installation}"
 DRIVER="$(cat "$BRANCH_FILE" 2>/dev/null || true)"
 
@@ -75,11 +75,11 @@ if [ "$DRIVER" = "595.99.02" ] && [ -n "$OLDER_GPU" ]; then
   case "${SYNOPKG_DSM_LANGUAGE:-enu}" in
     krn)
       say "감지된 GPU: $OLDER_GPU. NVIDIA 595와 호환되지 않아 드라이버 설치/업데이트를 취소했습니다."
-      say "패키지 센터 > 수동 설치에서 NVIDIA 580.173.02-5를 설치하세요: $URL_580"
+      say "패키지 센터 > 수동 설치에서 NVIDIA 580.173.02 proprietary-2를 설치하세요: $URL_580"
       ;;
     *)
       say "Detected GPU: $OLDER_GPU. NVIDIA 595 is incompatible; driver installation/upgrade was canceled."
-      say "In Package Center, choose Manual Install and install NVIDIA 580.173.02-5: $URL_580"
+      say "In Package Center, choose Manual Install and install NVIDIA 580.173.02 proprietary package revision 2: $URL_580"
       ;;
   esac
   exit 1

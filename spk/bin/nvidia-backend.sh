@@ -256,7 +256,17 @@ do_start() {
 
   for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
     if [ -f "/usr/lib/modules/$m.ko" ]; then
-      if /sbin/insmod "/usr/lib/modules/$m.ko" 2>>"$RCLOG"; then rclog "insmod $m OK"; else rclog "insmod $m FAILED (see above)"; fi
+      if [ "$m" = nvidia-drm ] && [ -f "$RUNTIME/share/nvidia-drm-kms-modeset.enabled" ]; then
+        if /sbin/insmod "/usr/lib/modules/$m.ko" modeset=1 2>>"$RCLOG"; then
+          rclog "insmod $m modeset=1 OK"
+        else
+          rclog "insmod $m modeset=1 FAILED (see above)"
+        fi
+      elif /sbin/insmod "/usr/lib/modules/$m.ko" 2>>"$RCLOG"; then
+        rclog "insmod $m OK"
+      else
+        rclog "insmod $m FAILED (see above)"
+      fi
     fi
   done
 
