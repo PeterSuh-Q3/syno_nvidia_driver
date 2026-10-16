@@ -71,6 +71,7 @@ esac
 rm -rf "$WORK/target" "$WORK/scripts" "$WORK/conf" "$WORK/INFO" "$WORK"/*.PNG
 mkdir -p "$WORK/target/lib/modules" "$WORK/target/lib/nvidia/bin" "$WORK/target/lib/nvidia/lib" \
          "$WORK/target/lib/firmware" "$WORK/target/share" "$WORK/scripts" "$WORK/conf" "$WORK/dl"
+bash "$ROOT/scripts/check-shared-nvidia-layers.sh"
 
 fetch() {
   local file=$1
@@ -87,16 +88,33 @@ for p in $PLATFORMS; do
   tar -xzf "$WORK/dl/$KO" -C "$WORK/target/lib/modules/$p"
 done
 
-# ---- shared userspace (one tgz, identical across platforms in a variant) --
+# ---- shared userspace (one archive per driver version, not per SPK workdir) --
 US="nv-userspace-${DRIVER}.tgz"
-fetch "$US"
-tar -xzf "$WORK/dl/$US" -C "$WORK/target/lib/nvidia"
+SHARED_US="$ROOT/out/release-assets-nvidia/shared/${DRIVER%%.*}/$US"
+if [ ! -s "$SHARED_US" ]; then
+  mkdir -p "$(dirname "$SHARED_US")"
+  echo "fetching shared $US"
+  curl -sL --fail "$REL/$US" -o "$SHARED_US.tmp.$$"
+  mv "$SHARED_US.tmp.$$" "$SHARED_US"
+fi
+US_VERSION=$(tar -xOzf "$SHARED_US" ./VERSION 2>/dev/null | tr -d '\r\n')
+[ "$US_VERSION" = "$DRIVER" ] || { echo "shared userspace version mismatch: $SHARED_US" >&2; exit 1; }
+tar -xzf "$SHARED_US" -C "$WORK/target/lib/nvidia"
 
 # ---- GSP firmware (kver5/580 only - no gsp_fw entries exist for 550) ------
 if [ "$BUNDLE_GSP" = 1 ]; then
   GSP="nv-gsp-${DRIVER}.tgz"
-  fetch "$GSP"
-  tar -xzf "$WORK/dl/$GSP" -C "$WORK/target/lib/firmware"
+  SHARED_GSP="$ROOT/out/release-assets-nvidia/shared/${DRIVER%%.*}/$GSP"
+  if [ ! -s "$SHARED_GSP" ]; then
+    mkdir -p "$(dirname "$SHARED_GSP")"
+    echo "fetching shared $GSP"
+    curl -sL --fail "$REL/$GSP" -o "$SHARED_GSP.tmp.$$"
+    mv "$SHARED_GSP.tmp.$$" "$SHARED_GSP"
+  fi
+  tar -tzf "$SHARED_GSP" | grep -Eq '(^|/)gsp_[^/]+\.bin$' || {
+    echo "shared GSP archive is invalid: $SHARED_GSP" >&2; exit 1;
+  }
+  tar -xzf "$SHARED_GSP" -C "$WORK/target/lib/firmware"
 fi
 
 # ---- bundled GPU-support table (offline copy, not live-fetched) -----------

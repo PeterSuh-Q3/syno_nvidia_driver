@@ -8,14 +8,14 @@
 # backend expects them.
 #
 # Usage:
-#   scripts/make-gsp-layer.sh <driver-version> [run-file] [output-directory]
+#   scripts/make-gsp-layer.sh <driver-version> [run-file]
 #
 # Example:
 #   scripts/make-gsp-layer.sh 595.99.02
 #
 # Defaults:
 #   run-file         run/NVIDIA-Linux-x86_64-<driver-version>.run
-#   output-directory out/release-assets-nvidia/shared/<major>
+#   output-directory out/release-assets-nvidia/shared/<major> (fixed)
 
 set -euo pipefail
 
@@ -28,6 +28,8 @@ SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}
 
 log() { printf '[make-gsp-layer] %s\n' "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
+[ "$OUT" = "$ROOT/out/release-assets-nvidia/shared/${DRIVER%%.*}" ] || \
+  die "GSP output must be the canonical shared directory: $ROOT/out/release-assets-nvidia/shared/${DRIVER%%.*}"
 
 command -v sha256sum >/dev/null 2>&1 || die 'sha256sum is required'
 command -v tar >/dev/null 2>&1 || die 'tar is required'

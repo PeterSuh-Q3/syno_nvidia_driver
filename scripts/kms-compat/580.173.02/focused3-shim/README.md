@@ -25,8 +25,12 @@ directory. “No provider pack” must not be read as “no shim.”
   `dante90/syno-compiler:7.4@sha256:08cedce8be257c7b3f2b32c8edde034cc53754f0bad1f974b63c76607d7eab1f`
 - Build-script baseline: commit `41de1cbbabfa5e141c77ba488fb7353cd5c5626b`,
   `build-nvidia.sh` blob `3f0e72297d4af83f7b3b90cb48973f4a62c6c41a`.
-- Tested archive is byte-identical to the EPYC7002 580 Proprietary kernel
-  archive in `out/release-assets-nvidia/kver5-580-proprietary/`.
+- This earlier successful archive was removed from the working tree during
+  archive cleanup; its hash and build log remain recorded. The regular
+  EPYC7002 580 Proprietary pack now contains the subsequently rebuilt and
+  physically KMS-tested focused3 artifact from
+  `out/kms-focused3-repro/20261015T233539Z/epyc7002/` (SHA-256
+  `ad652db8b5148ed3b08c9560a076d4f0498d2773f18882cb7f486b09014b3a54`).
 
 The original successful shim is preserved here as
 `drm-provider-symbol-aliases.h` (SHA-256
