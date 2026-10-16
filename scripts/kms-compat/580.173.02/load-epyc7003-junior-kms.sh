@@ -14,7 +14,8 @@ EXPECTED_GSP_CKSUM='1395102804 79707626'
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
-[ "$(id -u)" = 0 ] || die "Run this script as root in the Junior TTYD shell."
+uid=$(awk '/^Uid:/{print $2; exit}' /proc/self/status)
+[ "$uid" = 0 ] || die "Run this script as root in the Junior TTYD shell."
 [ -s "$MODULE_ARCHIVE" ] || die "Missing module archive: $MODULE_ARCHIVE"
 [ -s "$GSP_ARCHIVE" ] || die "Missing GSP archive: $GSP_ARCHIVE"
 [ "$(uname -r)" = "5.10.55+" ] || die "Expected kernel 5.10.55+, found $(uname -r)."
