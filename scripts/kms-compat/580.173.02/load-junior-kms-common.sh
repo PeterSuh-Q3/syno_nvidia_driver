@@ -98,7 +98,11 @@ cat /sys/module/nvidia_drm/parameters/modeset
 echo "--- DRM nodes ---"
 ls -l /dev/dri
 echo "--- NVIDIA device nodes ---"
-ls -l /dev/nvidia*
+if ls /dev/nvidia* >/dev/null 2>&1; then
+  ls -l /dev/nvidia*
+else
+  echo "No /dev/nvidia* character nodes yet (not required for this KMS registration check)."
+fi
 echo "--- NVIDIA DRM messages ---"
 dmesg | grep -E 'nvidia-drm|NVRM|Unknown symbol|Oops|BUG:|general protection|Kernel panic' | tail -n 40
 
