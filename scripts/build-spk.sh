@@ -23,6 +23,7 @@ KVER5_PLATFORMS="epyc7002 epyc7003 geminilakenk icelaked r1000nk v1000nk"
 KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap geminilake purley r1000 v1000"
 KO_FLAVOR_PREFIX=""
 ENABLE_NVIDIA_DRM_MODESET=0
+DISPLAYNAME="Synology NVIDIA Driver"
 
 case "$VARIANT" in
   kver5-580-proprietary)
@@ -34,6 +35,7 @@ case "$VARIANT" in
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-580-proprietary
+    DISPLAYNAME="Synology NVIDIA Driver 580 Proprietary"
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="proprietary-"
@@ -196,6 +198,7 @@ cp "$ROOT/spk/INFO" "$WORK/INFO"
 sed -i.bak \
   -e "s/^package=\"[^\"]*\"/package=\"$PACKAGE\"/" \
   -e "s/^version=\"[^\"]*\"/version=\"${DRIVER}-${PACKAGE_REVISION}\"/" \
+  -e "s/^displayname=\"[^\"]*\"/displayname=\"$DISPLAYNAME\"/" \
   -e "s/^arch=\"[^\"]*\"/arch=\"$PLATFORMS\"/" \
   -e "s/^os_min_ver=\"[^\"]*\"/os_min_ver=\"$OS_MIN_VER\"/" \
   -e "s#^description=\".*\"#description=\"$DESC\"#" \
