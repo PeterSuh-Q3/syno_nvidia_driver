@@ -19,7 +19,7 @@ FFmpeg와 ffprobe를 한 SPK에 넣는다. 다른 패키지의 `target` 또는 `
 
 ## 패키지·버전 정책
 
-패키지 ID는 `syno-nvidia-ffmpeg`, 아키텍처는 `x86_64`이다. **메인 드라이버 버전과 일대일로 종속**시키며, 550/580/595용 SPK를 별개 자산으로 빌드한다. 드라이버 SPK ID는 DSM/커널 변형별로 다르므로 `INFO`의 정적 `install_dep_packages`는 비워 두고, `preinst`에서 세 변형 패키지(`syno-nvidia-driver-kver5`, `syno-nvidia-driver-kver4-dsm72`, `syno-nvidia-driver-kver4-dsm70`) 중 정확히 일치하는 드라이버 버전이 있는지 검사한다. 설치 후에도 활성 커널 드라이버 버전을 다시 검사해 일치할 때만 Jellyfin 경로를 전환한다. 드라이버가 아직 재부팅 전의 이전 버전이면 FFmpeg SPK는 경로를 변경하지 않는다. 같은 패키지 ID를 유지해 패키지 센터의 교체 설치가 가능하게 하고, SPK 버전은 대상 드라이버 버전과 패키지 개정 번호를 포함한다(예: `580.173.02-1`). `SOURCE`/메타데이터에 Jellyfin FFmpeg의 정확한 태그, 원본 URL·SHA-256을 기록한다. 파일명만으로 호환성을 추정하지 않는다.
+패키지 ID는 `syno-nvidia-ffmpeg`, 아키텍처는 `x86_64`이다. **메인 드라이버 버전과 일대일로 종속**시키며, 550/580/595용 SPK를 별개 자산으로 빌드한다. 드라이버 SPK ID는 DSM/커널 변형 및 드라이버 flavor별로 다르므로 `INFO`의 정적 `install_dep_packages`는 비워 둔다. `preinst`와 설치 후 백엔드는 현재 분리형 ID(`syno-nvidia-driver-kver5-{580-open,580-proprietary,595-open,595-proprietary}`)와 기존 ID(`syno-nvidia-driver-kver5`, `syno-nvidia-driver-kver4-dsm72`, `syno-nvidia-driver-kver4-dsm70`)를 모두 검사하고, 요청한 드라이버 버전과 정확히 일치하는 패키지가 있을 때만 진행한다. 설치 후에도 활성 커널 드라이버 버전을 다시 검사해 일치할 때만 Jellyfin 경로를 전환한다. 드라이버가 아직 재부팅 전의 이전 버전이면 FFmpeg SPK는 경로를 변경하지 않는다. 같은 패키지 ID를 유지해 패키지 센터의 교체 설치가 가능하게 하고, SPK 버전은 대상 드라이버 버전과 패키지 개정 번호를 포함한다. `SOURCE`/메타데이터에 Jellyfin FFmpeg의 정확한 태그, 원본 URL·SHA-256을 기록한다. 파일명만으로 호환성을 추정하지 않는다.
 
 실제로 드라이버 SPK가 게시된 조합부터 시작한다.
 

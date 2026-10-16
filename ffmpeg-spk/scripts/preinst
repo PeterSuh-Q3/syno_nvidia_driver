@@ -4,7 +4,17 @@
 set -eu
 EXPECTED=__DRIVER__
 FOUND=""
-for PACKAGE in syno-nvidia-driver-kver5 syno-nvidia-driver-kver4-dsm72 syno-nvidia-driver-kver4-dsm70; do
+# Include both the legacy package IDs and the current flavor-specific IDs.
+# New 580/595 SPKs have distinct IDs, so checking only the old generic IDs
+# rejects a valid matching driver before the payload can be installed.
+for PACKAGE in \
+    syno-nvidia-driver-kver5-580-open \
+    syno-nvidia-driver-kver5-580-proprietary \
+    syno-nvidia-driver-kver5-595-open \
+    syno-nvidia-driver-kver5-595-proprietary \
+    syno-nvidia-driver-kver5 \
+    syno-nvidia-driver-kver4-dsm72 \
+    syno-nvidia-driver-kver4-dsm70; do
     INFO="/var/packages/$PACKAGE/INFO"
     [ -r "$INFO" ] || continue
     INSTALLED="$(sed -n 's/^version="\([0-9][0-9.]*\)-[0-9][0-9]*"$/\1/p' "$INFO" | head -1)"

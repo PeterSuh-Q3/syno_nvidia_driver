@@ -28,13 +28,19 @@ active_driver() {
 }
 
 installed_driver() {
-    for package in syno-nvidia-driver-kver5 syno-nvidia-driver-kver4-dsm72 syno-nvidia-driver-kver4-dsm70; do
+    for package in \
+        syno-nvidia-driver-kver5-580-open \
+        syno-nvidia-driver-kver5-580-proprietary \
+        syno-nvidia-driver-kver5-595-open \
+        syno-nvidia-driver-kver5-595-proprietary \
+        syno-nvidia-driver-kver5 \
+        syno-nvidia-driver-kver4-dsm72 \
+        syno-nvidia-driver-kver4-dsm70; do
         info="/var/packages/$package/INFO"
         [ -r "$info" ] || continue
         version="$(sed -n 's/^version="\([0-9][0-9.]*\)-[0-9][0-9]*"$/\1/p' "$info" | head -1)"
-        [ -n "$version" ] && { printf '%s\n' "$version"; return 0; }
+        [ -n "$version" ] && printf '%s\n' "$version"
     done
-    return 1
 }
 
 jellyfin_major() {
@@ -74,7 +80,7 @@ configure() {
     }
     case "$EXPECTED" in *[!0-9.]*|'') echo "NVIDIA FFmpeg: invalid driver version" >&2; return 1 ;; esac
     installed="$(installed_driver || true)"
-    if [ "$installed" != "$EXPECTED" ]; then
+    if ! printf '%s\n' "$installed" | grep -Fxq "$EXPECTED"; then
         echo "NVIDIA FFmpeg: driver package $EXPECTED required (installed: ${installed:-none})" >&2
         return 1
     fi
