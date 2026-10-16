@@ -1,7 +1,7 @@
 {
   "defaults": { "run-as": "package" },
-  "username": "sc-nvidia-ffmpeg",
-  "groupname": "nvidia-ffmpeg",
+  "username": "__PACKAGE_USER__",
+  "groupname": "__PACKAGE_GROUP__",
   "tool": [
     {
       "relpath": "bin/helper/nvidia-ffmpeg-helper.x86_64",

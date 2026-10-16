@@ -1,5 +1,5 @@
 #!/bin/sh
 set -eu
-HELPER=/var/packages/syno-nvidia-ffmpeg/target/bin/helper/nvidia-ffmpeg-helper.x86_64
+HELPER=/var/packages/__PACKAGE__/target/bin/helper/nvidia-ffmpeg-helper.x86_64
 [ -u "$HELPER" ] || { echo "NVIDIA FFmpeg: setuid helper unavailable" >&2; exit 1; }
 exec "$HELPER" uninstall

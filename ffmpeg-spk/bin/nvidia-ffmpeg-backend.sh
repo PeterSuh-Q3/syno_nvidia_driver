@@ -3,7 +3,9 @@
 # SynoCommunity Jellyfin launch argument may be touched.
 set -eu
 
-PKG=/var/packages/syno-nvidia-ffmpeg
+PKG_ID="$(cat "$(dirname "$0")/../share/package-id" 2>/dev/null || true)"
+[ -n "$PKG_ID" ] || { echo "NVIDIA FFmpeg: package ID metadata missing" >&2; exit 1; }
+PKG="/var/packages/$PKG_ID"
 TARGET="$PKG/target"
 FFMPEG="$TARGET/bin/ffmpeg"
 FFPROBE="$TARGET/bin/ffprobe"
@@ -11,9 +13,9 @@ EXPECTED="$(cat "$TARGET/share/driver-version" 2>/dev/null || true)"
 JELLYFIN_MAJOR="$(cat "$TARGET/share/jellyfin-min-major" 2>/dev/null || true)"
 LOG=/var/log/nvidia-ffmpeg-spk.log
 JF_SETUP=/var/packages/jellyfin/scripts/service-setup
-JF_DEFAULT=/var/packages/ffmpeg7/target/bin/ffmpeg
+JF_DEFAULT="$(cat "$TARGET/share/jellyfin-default-ffmpeg" 2>/dev/null || true)"
 JF_LEGACY=/usr/local/nvidia/bin/ffmpeg
-BACKUP="$JF_SETUP.pre-syno-nvidia-ffmpeg.bak"
+BACKUP="$JF_SETUP.pre-$PKG_ID.bak"
 STATE_DIR="$PKG/var"
 OLD_PATH_FILE="$STATE_DIR/previous-ffmpeg-path"
 
@@ -101,8 +103,14 @@ configure() {
         log "Jellyfin already points to package FFmpeg"
         return 0
     fi
-    if grep -Fq -- "--ffmpeg $JF_DEFAULT" "$JF_SETUP"; then
+    if [ -n "$JF_DEFAULT" ] && grep -Fq -- "--ffmpeg $JF_DEFAULT" "$JF_SETUP"; then
         previous=$JF_DEFAULT
+    elif grep -Fq -- "--ffmpeg /var/packages/ffmpeg7/target/bin/ffmpeg" "$JF_SETUP"; then
+        previous=/var/packages/ffmpeg7/target/bin/ffmpeg
+    elif grep -Fq -- "--ffmpeg /var/packages/ffmpeg8/target/bin/ffmpeg" "$JF_SETUP"; then
+        previous=/var/packages/ffmpeg8/target/bin/ffmpeg
+    elif grep -Fq -- "--ffmpeg /var/packages/syno-nvidia-ffmpeg/target/bin/ffmpeg" "$JF_SETUP"; then
+        previous=/var/packages/syno-nvidia-ffmpeg/target/bin/ffmpeg
     elif grep -Fq -- "--ffmpeg $JF_LEGACY" "$JF_SETUP"; then
         previous=$JF_LEGACY
     else

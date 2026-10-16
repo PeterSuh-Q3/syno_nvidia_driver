@@ -4,7 +4,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#define BACKEND "/var/packages/syno-nvidia-ffmpeg/target/bin/nvidia-ffmpeg-backend.sh"
+#ifndef PACKAGE_ID
+#define PACKAGE_ID "syno-nvidia-ffmpeg"
+#endif
+#define BACKEND "/var/packages/" PACKAGE_ID "/target/bin/nvidia-ffmpeg-backend.sh"
 
 int main(int argc, char *argv[])
 {
