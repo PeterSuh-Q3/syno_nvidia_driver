@@ -2,13 +2,15 @@
 # Load the pinned DSM 7.4 / kernel 5.10.55 EPYC7003 NVIDIA 580 Proprietary
 # KMS pilot from a root shell opened directly in the Junior TTYD web console.
 # This script is intentionally device-side; it does not connect to TTYD.
+# Run: sh load-epyc7003-junior-kms.sh [module.tgz] [gsp.tgz] [work-dir]
+# The DSM Junior BusyBox lacks sha256sum, so verify LAN transfers with cksum.
 set -eu
 
 MODULE_ARCHIVE=${1:-/tmp/nv-epyc7003-kms/nv-ko.tgz}
 GSP_ARCHIVE=${2:-/tmp/nv-epyc7003-kms/nv-gsp.tgz}
 WORK=${3:-/tmp/nv-epyc7003-kms/run}
-EXPECTED_MODULE_SHA=44fd42f59c1ad8e940a9c859ba4b0e4fbd65e179bdb13ac0e1a7ce047d51ce7a
-EXPECTED_GSP_SHA=39f99970299a398f82b7c6d61a20f22faca1589b044822bdf1e5a36094c7d62b
+EXPECTED_MODULE_CKSUM='1575489399 90167458'
+EXPECTED_GSP_CKSUM='1395102804 79707626'
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -22,13 +24,12 @@ synoinfo=/etc/synoinfo.conf
 [ -r "$synoinfo" ] || die "Cannot read Synology platform identity."
 grep -Eq '^unique="synology_epyc7003_' "$synoinfo" || die "This is not an EPYC7003 system."
 
-sha256() {
-  if [ -x /usr/bin/sha256sum ]; then /usr/bin/sha256sum "$1" | awk '{print $1}'
-  elif [ -x /bin/sha256sum ]; then /bin/sha256sum "$1" | awk '{print $1}'
-  else die "sha256sum is unavailable."; fi
+file_cksum() {
+  /usr/bin/cksum "$1" | awk '{print $1 " " $2}'
 }
-[ "$(sha256 "$MODULE_ARCHIVE")" = "$EXPECTED_MODULE_SHA" ] || die "Module archive SHA-256 mismatch."
-[ "$(sha256 "$GSP_ARCHIVE")" = "$EXPECTED_GSP_SHA" ] || die "GSP archive SHA-256 mismatch."
+[ -x /usr/bin/cksum ] || die "DSM cksum utility is unavailable."
+[ "$(file_cksum "$MODULE_ARCHIVE")" = "$EXPECTED_MODULE_CKSUM" ] || die "Module archive transfer checksum/size mismatch."
+[ "$(file_cksum "$GSP_ARCHIVE")" = "$EXPECTED_GSP_CKSUM" ] || die "GSP archive transfer checksum/size mismatch."
 
 [ -x /bin/tar ] || [ -x /usr/bin/tar ] || die "tar is unavailable."
 [ -x /bin/grep ] || [ -x /usr/bin/grep ] || die "grep is unavailable."
