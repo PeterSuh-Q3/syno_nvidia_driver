@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuild one unverified DSM 7.4 NVIDIA 580 Proprietary KMS platform using
+# Rebuild one additional DSM 7.4 NVIDIA 580 Proprietary KMS platform using
 # the full-header r1000nk success recipe. Run in the pinned compiler image.
 set -Eeuo pipefail
 
