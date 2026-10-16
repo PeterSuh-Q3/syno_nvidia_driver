@@ -23,8 +23,8 @@ uses) but is otherwise independent of both mshell-modules and tcrp-addons.
 mshell-modules ── provides ──> dante90/syno-compiler:<DSM>  +  /opt/<platform>/build
                                         │ (container + kernel tree reused, not the repo tree)
                                         ▼
-        THIS REPO (syno_nvidia_driver, cloned on build VM 192.168.45.139)
-          build-nvidia.sh → 2-layer tgz → GitHub Release (tag: nvidia)
+        THIS REPO (syno_nvidia_driver)
+          canonical profile → build-nvidia.sh → local candidate set + receipt
                                         │
                                         ▼
         tcrp-addons/nvidiadriver  ── consumer: install.sh + nvidia-index.json
@@ -89,12 +89,30 @@ The generic `build-nvidia.sh` remains the low-level single-platform compiler.
 
 Keep the canonical userspace archive at
 `out/release-assets-nvidia/shared/<major>/nv-userspace-<ver>.tgz` (for example,
-`shared/595/nv-userspace-595.99.02.tgz`). `build-nvidia.sh` prefers this file,
+`shared/595/nv-userspace-595.99.02.tgz`). `build-nvidia.sh` requires this file,
 checks its embedded `VERSION`, and reuses it instead of rebuilding a copy for
-each platform or flavor.
+each platform or flavor. If a new version has no shared archive yet, use
+`NV_CREATE_SHARED_USERSPACE=1` for one bootstrap build only. The bootstrap
+writes directly to the shared directory, never to a platform output folder.
 Keep the corresponding GSP archive beside it at
 `out/release-assets-nvidia/shared/<major>/nv-gsp-<ver>.tgz`; the GSP builder
-validates and reuses this canonical archive when it already exists.
+validates and reuses this canonical archive when it already exists. SPK
+packaging reads both archives directly from the shared directory and does not
+cache copies under `work/spk-*/dl/`. Before completing a build, run
+`bash scripts/check-shared-nvidia-layers.sh` to reject any duplicate layers.
+
+For routine and candidate builds, use the current `build-nvidia.sh` (or its
+profile wrapper), not the preserved `build-nvidia-provider.sh` snapshot. The
+provider script is worth retaining as diagnostic provenance: it records the
+focused KMS build's explicit `KBUILD_EXTRA_SYMBOLS` / `EXTRA_CFLAGS` plumbing.
+However, that snapshot predates the shared-userspace reuse logic and assembles
+userspace into its output directory unless separately adapted. Do not use it as
+a normal build entry point or publish its generated userspace archive. The
+EPYC7003 2026-10-16 diagnostic run produced a duplicate userspace archive
+(SHA-256 `1df12489d5ecfb1be50fc520f1411cbf346bfbddec71f9456bb146b5cfe88438`);
+it was removed. The canonical 580 archive remains
+`out/release-assets-nvidia/shared/580/nv-userspace-580.173.02.tgz`
+(SHA-256 `362d89477c7217927c17e71f0209c51a3a349756f195633b61ede2905844be79`).
 
 ## Legacy single-platform build (VM wrapper)
 
@@ -179,8 +197,11 @@ index.
 
 ## Workflow rule
 
-Source change → **commit/push here first** → on the VM **`git pull`** → then build.
-Never build from uncommitted local changes.
+For the canonical profile, review and commit tracked source changes before
+building. The script enforces a clean tracked tree and records the commit and
+build-script hash in its receipt. Do not copy candidate files to the release
+asset directory as part of the build; release promotion is a separate manual
+review step.
 
 ## Build provenance and reproducibility
 
@@ -237,8 +258,8 @@ them only after review.
 mshell-modules ── 제공 ──> dante90/syno-compiler:<DSM>  +  /opt/<platform>/build
                                      │ (컨테이너 + 커널 트리만 재사용, repo 트리는 아님)
                                      ▼
-        이 REPO (syno_nvidia_driver, 빌드 VM 192.168.45.139에 클론)
-          build-nvidia.sh → 2층 tgz → GitHub Release (tag: nvidia)
+        이 REPO (syno_nvidia_driver)
+          정규 프로파일 → build-nvidia.sh → 로컬 후보 결과 + 빌드 영수증
                                      │
                                      ▼
         tcrp-addons/nvidiadriver  ── 소비자: install.sh + nvidia-index.json
@@ -260,9 +281,25 @@ NVIDIA의 **오픈** 커널 인터페이스 glue만 재컴파일해 폐쇄 `nv-k
 정본 userspace 아카이브는
 `out/release-assets-nvidia/shared/<major>/nv-userspace-<ver>.tgz`에 둡니다
 (예: `shared/595/nv-userspace-595.99.02.tgz`). `build-nvidia.sh`는 이 파일을
-우선 사용하고 내부 `VERSION`을 확인한 뒤 플랫폼·flavor별 중복 빌드 없이 재사용합니다.
+필수로 사용하고 내부 `VERSION`을 확인한 뒤 플랫폼·flavor별 중복 빌드 없이 재사용합니다.
+새 버전에 공용본이 없으면 첫 1회만 `NV_CREATE_SHARED_USERSPACE=1`로 공용 경로에
+생성합니다. 플랫폼별 출력 경로에는 생성하지 않습니다.
 해당 버전의 GSP 아카이브도 같은 공용 디렉터리에 하나만 두며, 이미 정본이 있으면
-GSP 빌더가 검증 후 다시 추출·압축하지 않고 재사용합니다.
+GSP 빌더가 검증 후 다시 추출·압축하지 않고 재사용합니다. SPK 패킹도 두 공용본을
+직접 읽고 `work/spk-*/dl/`에 복제하지 않습니다. 빌드 완료 전
+`bash scripts/check-shared-nvidia-layers.sh`로 중복 여부를 검사합니다.
+
+일반 빌드와 후보 빌드에는 보존된 `build-nvidia-provider.sh` 스냅샷이 아니라
+현재의 `build-nvidia.sh`(또는 이를 호출하는 프로파일 래퍼)를 사용합니다. Provider
+스크립트는 focused KMS 진단 빌드에서 사용한 `KBUILD_EXTRA_SYMBOLS` 및
+`EXTRA_CFLAGS` 전달 방식을 남긴 진단 이력으로 보존할 가치가 있습니다. 다만 이
+스냅샷은 공용 userspace 재사용 로직보다 오래되어, 별도 보완 없이 실행하면 출력
+경로에 userspace를 다시 조립합니다. 정규 빌드 진입점으로 사용하거나 여기서 생성된
+userspace 아카이브를 배포하지 마십시오. 2026-10-16 EPYC7003 진단 실행에서 중복
+아카이브(SHA-256 `1df12489d5ecfb1be50fc520f1411cbf346bfbddec71f9456bb146b5cfe88438`)가
+생성되어 제거했습니다. 정본 580 아카이브는
+`out/release-assets-nvidia/shared/580/nv-userspace-580.173.02.tgz`이며 SHA-256은
+`362d89477c7217927c17e71f0209c51a3a349756f195633b61ede2905844be79`입니다.
 
 ### 정규 빌드: K5 580 Proprietary
 
@@ -355,8 +392,10 @@ curl -kLo run/NVIDIA-Linux-x86_64-535.183.06.run \
 
 ### 작업 규칙
 
-소스 변경 → **여기서 먼저 commit/push** → VM에서 **`git pull`** → 그다음 빌드.
-커밋되지 않은 로컬 변경으로는 절대 빌드하지 않습니다.
+정규 프로파일은 추적 중인 소스 변경을 검토·커밋한 뒤 빌드합니다. 스크립트가 추적
+중인 작업 트리의 깨끗한 상태를 검사하고, 커밋과 빌드 스크립트 해시를 영수증에
+기록합니다. 후보 파일을 빌드 과정에서 릴리즈 자산 경로로 복사하지 않습니다. 릴리즈
+반영은 별도 검토 단계입니다.
 
 ### 빌드 출처와 재현성
 

@@ -1,0 +1,166 @@
+{
+  "schema": 1,
+  "kernel": "5.10.55",
+  "drivers": {
+    "580.173.02": {
+      "platforms": {
+        "epyc7002": {
+          "open": {
+            "file": "nv-ko-580.173.02-open-epyc7002-51055.tgz",
+            "sha256": "d748835c560fcab11e645688c7f585aafd945843141720ee91844e24a8db3292"
+          },
+          "proprietary": {
+            "file": "nv-ko-580.173.02-proprietary-epyc7002-51055.tgz",
+            "sha256": "ad652db8b5148ed3b08c9560a076d4f0498d2773f18882cb7f486b09014b3a54"
+          }
+        },
+        "epyc7003": {
+          "open": {
+            "file": "nv-ko-580.173.02-open-epyc7003-51055.tgz",
+            "sha256": "6ac75e26afc7624f98af249924919aa22693609967deb28ce1ff153e6c48549b"
+          },
+          "proprietary": {
+            "file": "nv-ko-580.173.02-proprietary-epyc7003-51055.tgz",
+            "sha256": "44fd42f59c1ad8e940a9c859ba4b0e4fbd65e179bdb13ac0e1a7ce047d51ce7a"
+          }
+        },
+        "geminilakenk": {
+          "open": {
+            "file": "nv-ko-580.173.02-open-geminilakenk-51055.tgz",
+            "sha256": "b1e50c66f36775db7edf119a422b1cfc70e9f02fd0d2bdbd31f141356d562113"
+          },
+          "proprietary": {
+            "file": "nv-ko-580.173.02-proprietary-geminilakenk-51055.tgz",
+            "sha256": "065c0b111a0f190f43812f93b3254dd63866ff131e01faf3fd622020091028f0"
+          }
+        },
+        "icelaked": {
+          "open": {
+            "file": "nv-ko-580.173.02-open-icelaked-51055.tgz",
+            "sha256": "5688d4b29535cbb59ce9e911e3cec9024a3c349baec49e7c36443c2dcc5110e1"
+          },
+          "proprietary": {
+            "file": "nv-ko-580.173.02-proprietary-icelaked-51055.tgz",
+            "sha256": "dc6d505aa16f6bda2c61f78af0ea3319a1556cfd3fbaaa8b05d26fab895b0d3c"
+          }
+        },
+        "r1000nk": {
+          "open": {
+            "file": "nv-ko-580.173.02-open-r1000nk-51055.tgz",
+            "sha256": "2e9c574505d9965531610f2e9fa132d5191a75d5bdb0264208c183756dc45f93"
+          },
+          "proprietary": {
+            "file": "nv-ko-580.173.02-proprietary-r1000nk-51055.tgz",
+            "sha256": "70c87858f867ff55790e4fbc887079a0cefcfb18aa92f48617abc82d259b3297"
+          }
+        },
+        "v1000nk": {
+          "open": {
+            "file": "nv-ko-580.173.02-open-v1000nk-51055.tgz",
+            "sha256": "5374008faafebcc6fa73088250048c151af652da18186f7a92319251b8fcadcd"
+          },
+          "proprietary": {
+            "file": "nv-ko-580.173.02-proprietary-v1000nk-51055.tgz",
+            "sha256": "6a1cc6ed5c30a8b738aefa1b010f6916b9e7bb4dfcf990bee7cb0f9f49f46d0b"
+          }
+        }
+      },
+      "userspace": {
+        "file": "nv-userspace-580.173.02.tgz",
+        "sha256": "362d89477c7217927c17e71f0209c51a3a349756f195633b61ede2905844be79"
+      },
+      "gsp": {
+        "file": "nv-gsp-580.173.02.tgz",
+        "sha256": "39f99970299a398f82b7c6d61a20f22faca1589b044822bdf1e5a36094c7d62b",
+        "chips": [
+          "gsp_ga10x.bin",
+          "gsp_tu10x.bin"
+        ]
+      },
+      "ffmpeg": {
+        "file": "nv-ffmpeg-580.173.02.tgz",
+        "sha256": "64ee797d1b391eec07ebf1a9b558079d8ad1bbb2fb48352f3c3cb77a38e242a3"
+      }
+    },
+    "595.99.02": {
+      "platforms": {
+        "epyc7002": {
+          "open": {
+            "file": "nv-ko-595.99.02-open-epyc7002-51055.tgz",
+            "sha256": "5bff988dff8ffe8ccd052db8ae075bfa87b5e6eb75864a1f14524dcc2c59ad99"
+          },
+          "proprietary": {
+            "file": "nv-ko-595.99.02-proprietary-epyc7002-51055.tgz",
+            "sha256": "cc99e839b7e979b9c503fdf22ef62fe5c101837623447bae3286912f490e509b"
+          }
+        },
+        "epyc7003": {
+          "open": {
+            "file": "nv-ko-595.99.02-open-epyc7003-51055.tgz",
+            "sha256": "2f6784e5db6545891cdab907017831b9061861bfe5b5477828557dd63c1ff586"
+          },
+          "proprietary": {
+            "file": "nv-ko-595.99.02-proprietary-epyc7003-51055.tgz",
+            "sha256": "1b950c70da3a628207f3ed779f3b2908565befba5cfacd0d84ab6095a87f6f7f"
+          }
+        },
+        "geminilakenk": {
+          "open": {
+            "file": "nv-ko-595.99.02-open-geminilakenk-51055.tgz",
+            "sha256": "1dec605f1bd237622fc25d813226078b0f5ac4076ca3fee7d31b2c6a7812a299"
+          },
+          "proprietary": {
+            "file": "nv-ko-595.99.02-proprietary-geminilakenk-51055.tgz",
+            "sha256": "be15b338ad24631a5f10701382ad1e7f485c4d3fa0b491428001d341138d8c31"
+          }
+        },
+        "icelaked": {
+          "open": {
+            "file": "nv-ko-595.99.02-open-icelaked-51055.tgz",
+            "sha256": "d2bcf3d6aeb67fd41aed95bfe15bbf7bad3854285d41a45da403a796f250ad21"
+          },
+          "proprietary": {
+            "file": "nv-ko-595.99.02-proprietary-icelaked-51055.tgz",
+            "sha256": "1f37dfa7f1ad8c0554203df2afdfc8abc50138783a0495f0f4cf980ef66dd36b"
+          }
+        },
+        "r1000nk": {
+          "open": {
+            "file": "nv-ko-595.99.02-open-r1000nk-51055.tgz",
+            "sha256": "ae2bb060b89603587ce135ed952f94b31f6295d5507b230e07b99f22057ccc40"
+          },
+          "proprietary": {
+            "file": "nv-ko-595.99.02-proprietary-r1000nk-51055.tgz",
+            "sha256": "654369087592d63598b5e28f256105c651f3facb310d785b9599d6988f27e35e"
+          }
+        },
+        "v1000nk": {
+          "open": {
+            "file": "nv-ko-595.99.02-open-v1000nk-51055.tgz",
+            "sha256": "b5366d527ee241d47e5fdad204d2d51c81ff8033794f557a2d860741229d6b72"
+          },
+          "proprietary": {
+            "file": "nv-ko-595.99.02-proprietary-v1000nk-51055.tgz",
+            "sha256": "06aaf0fc1e442fc5cea357678edd7020cbbbd3d5191f1ebfd01bfa8e1a03b3b6"
+          }
+        }
+      },
+      "userspace": {
+        "file": "nv-userspace-595.99.02.tgz",
+        "sha256": "99eaeb6816568ff0db096d7f5265ba03f6ce92759a2e6f663f9f9b5d8db08496"
+      },
+      "gsp": {
+        "file": "nv-gsp-595.99.02.tgz",
+        "sha256": "ebc08605addcbf4e0b3dc963f82f862edfe2a5f9c087f2f60c5c2f941856244e",
+        "chips": [
+          "gsp_ga10x.bin",
+          "gsp_tu10x.bin"
+        ]
+      },
+      "ffmpeg": {
+        "file": "nv-ffmpeg-595.99.02.tgz",
+        "sha256": "20cd31af1204b98c98220b71efaeeb2b372d8fa248808e0a8c32872dc26434b9"
+      }
+    }
+  }
+}

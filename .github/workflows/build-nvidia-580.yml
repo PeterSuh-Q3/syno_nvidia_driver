@@ -1,6 +1,6 @@
-# Build the NVIDIA 580-branch 2-layer package for a DSM kver5 platform,
-# using the same dante90/syno-compiler container + build-nvidia.sh flow as
-# run-on-vm.sh, but on GitHub Actions instead of the build VM.
+# Legacy single-platform diagnostic build. The canonical tested K5 580
+# Proprietary matrix is scripts/build-kver5-580-proprietary.sh on Docker
+# Desktop. This workflow is not the release build path and never publishes.
 #
 # Default target: 580.159.03 / epyc7002 (SA6400) / DSM 7.4 / kernel 5.10.55.
 # 580 is the last branch covering Maxwell/Pascal/Volta AND Blackwell (RTX 50).
@@ -10,7 +10,7 @@
 # workflow additionally emits nv-firmware-<ver>.tgz (gsp_*.bin) for later use
 # by install.sh. Pascal and older (e.g. Quadro P620) do not need it.
 
-name: build-nvidia-580
+name: LEGACY diagnostic - build-nvidia-580 single platform
 
 on:
   workflow_dispatch:
@@ -35,14 +35,6 @@ on:
         description: "Build for a headless platform without backlight symbol references (do not use for geminilakenk)"
         type: boolean
         default: false
-      upload_release:
-        description: "upload the .tgz layers to the Release tagged 'nvidia'"
-        type: boolean
-        default: false
-
-permissions:
-  contents: write   # only used when upload_release=true (gh release upload)
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -107,10 +99,3 @@ jobs:
             out/release-assets-nvidia/shared/*/nv-userspace-*.tgz
             index-fragment.txt
           if-no-files-found: error
-
-      - name: Upload to 'nvidia' Release
-        if: ${{ inputs.upload_release }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload nvidia out/*.tgz --clobber

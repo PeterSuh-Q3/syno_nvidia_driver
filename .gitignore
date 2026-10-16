@@ -1,5 +1,8 @@
 run/*.run
 out/*.tgz
+out/regular-builds/
+out/.staging-kver5-580-proprietary.*/
+out/.lock-kver5-580-proprietary/
 
 # scripts/build-spk.sh output: downloaded release assets + assembled .spk
 # files. These are rebuilt from the pinned "nvidia" release tag and
