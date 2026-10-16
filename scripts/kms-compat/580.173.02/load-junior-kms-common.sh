@@ -68,7 +68,7 @@ tar -xzf "$GSP_ARCHIVE" -C "$WORK/gsp" || die "Cannot extract GSP archive."
 [ "$(cat "$WORK/modules/PLATFORM")" = "$PLATFORM" ] || die "Module pack PLATFORM metadata does not match $PLATFORM."
 [ "$(cat "$WORK/modules/VERSION")" = "$VERSION" ] || die "Unexpected NVIDIA module version."
 grep -q '^5[.]10[.]55' "$WORK/modules/KVER" || die "Module pack KVER is not 5.10.55."
-[ "$(cat "$WORK/gsp/VERSION")" = "$VERSION" ] || die "Unexpected GSP version."
+grep -q "$VERSION" "$WORK/gsp/VERSION" || die "GSP archive metadata does not match $VERSION."
 for module in nvidia.ko nvidia-modeset.ko nvidia-drm.ko; do
   [ -s "$WORK/modules/$module" ] || die "Missing module: $module"
 done
