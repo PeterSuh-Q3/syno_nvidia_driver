@@ -184,6 +184,14 @@ else
   log "NO_BACKLIGHT=0: leaving autoconf.h untouched (backlight/acpi_video as the platform kernel declares them)"
 fi
 
+if [ "${NV_DRM_IOSYS_COMPAT:-0}" = "1" ]; then
+  GEM_SOURCE="$SRC/kernel/nvidia-drm/nvidia-drm-gem.c"
+  [ -f "$GEM_SOURCE" ] || die "NVIDIA DRM GEM source missing: $GEM_SOURCE"
+  grep -q '^#include "linux/dma-buf.h"$' "$GEM_SOURCE" || die "NVIDIA DRM GEM include anchor changed"
+  sed -i '/^#include "linux\/dma-buf.h"$/a #include <linux/iosys-map.h>' "$GEM_SOURCE"
+  log "compat: included provider iosys_map definition for DRM GEM vmap"
+fi
+
 # =============================================================================
 # LAYER 1 - kernel modules (.ko), platform-specific
 # =============================================================================
@@ -263,7 +271,7 @@ if [ -n "${NV_USERSPACE_ARCHIVE:-}" ]; then
   # and should not be repackaged into every per-run output directory.
   US_TGZ="$NV_USERSPACE_ARCHIVE"
   [ -s "$US_TGZ" ] || die "shared userspace archive is missing: $US_TGZ"
-  US_VERSION="$(tar -xOzf "$US_TGZ" VERSION 2>/dev/null || true)"
+  US_VERSION="$(tar -xOzf "$US_TGZ" ./VERSION 2>/dev/null | tr -d '\r\n' || true)"
   [ "$US_VERSION" = "$DRV" ] || die "shared userspace version mismatch at $US_TGZ (expected $DRV, got '${US_VERSION:-unreadable}')"
   log "using shared userspace layer: $US_TGZ"
 else
