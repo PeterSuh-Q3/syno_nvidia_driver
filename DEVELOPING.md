@@ -35,14 +35,72 @@ Only NVIDIA's **open** kernel-interface glue is recompiled and linked against th
 closed `nv-kernel` blob, so the `.ko` vermagic + `CONFIG_MODVERSIONS` CRCs match
 the exact DSM kernel (the fix for the issue-#77 "Unknown symbol" failure).
 
-## 2-layer packaging
+## Canonical build: K5 580 Proprietary
+
+For the tested 580.173.02 Proprietary build, use only the fixed profile below;
+do not manually loop over platforms or override its version, flavor, toolchain,
+or `NO_BACKLIGHT` values. It runs on Docker Desktop and is fail-closed: all
+platforms must build and pass archive/module checks before a candidate set is
+promoted. It never changes `out/release-assets-nvidia`, GitHub releases, or the
+package-source catalog.
+
+```bash
+scripts/build-kver5-580-proprietary.sh --dry-run
+# After reviewing and committing the canonical build sources:
+scripts/build-kver5-580-proprietary.sh
+```
+
+The profile pins NVIDIA 580.173.02, DSM 7.4 / kernel 5.10.55, the compiler
+image RepoDigest, the NVIDIA `.run` SHA-256, and 12 parallel jobs. It builds
+`epyc7002`, `epyc7003`, `geminilakenk`, `icelaked`, `r1000nk`, and `v1000nk`
+with platform-specific toolchains. `NO_BACKLIGHT=1` is fixed for the five
+headless platforms; `geminilakenk` is fixed to `NO_BACKLIGHT=0`. Unsupported
+`epyc7003ntb` is not in the profile.
+
+The build first checks all toolchains and kernel trees, then builds into an
+isolated staging directory. It validates the six module archives for their
+platform/version metadata, all five expected modules, 5.10.55 vermagic,
+Proprietary module license, `nvidia-drm`'s boolean `modeset` parameter,
+`nvUvmInterface` exports, and the headless backlight-symbol rule. It also
+checks the shared userspace and GSP archives. Only after every check passes is
+the staging directory renamed to
+`out/regular-builds/kver5-580-proprietary/<build-id>/`; the directory includes
+per-platform logs, `SHA256SUMS`, and `BUILD-RECEIPT.json`. Failed staging is
+kept for diagnosis and is never promoted.
+
+The normal build refuses to run if the pinned image or `.run` hash differs, a
+platform toolchain preflight fails, tracked source files are dirty, or the
+canonical script has not been committed. The legacy GitHub Actions workflow is
+for a one-platform diagnostic build only; it does not publish release assets.
+KMS was runtime-validated on epyc7002; the build checks do not claim runtime
+KMS validation on all six platforms.
+
+To move to another driver release or change the supported matrix, update and
+review the profile as a source change; do not add ad-hoc command-line overrides.
+The generic `build-nvidia.sh` remains the low-level single-platform compiler.
+
+## Layered packaging
 
 | layer | file | scope |
 |---|---|---|
 | kernel | `nv-ko-<ver>-<platform>-<kvershort>.tgz` | **per platform** (~MB) |
 | userspace | `nv-userspace-<ver>.tgz` | **per version** only, x86_64 shared across every platform and kernel |
+| GSP firmware | `nv-gsp-<ver>.tgz` | **per version** only, shared across every platform and flavor |
 
-## Build (on VM 192.168.45.139)
+Keep the canonical userspace archive at
+`out/release-assets-nvidia/shared/<major>/nv-userspace-<ver>.tgz` (for example,
+`shared/595/nv-userspace-595.99.02.tgz`). `build-nvidia.sh` prefers this file,
+checks its embedded `VERSION`, and reuses it instead of rebuilding a copy for
+each platform or flavor.
+Keep the corresponding GSP archive beside it at
+`out/release-assets-nvidia/shared/<major>/nv-gsp-<ver>.tgz`; the GSP builder
+validates and reuses this canonical archive when it already exists.
+
+## Legacy single-platform build (VM wrapper)
+
+`run-on-vm.sh` remains available for historical or diagnostic one-platform
+builds. It is not the canonical 580 Proprietary matrix path; use the fixed
+Docker Desktop profile above for that build.
 
 ```bash
 ssh dante90@192.168.45.139
@@ -66,20 +124,25 @@ firmware from the same official `.run` file and create the release asset with:
 scripts/make-gsp-layer.sh 595.99.02
 ```
 
-This produces `out/nv-gsp-595.99.02.tgz`. The archive contains `gsp_*.bin`
-files at its root so `scripts/build-spk.sh` can place them in the SPK runtime.
-Upload it with the matching module and userspace archives, then update the
-GPU-support index with the archive SHA-256 and the firmware-to-GPU mapping.
+By default this creates `out/release-assets-nvidia/shared/595/nv-gsp-595.99.02.tgz`.
+If that canonical archive already exists, it is validated and reused without
+re-extracting or repacking the firmware. The archive contains `gsp_*.bin` files
+at its root so `scripts/build-spk.sh` can place them in the SPK runtime. Keep
+one archive per driver version; do not duplicate it under platform or flavor
+directories. Register its SHA-256 and firmware-to-GPU mapping in the GPU-support
+index.
 
 ## Publish
 
-1. Upload both `out/*.tgz` to this repo's Release tagged **`nvidia`**.
+1. Upload the platform module archives and each version's single canonical
+   userspace/GSP archives from `out/release-assets-nvidia/` to the Release
+   tagged **`nvidia`**. Do not upload duplicate flavor copies of shared layers.
 2. Paste the printed fragment into `tcrp-addons/nvidiadriver/src/nvidia-index.json`
    and push tcrp-addons.
 
 ## Files
 
-- [build-nvidia.sh](build-nvidia.sh) — runs inside the compiler container; builds both layers
+- [build-nvidia.sh](build-nvidia.sh) — builds the platform module archive and creates or reuses the version's shared userspace layer
 - [run-on-vm.sh](run-on-vm.sh) — `sudo docker` wrapper for the build VM
 - `run/` — put `NVIDIA-Linux-x86_64-<ver>.run` here (git-ignored)
 - `out/` — build artifacts (git-ignored)
@@ -186,14 +249,62 @@ NVIDIA의 **오픈** 커널 인터페이스 glue만 재컴파일해 폐쇄 `nv-k
 `.ko`의 vermagic + `CONFIG_MODVERSIONS` CRC가 정확한 DSM 커널과 일치합니다(이슈 #77의
 "Unknown symbol" 실패에 대한 해결책).
 
-### 2층 패키징
+### 레이어 패키징
 
 | 레이어 | 파일 | 범위 |
 |---|---|---|
 | 커널 | `nv-ko-<ver>-<platform>-<kvershort>.tgz` | **플랫폼별** (~MB) |
 | userspace | `nv-userspace-<ver>.tgz` | **버전별** 1개, x86_64 공통(모든 플랫폼·커널 공유) |
+| GSP 펌웨어 | `nv-gsp-<ver>.tgz` | **버전별** 1개, 모든 플랫폼·flavor 공통 |
 
-### 빌드 (VM 192.168.45.139에서)
+정본 userspace 아카이브는
+`out/release-assets-nvidia/shared/<major>/nv-userspace-<ver>.tgz`에 둡니다
+(예: `shared/595/nv-userspace-595.99.02.tgz`). `build-nvidia.sh`는 이 파일을
+우선 사용하고 내부 `VERSION`을 확인한 뒤 플랫폼·flavor별 중복 빌드 없이 재사용합니다.
+해당 버전의 GSP 아카이브도 같은 공용 디렉터리에 하나만 두며, 이미 정본이 있으면
+GSP 빌더가 검증 후 다시 추출·압축하지 않고 재사용합니다.
+
+### 정규 빌드: K5 580 Proprietary
+
+검증된 580.173.02 Proprietary 빌드는 아래 고정 프로파일만 사용합니다. 플랫폼을
+수동으로 반복하거나 버전·flavor·툴체인·`NO_BACKLIGHT` 값을 임의로 바꾸지 않습니다.
+Docker Desktop에서 실행하며, 6개 플랫폼이 모두 빌드되고 검사에 통과해야 후보 결과가
+완성됩니다. `out/release-assets-nvidia`, GitHub 릴리즈, 패키지 소스 카탈로그는
+수정하지 않습니다.
+
+```bash
+scripts/build-kver5-580-proprietary.sh --dry-run
+# 프로파일 소스를 검토하고 커밋한 다음 실제 빌드:
+scripts/build-kver5-580-proprietary.sh
+```
+
+프로파일에는 NVIDIA 580.173.02, DSM 7.4 / 커널 5.10.55, 컴파일러 이미지 RepoDigest,
+NVIDIA `.run` SHA-256, 병렬 작업 12개가 고정되어 있습니다. 대상은 `epyc7002`,
+`epyc7003`, `geminilakenk`, `icelaked`, `r1000nk`, `v1000nk`이며 각 플랫폼 툴체인을
+따로 사용합니다. 헤드리스 5개 플랫폼은 `NO_BACKLIGHT=1`, `geminilakenk`는
+`NO_BACKLIGHT=0`으로 고정합니다. 미지원 `epyc7003ntb`는 대상에서 제외됩니다.
+
+모든 툴체인과 커널 트리를 먼저 검사한 뒤 격리된 staging 경로에서 빌드합니다. 모듈
+아카이브의 플랫폼·버전 메타데이터, 필수 5개 모듈, 5.10.55 vermagic, Proprietary
+라이선스, `nvidia-drm`의 boolean `modeset` 파라미터, `nvUvmInterface` export,
+헤드리스 플랫폼의 backlight 미참조 여부 및 공용 userspace/GSP 아카이브를 확인합니다.
+전부 통과한 경우에만 `out/regular-builds/kver5-580-proprietary/<build-id>/`로
+이동되며, 플랫폼별 로그, `SHA256SUMS`, `BUILD-RECEIPT.json`이 함께 남습니다. 실패한
+staging은 원인 분석용으로 보존되고 정규 후보로 승격되지 않습니다.
+
+핀된 이미지나 `.run` 해시가 다르거나, 플랫폼 사전검사에 실패하거나, 추적 중인 소스가
+수정된 상태이거나 정규 스크립트가 아직 커밋되지 않았다면 실제 빌드를 거부합니다.
+기존 GitHub Actions 워크플로우는 단일 플랫폼 진단용이며 릴리즈 자산을 게시하지
+않습니다. 실기 KMS 검증은 epyc7002에서 완료되었으며 빌드 검사가 여섯 플랫폼 모두의
+실기 KMS 검증을 의미하지는 않습니다.
+
+### 레거시 단일 플랫폼 빌드 (VM wrapper)
+
+`run-on-vm.sh`는 과거 또는 진단 목적의 단일 플랫폼 빌드용으로 남겨 둡니다. 정규
+580 Proprietary 매트릭스 빌드 경로는 아니며, 위의 고정 Docker Desktop 프로파일을
+사용해야 합니다.
+
+#### VM 192.168.45.139에서의 레거시 예시
 
 ```bash
 ssh dante90@192.168.45.139

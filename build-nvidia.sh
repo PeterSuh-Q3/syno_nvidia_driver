@@ -250,23 +250,41 @@ log "kernel layer -> $KO_TGZ  ($KO_SHA)"
 # =============================================================================
 # LAYER 2 - userspace, platform-independent (build once per driver version)
 # =============================================================================
-US_TGZ="$OUT/nv-userspace-${DRV}.tgz"
-if [ -f "$US_TGZ" ]; then
-  log "userspace layer exists, reusing: $US_TGZ"
+if [ -z "${NV_USERSPACE_ARCHIVE:-}" ]; then
+  # Prefer the repository's single shared release-preparation copy when it is
+  # present. This prevents timestamped/platform output directories from each
+  # rebuilding an identical userspace archive.
+  SHARED_USERSPACE="$HERE/out/release-assets-nvidia/shared/${DRV%%.*}/nv-userspace-${DRV}.tgz"
+  [ ! -s "$SHARED_USERSPACE" ] || NV_USERSPACE_ARCHIVE="$SHARED_USERSPACE"
+fi
+if [ -n "${NV_USERSPACE_ARCHIVE:-}" ]; then
+  # A caller may point at the one shared, versioned userspace layer. This is
+  # useful for diagnostic/platform builds: userspace is platform-independent
+  # and should not be repackaged into every per-run output directory.
+  US_TGZ="$NV_USERSPACE_ARCHIVE"
+  [ -s "$US_TGZ" ] || die "shared userspace archive is missing: $US_TGZ"
+  US_VERSION="$(tar -xOzf "$US_TGZ" VERSION 2>/dev/null || true)"
+  [ "$US_VERSION" = "$DRV" ] || die "shared userspace version mismatch at $US_TGZ (expected $DRV, got '${US_VERSION:-unreadable}')"
+  log "using shared userspace layer: $US_TGZ"
 else
-  log "assembling userspace layer for $DRV"
-  US="$WORK/us"; mkdir -p "$US/bin" "$US/lib"
-  for b in nvidia-smi nvidia-persistenced nvidia-modprobe nvidia-debugdump; do
-    [ -f "$SRC/$b" ] && cp -a "$SRC/$b" "$US/bin/" || log "  (skip missing $b)"
-  done
-  for so in "$SRC"/*.so."$DRV" "$SRC"/lib*.so.*; do
-    [ -f "$so" ] || continue
-    case "$(basename "$so")" in *vgpu*) continue ;; esac   # drop vGPU/license userspace
-    cp -a "$so" "$US/lib/"
-  done
-  echo "$DRV" > "$US/VERSION"
-  tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
-      -C "$US" -cf - . | gzip -n > "$US_TGZ"
+  US_TGZ="$OUT/nv-userspace-${DRV}.tgz"
+  if [ -f "$US_TGZ" ]; then
+    log "userspace layer exists, reusing: $US_TGZ"
+  else
+    log "assembling userspace layer for $DRV"
+    US="$WORK/us"; mkdir -p "$US/bin" "$US/lib"
+    for b in nvidia-smi nvidia-persistenced nvidia-modprobe nvidia-debugdump; do
+      [ -f "$SRC/$b" ] && cp -a "$SRC/$b" "$US/bin/" || log "  (skip missing $b)"
+    done
+    for so in "$SRC"/*.so."$DRV" "$SRC"/lib*.so.*; do
+      [ -f "$so" ] || continue
+      case "$(basename "$so")" in *vgpu*) continue ;; esac   # drop vGPU/license userspace
+      cp -a "$so" "$US/lib/"
+    done
+    echo "$DRV" > "$US/VERSION"
+    tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
+        -C "$US" -cf - . | gzip -n > "$US_TGZ"
+  fi
 fi
 US_SHA="$(sha256sum "$US_TGZ" | cut -d' ' -f1)"
 log "userspace layer -> $US_TGZ  ($US_SHA)"
