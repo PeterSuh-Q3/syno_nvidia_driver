@@ -65,7 +65,7 @@ for driver in "${versions[@]}"; do
             package_group=nv-ffmpeg8-580
             ffmpeg_major=8
             jellyfin_default=/var/packages/ffmpeg8/target/bin/ffmpeg
-            package_revision=1
+            package_revision=2
             archive=jellyfin-ffmpeg_8.1.3-1_portable_linux64-gpl.tar.xz
             digest=b86dc023c64a5a9a410e6e3a938a970460214fae78f31c1553c9f88f1c289b6a
             source_url="https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v8.1.3-1/$archive"
@@ -105,8 +105,8 @@ for driver in "${versions[@]}"; do
     esac
 
     fetch "$source_url" "$DL/$archive" "$digest"
-    work="$ROOT/work/nvidia-ffmpeg-spk/build-$selected"
-    mkdir -p "$work/target/bin/helper" "$work/target/share" "$work/scripts" "$work/conf" "$OUT"
+    work="$ROOT/work/nvidia-ffmpeg-spk/build-$selected-r$package_revision"
+    mkdir -p "$work/target/bin/helper" "$work/target/share" "$work/target/ui/texts/enu" "$work/target/ui/texts/krn" "$work/scripts" "$work/conf" "$OUT"
     if [[ $archive == *.tgz ]]; then
         tar -xzf "$DL/$archive" -C "$work/target" ./bin/ffmpeg ./bin/ffprobe ./SOURCE
         mv "$work/target/SOURCE" "$work/target/share/upstream-SOURCE"
@@ -131,6 +131,12 @@ for driver in "${versions[@]}"; do
 
     cp "$SOURCE/bin/nvidia-ffmpeg-backend.sh" "$work/target/bin/"
     chmod 0755 "$work/target/bin/nvidia-ffmpeg-backend.sh"
+    sed "s/__PACKAGE__/$package_id/g" "$SOURCE/ui/config" > "$work/target/ui/config"
+    cp "$SOURCE/ui/texts/enu/strings" "$work/target/ui/texts/enu/strings"
+    cp "$SOURCE/ui/texts/krn/strings" "$work/target/ui/texts/krn/strings"
+    mkdir -p "$work/target/ui/images"
+    cp "$SOURCE/PACKAGE_ICON.PNG" "$work/target/ui/images/app_64.png"
+    cp "$SOURCE/PACKAGE_ICON_256.PNG" "$work/target/ui/images/app_256.png"
     docker run --rm --platform linux/amd64 \
         -v "$SOURCE/helper:/src:ro" -v "$work/target/bin/helper:/out" -w /src "$IMAGE" \
         gcc "-DPACKAGE_ID=\"$package_id\"" -O2 -s -static -Wall -Wextra -Werror \

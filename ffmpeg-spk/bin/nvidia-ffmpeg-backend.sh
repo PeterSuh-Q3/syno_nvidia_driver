@@ -21,6 +21,20 @@ OLD_PATH_FILE="$STATE_DIR/previous-ffmpeg-path"
 
 log() { printf '%s NVIDIA FFmpeg: %s\n' "$(date '+%F %T')" "$*" >> "$LOG" 2>/dev/null || true; }
 
+notify() {
+    key=$1
+    [ -x /usr/syno/bin/synodsmnotify ] || { log "desktop notification unavailable: $key"; return 1; }
+    /usr/syno/bin/synodsmnotify \
+        -c "SYNO.SDS._ThirdParty.App.$PKG_ID" \
+        @administrators \
+        "$PKG_ID:notification:app_title" \
+        "$PKG_ID:notification:$key" >/dev/null 2>&1 || {
+            log "desktop notification failed: $key"
+            return 1
+        }
+    log "desktop notification sent: $key"
+}
+
 active_driver() {
     if [ -r /sys/module/nvidia/version ]; then
         cat /sys/module/nvidia/version
@@ -65,15 +79,54 @@ replace_argument() {
     rm -f "$temp"
 }
 
-restart_jellyfin_if_running() {
-    [ -x /usr/syno/bin/synopkg ] || return 0
-    if /usr/syno/bin/synopkg status jellyfin >/dev/null 2>&1; then
-        /usr/syno/bin/synopkg restart jellyfin >/dev/null 2>&1 || {
-            log "Jellyfin restart failed; recheck service and FFmpeg path"
-            return 1
-        }
-        log "Jellyfin restarted after FFmpeg path change"
+is_jellyfin_running() {
+    [ -x /usr/syno/bin/synopkg ] && /usr/syno/bin/synopkg status jellyfin >/dev/null 2>&1
+}
+
+jellyfin_process_uses_ffmpeg() {
+    for cmdline in /proc/[0-9]*/cmdline; do
+        [ -r "$cmdline" ] || continue
+        args="$(tr '\000' ' ' < "$cmdline" 2>/dev/null || true)"
+        case "$args" in *[Jj]ellyfin*) ;; *) continue ;; esac
+        case "$args" in *"$FFMPEG"*) return 0 ;; esac
+    done
+    return 1
+}
+
+wait_for_jellyfin_ready() {
+    elapsed=0
+    stable=0
+    while [ "$elapsed" -lt 120 ]; do
+        if is_jellyfin_running && jellyfin_process_uses_ffmpeg; then
+            stable=$((stable + 1))
+            [ "$stable" -ge 2 ] && return 0
+        else
+            stable=0
+        fi
+        sleep 3
+        elapsed=$((elapsed + 3))
+    done
+    return 1
+}
+
+restart_jellyfin_after_path_change() {
+    is_jellyfin_running || {
+        notify not_running || true
+        log "FFmpeg path updated while Jellyfin was stopped; restart deferred"
+        return 0
+    }
+    notify restart_started || true
+    /usr/syno/bin/synopkg restart jellyfin >/dev/null 2>&1 || {
+        log "Jellyfin restart command failed"
+        return 1
+    }
+    if wait_for_jellyfin_ready; then
+        log "Jellyfin returned to running with the NVIDIA FFmpeg path"
+        notify restart_success || true
+        return 0
     fi
+    log "Jellyfin readiness check timed out after 120 seconds"
+    return 2
 }
 
 configure() {
@@ -124,10 +177,19 @@ configure() {
         log "failed to update Jellyfin service-setup"; return 1;
     }
     log "Jellyfin FFmpeg path changed to $FFMPEG"
-    if ! restart_jellyfin_if_running; then
+    restart_result=0
+    restart_jellyfin_after_path_change || restart_result=$?
+    if [ "$restart_result" -ne 0 ]; then
         replace_argument "$FFMPEG" "$previous" || log "Jellyfin argument rollback failed"
-        restart_jellyfin_if_running || true
-        return 1
+        if is_jellyfin_running; then
+            /usr/syno/bin/synopkg restart jellyfin >/dev/null 2>&1 || log "Jellyfin restart after path rollback failed"
+        fi
+        if [ "$restart_result" -eq 2 ]; then
+            notify restart_timeout || true
+        else
+            notify restart_failed || true
+        fi
+        log "Jellyfin FFmpeg path rolled back; package remains installed"
     fi
 }
 
@@ -140,7 +202,12 @@ uninstall() {
         echo "NVIDIA FFmpeg: could not restore Jellyfin FFmpeg path" >&2; return 1;
     }
     log "Jellyfin FFmpeg path restored to $previous"
-    restart_jellyfin_if_running
+    if is_jellyfin_running; then
+        /usr/syno/bin/synopkg restart jellyfin >/dev/null 2>&1 || {
+            log "Jellyfin restart failed after restoring previous FFmpeg path"
+            return 1
+        }
+    fi
 }
 
 case "${1:-}" in

@@ -1,0 +1,22 @@
+{
+  ".url": {
+    "SYNO.SDS._ThirdParty.App.__PACKAGE__": {
+      "type": "url",
+      "icon": "images/app_{0}.png",
+      "title": "notification:app_title",
+      "desc": "notification:app_desc",
+      "url": "https://github.com/PeterSuh-Q3/syno_nvidia_driver",
+      "allUsers": false,
+      "hidden": true,
+      "preloadTexts": [
+        "notification:app_title",
+        "notification:app_desc",
+        "notification:restart_started",
+        "notification:restart_success",
+        "notification:restart_failed",
+        "notification:restart_timeout",
+        "notification:not_running"
+      ]
+    }
+  }
+}

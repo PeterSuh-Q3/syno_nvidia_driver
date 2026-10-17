@@ -1,6 +1,6 @@
 # NVIDIA FFmpeg 독립 SPK 설계
 
-상태: 5개 조합을 고유 패키지 ID·경로로 정비하며, 패키지 표시명은 모두 `Synology NVIDIA FFmpeg <세대> (<드라이버>)` 형식으로 통일한다. Jellyfin 경로 자동전환과 재시작 동작은 기존 helper 구현을 유지한다. 595용 FFmpeg 7은 Jellyfin FFmpeg 7.1.4-3 자산을 후보로 삼아 드라이버 호환성을 검증한다.
+상태: 5개 조합을 고유 패키지 ID·경로로 정비하며, 패키지 표시명은 모두 `Synology NVIDIA FFmpeg <세대> (<드라이버>)` 형식으로 통일한다. 580 FFmpeg 8의 재시작 알림 파일럿 SPK(-2)를 빌드했으며, DSM 실기에서 알림과 기동 판정 검증은 남아 있다. 595용 FFmpeg 7은 Jellyfin FFmpeg 7.1.4-3 자산을 후보로 삼아 드라이버 호환성을 검증한다.
 
 소유 저장소: `syno_nvidia_driver` — FFmpeg 패키지 소스·빌드·릴리즈. 로더의 다운로드·검증·설치 연결은 `tcrp-addons/nvidiadriver/docs/spk-delivery-design.md`를 따른다.
 
@@ -32,7 +32,7 @@ Plex는 자체 트랜스코더를 사용하므로 이 패키지는 Plex용 필�
 
 드라이버 패키지 ID는 flavor와 DSM/커널별로 다르므로 정적 `install_dep_packages`는 비워 둔다. `preinst`와 설치 후 백엔드는 flavor별 580/595 드라이버 ID와 기존 550/K4 ID를 검사하고, 패키지에 기록된 정확한 NVIDIA 드라이버 버전과 일치해야 설치·연동한다. 설치 후 활성 커널 드라이버 버전도 다시 검사한다. 드라이버 교체 후 아직 재부팅 전이라 실행 버전이 다르면 FFmpeg 패키지는 경로를 변경하지 않고 대기한다.
 
-Jellyfin 연동은 `/var/packages/jellyfin/scripts/service-setup`의 `--ffmpeg` 인자가 해당 FFmpeg 세대의 기본 경로 또는 명시적으로 지원하는 이전 NVIDIA 패키지 경로와 일치할 때만 적용한다. 알 수 없는 형식이면 파일을 건드리지 않고 수동 설정 안내를 남긴다. 설치 helper는 원본을 백업하고, `--ffmpeg`를 해당 패키지 고유 경로로 바꾼 뒤 Jellyfin을 재시작한다. 재시작 실패 시 인자를 복구하고 Jellyfin을 다시 시작한다. 제거 시 현재 인자가 그 패키지의 정확한 경로일 때만 저장된 이전 경로로 복구한다. 적용 여부는 설정 파일뿐 아니라 Jellyfin 프로세스의 실제 `--ffmpeg` 인자까지 확인한다.
+Jellyfin 연동은 `/var/packages/jellyfin/scripts/service-setup`의 `--ffmpeg` 인자가 해당 FFmpeg 세대의 기본 경로 또는 명시적으로 지원하는 이전 NVIDIA 패키지 경로와 일치할 때만 적용한다. 알 수 없는 형식이면 파일을 건드리지 않고 수동 설정 안내를 남긴다. 설정 변경 전 DSM 데스크톱 알림으로 Jellyfin 재시작 예정임을 알리고, 재시작 요청 후 최대 120초 동안 패키지 실행 상태와 실제 Jellyfin 프로세스의 새 `--ffmpeg` 경로를 확인한다. 확인 성공·실패·시간 초과는 다시 데스크톱 알림으로 알린다. 확인에 실패하면 서비스 인자를 이전 경로로 되돌리고 Jellyfin을 다시 시작하되, FFmpeg SPK 자체는 설치된 상태로 유지한다. Jellyfin이 원래 중지되어 있으면 경로만 변경하고 자동으로 시작하지 않았음을 알린다. 제거 시 현재 인자가 그 패키지의 정확한 경로일 때만 저장된 이전 경로로 복구한다.
 
 `encoding.xml`의 하드웨어 가속·코덱 설정은 별도 설정이다. 패키지가 실행 파일 경로를 전환했다고 해서 `EnableHwAcceleration`이 활성화되었다고 간주하지 않는다. 자동 변경은 사용자 동의와 별도 정책 없이는 수행하지 않으며, 설치 후 Jellyfin 대시보드에서 하드웨어 가속을 켜고 NVENC/NVDEC 동작을 검증해야 한다.
 
