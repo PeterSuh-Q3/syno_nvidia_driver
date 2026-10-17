@@ -5,6 +5,16 @@ set -eu
 EXPECTED=__DRIVER__
 FOUND=""
 DETECTED=""
+
+report_failure() {
+    MESSAGE=$1
+    printf '%s\n' "$MESSAGE" >&2
+    # Synology's package lifecycle scripts can surface this text in the
+    # Package Center result dialog through SYNOPKG_TEMP_LOGFILE.
+    if [ -n "${SYNOPKG_TEMP_LOGFILE:-}" ]; then
+        printf '%s\n' "$MESSAGE" > "$SYNOPKG_TEMP_LOGFILE" 2>/dev/null || true
+    fi
+}
 # Include both the legacy package IDs and the current flavor-specific IDs.
 # New 580/595 SPKs have distinct IDs, so checking only the old generic IDs
 # rejects a valid matching driver before the payload can be installed.
@@ -28,12 +38,18 @@ for PACKAGE in \
     fi
 done
 [ -n "$FOUND" ] || {
-    echo "NVIDIA FFmpeg installation blocked: this package requires NVIDIA driver $EXPECTED." >&2
     if [ -n "$DETECTED" ]; then
-        echo "Detected installed NVIDIA driver package(s): $DETECTED." >&2
+        if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = "krn" ]; then
+            report_failure "NVIDIA FFmpeg 설치 중단: 요구 드라이버 $EXPECTED, 감지된 드라이버 $DETECTED. 일치하는 NVIDIA 드라이버를 설치하거나 현재 드라이버 버전에 맞는 FFmpeg 패키지를 선택하십시오."
+        else
+            report_failure "NVIDIA FFmpeg install blocked: requires NVIDIA driver $EXPECTED; detected $DETECTED. Install the matching driver or choose the FFmpeg package for your installed driver."
+        fi
     else
-        echo "No supported NVIDIA driver package was detected." >&2
+        if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = "krn" ]; then
+            report_failure "NVIDIA FFmpeg 설치 중단: 요구 드라이버 $EXPECTED와 일치하는 NVIDIA 드라이버 패키지가 없습니다. 먼저 일치하는 드라이버를 설치하십시오."
+        else
+            report_failure "NVIDIA FFmpeg install blocked: no matching NVIDIA driver package ($EXPECTED) was detected. Install the matching driver first."
+        fi
     fi
-    echo "Install the matching $EXPECTED driver package first, or choose an FFmpeg package built for the installed driver." >&2
     exit 1
 }
