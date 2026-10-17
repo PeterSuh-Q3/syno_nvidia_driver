@@ -10,11 +10,11 @@ OUT="$ROOT/dist"
 IMAGE=${FFMPEG_HELPER_BUILD_IMAGE:-gcc:14-bookworm}
 RELEASE=https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia
 
-usage() { echo "Usage: $0 {550.163.01|580.173.02|595.99.02|all}" >&2; exit 2; }
+usage() { echo "Usage: $0 {550.163.01|580.173.02|580.173.02-ffmpeg8|595.99.02|all}" >&2; exit 2; }
 selected=${1:-all}
 case "$selected" in
-    all) versions=(550.163.01 580.173.02 595.99.02) ;;
-    550.163.01|580.173.02|595.99.02) versions=("$selected") ;;
+    all) versions=(550.163.01 580.173.02 580.173.02-ffmpeg8 595.99.02) ;;
+    550.163.01|580.173.02|580.173.02-ffmpeg8|595.99.02) versions=("$selected") ;;
     *) usage ;;
 esac
 
@@ -57,6 +57,21 @@ for driver in "${versions[@]}"; do
             jellyfin_version=7.1.4-3
             jellyfin_min_major=0
             dsm_min=7.2-00000 ;;
+        580.173.02-ffmpeg8)
+            driver=580.173.02
+            package_id=syno-nvidia-ffmpeg8-580
+            display_name="Synology NVIDIA FFmpeg 8 (580)"
+            package_user=sc-nv-ffmpeg8-580
+            package_group=nvidia-ffmpeg8-580
+            ffmpeg_major=8
+            jellyfin_default=/var/packages/ffmpeg8/target/bin/ffmpeg
+            package_revision=1
+            archive=jellyfin-ffmpeg_8.1.3-1_portable_linux64-gpl.tar.xz
+            digest=b86dc023c64a5a9a410e6e3a938a970460214fae78f31c1553c9f88f1c289b6a
+            source_url="https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v8.1.3-1/$archive"
+            jellyfin_version=8.1.3-1
+            jellyfin_min_major=12
+            dsm_min=7.2-00000 ;;
         595.99.02)
             package_id=syno-nvidia-ffmpeg8
             display_name="Synology NVIDIA FFmpeg 8"
@@ -75,7 +90,7 @@ for driver in "${versions[@]}"; do
     esac
 
     fetch "$source_url" "$DL/$archive" "$digest"
-    work="$ROOT/work/nvidia-ffmpeg-spk/build-$driver"
+    work="$ROOT/work/nvidia-ffmpeg-spk/build-$selected"
     mkdir -p "$work/target/bin/helper" "$work/target/share" "$work/scripts" "$work/conf" "$OUT"
     if [[ $archive == *.tgz ]]; then
         tar -xzf "$DL/$archive" -C "$work/target" ./bin/ffmpeg ./bin/ffprobe ./SOURCE

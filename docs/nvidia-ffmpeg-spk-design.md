@@ -15,10 +15,11 @@ Plex는 자체 트랜스코더를 사용하므로 이 패키지는 Plex용 필�
 | 패키지 | ID | 현재 드라이버 대상 | Jellyfin 기본 경로 | NVIDIA 패키지 경로 |
 |---|---|---|---|---|
 | NVIDIA FFmpeg 7 | `syno-nvidia-ffmpeg` | 550.163.01, 580.173.02 | `/var/packages/ffmpeg7/target/bin/ffmpeg` | `/var/packages/syno-nvidia-ffmpeg/target/bin/ffmpeg` |
+| NVIDIA FFmpeg 8 | `syno-nvidia-ffmpeg8-580` | 580.173.02 | `/var/packages/ffmpeg8/target/bin/ffmpeg` | `/var/packages/syno-nvidia-ffmpeg8-580/target/bin/ffmpeg` |
 | NVIDIA FFmpeg 8 | `syno-nvidia-ffmpeg8` | 595.99.02 | `/var/packages/ffmpeg8/target/bin/ffmpeg` | `/var/packages/syno-nvidia-ffmpeg8/target/bin/ffmpeg` |
 
 - FFmpeg 7의 기존 패키지 ID를 유지해 550/580 사용자의 설치·업그레이드 경로를 보존한다. FFmpeg 8은 별도 ID, 서비스 계정, 그룹 및 파일 경로를 갖는다.
-- FFmpeg 8의 현재 원본은 Jellyfin FFmpeg `8.1.3-1` portable x86_64이며 Jellyfin 12 이상에만 자동 연동한다. 대상 드라이버와 FFmpeg 세대는 빌드 스크립트의 명시적 매핑으로 고정한다.
+- FFmpeg 8의 원본은 Jellyfin FFmpeg `8.1.3-1` portable x86_64이며 Jellyfin 12 이상에만 자동 연동한다. 580과 595는 드라이버 버전 검사를 유지하기 위해 별도 패키지 ID로 제공한다. Video Codec SDK 13의 Linux 요구 드라이버는 R570 이상이므로 R580은 API 최소 요구를 충족하지만, 실기에서 NVENC/NVDEC 인코딩·디코딩을 별도로 검증해야 한다.
 - 같은 패키지 ID 안에서 FFmpeg 7/8 바이너리를 교체하지 않는다. 595용 기존 `syno-nvidia-ffmpeg` 설치본에서 새 ID로 옮길 때 새 패키지 설치와 경로 전환을 먼저 성공시킨 후 구 패키지를 제거한다. 구 패키지 제거 훅은 Jellyfin이 새 경로를 사용 중이면 이를 되돌리지 않는다.
 - `ffmpeg8` 패키지의 `/var/packages/ffmpeg8/target/bin/ffmpeg`를 덮어쓰거나 소유권을 가져오지 않는다. FFmpeg 코덱 지원은 FFmpeg 빌드에 포함되어야 하며 런타임 라이브러리 파일을 추가한다고 기존 바이너리에 NVDEC/NVENC가 생기지 않는다.
 
@@ -38,7 +39,7 @@ Jellyfin 연동은 `/var/packages/jellyfin/scripts/service-setup`의 `--ffmpeg` 
 
 ## 빌드와 검증
 
-`scripts/build-ffmpeg-spk.sh`는 출처별 고정 SHA-256을 확인하고 세대별 SPK를 만든다. 기존 550/580 패키지는 ID `syno-nvidia-ffmpeg`의 FFmpeg 7, 595 패키지는 ID `syno-nvidia-ffmpeg8`의 FFmpeg 8로 패킹한다. 패킹 후 SPK의 `INFO`, helper 경로, lifecycle 스크립트, 사용자/그룹, FFmpeg/FFprobe, 출처·라이선스 메타데이터를 검사한다.
+`scripts/build-ffmpeg-spk.sh`는 출처별 고정 SHA-256을 확인하고 세대별 SPK를 만든다. 550/580 패키지는 ID `syno-nvidia-ffmpeg`의 FFmpeg 7, 580용 FFmpeg 8은 ID `syno-nvidia-ffmpeg8-580`, 595용 FFmpeg 8은 ID `syno-nvidia-ffmpeg8`로 패킹한다. 패킹 후 SPK의 `INFO`, helper 경로, lifecycle 스크립트, 사용자/그룹, FFmpeg/FFprobe, 출처·라이선스 메타데이터를 검사한다.
 
 검증은 각 패키지에 대해 순서대로 한다.
 
