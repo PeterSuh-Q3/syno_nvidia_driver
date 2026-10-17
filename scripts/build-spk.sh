@@ -5,13 +5,14 @@
 # following the same INFO-templating / package.tgz / final-tar pattern as
 # syno-amdgpu-driver/scripts/package-spk.sh.
 #
-# Usage: build-spk.sh <kver5-580-proprietary|kver5|kver4-72|kver4-70>
+# Usage: build-spk.sh <kver5-580-open|kver5-580-proprietary|kver5-595-open|kver5-595-proprietary|kver4-72|kver4-70>
 set -euo pipefail
 
-VARIANT=${1:?variant required: kver5-580-proprietary | kver5 | kver4-72 | kver4-70}
+VARIANT=${1:?variant required: kver5-580-open | kver5-580-proprietary | kver5-595-open | kver5-595-proprietary | kver4-72 | kver4-70}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REL="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia"
-OUT="$ROOT/dist"
+DRM_REL="https://github.com/PeterSuh-Q3/mshell-modules/releases/download/26.10.13"
+OUT="${DIST_DIR:-$ROOT/dist}"
 WORK="$ROOT/work/spk-$VARIANT"
 
 # ---- per-variant configuration ---------------------------------------------
@@ -26,12 +27,25 @@ ENABLE_NVIDIA_DRM_MODESET=0
 DISPLAYNAME="Synology NVIDIA Driver"
 
 case "$VARIANT" in
-  kver5-580-proprietary)
-    # Keep this revision's assembly tree separate from older split-package
-    # workspaces, which may contain cached or manually staged files.
-    WORK="$ROOT/work/spk-kver5-580-proprietary-rev2"
+  kver5-580-open)
+    WORK="$ROOT/work/spk-kver5-580-open-rev2"
     DRIVER=580.173.02
-    PACKAGE_REVISION=2
+    PACKAGE_REVISION=3
+    KSUFFIX=51055
+    PLATFORMS="$KVER5_PLATFORMS"
+    PACKAGE=syno-nvidia-driver-kver5-580-open
+    DISPLAYNAME="Synology NVIDIA Driver 580 open"
+    OS_MIN_VER=7.2-00000
+    BUNDLE_GSP=1
+    KO_FLAVOR_PREFIX="open-"
+    DESC="NVIDIA 580.173.02 open driver; CUDA API 13.0; GPU: Turing and Ampere (open-module support; Ada/Blackwell excluded by the bundled 580 GPU table); kernel 5.10.55. Offline platforms: ${PLATFORMS}. At startup, the package reselects the bundled module set for the detected platform and validates its kernel ABI; if the driver is already loaded after migration, reboot to activate the validated set."
+    FILESUFFIX=""
+    ;;
+  kver5-580-proprietary)
+    # Keep this revision's assembly tree separate from older builds.
+    WORK="$ROOT/work/spk-kver5-580-proprietary-rev3"
+    DRIVER=580.173.02
+    PACKAGE_REVISION=4
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-580-proprietary
@@ -40,57 +54,83 @@ case "$VARIANT" in
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="proprietary-"
     ENABLE_NVIDIA_DRM_MODESET=1
-    DESC="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; Maxwell-through-Ampere GPUs in the bundled compatibility table; kernel 5.10.55. DRM/KMS modesetting (nvidia-drm modeset=1) enabled and validated on all six platforms: ${PLATFORMS}."
+    DESC="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; Maxwell-through-Ampere GPUs in the bundled compatibility table; kernel 5.10.55. Includes the six-platform quad DRM provider bundle. Required DRM dependencies are loaded before NVIDIA DRM; bundled i915, amdgpu and virtual GPU drivers are not force-loaded. KMS enabled: ${PLATFORMS}. At startup, the package reselects the detected platform's module set and verifies its kernel ABI; reboot after migration when NVIDIA modules are already resident."
+    FILESUFFIX=""
+    ;;
+  kver5-595-open)
+    WORK="$ROOT/work/spk-kver5-595-open"
+    DRIVER=595.99.02
+    PACKAGE_REVISION=2
+    KSUFFIX=51055
+    PLATFORMS="$KVER5_PLATFORMS"
+    PACKAGE=syno-nvidia-driver-kver5-595-open
+    DISPLAYNAME="Synology NVIDIA Driver 595 open"
+    OS_MIN_VER=7.2-00000
+    BUNDLE_GSP=1
+    KO_FLAVOR_PREFIX="open-"
+    DESC="NVIDIA 595.99.02 open driver; CUDA API 13.2; GPU: Turing and newer (as listed by the bundled GPU support table); kernel 5.10.55. Offline platforms: ${PLATFORMS}. At startup, the package reselects the detected platform's module set and validates its kernel ABI; if NVIDIA modules are already loaded after migration, reboot to activate the validated set."
+    FILESUFFIX=""
+    ;;
+  kver5-595-proprietary)
+    WORK="$ROOT/work/spk-kver5-595-proprietary"
+    DRIVER=595.99.02
+    PACKAGE_REVISION=2
+    KSUFFIX=51055
+    PLATFORMS="$KVER5_PLATFORMS"
+    PACKAGE=syno-nvidia-driver-kver5-595-proprietary
+    DISPLAYNAME="Synology NVIDIA Driver 595 proprietary"
+    OS_MIN_VER=7.2-00000
+    BUNDLE_GSP=1
+    KO_FLAVOR_PREFIX="proprietary-"
+    DESC="NVIDIA 595.99.02 proprietary driver; CUDA API 13.2; GPU: Turing and newer (as listed by the bundled GPU support table); kernel 5.10.55. Offline platforms: ${PLATFORMS}. This is the proprietary flavor with its own package ID and GPU compatibility pre-check. At startup, the package reselects the detected platform's module set and validates its kernel ABI; if NVIDIA modules are already loaded after migration, reboot to activate the validated set."
     FILESUFFIX=""
     ;;
   kver5)
-    DRIVER=${KVER5_DRIVER:-595.99.02}
-    case "$DRIVER" in
-      # Keep the 580 branch available for Maxwell/Pascal/Volta GPUs; 595 is
-      # Turing+ and is not a replacement for those older GPU generations.
-      580.173.02) PACKAGE_REVISION=5 ;;
-      595.99.02) PACKAGE_REVISION=6 ;;
-      *) echo "Unsupported KVER5_DRIVER '$DRIVER' (expected 580.173.02 or 595.99.02)" >&2; exit 2 ;;
-    esac
-    KSUFFIX=51055
-    PLATFORMS="$KVER5_PLATFORMS"
-    PACKAGE=syno-nvidia-driver-kver5
-    OS_MIN_VER=7.2-00000
-    # Turing+ (GA10x/TU10x) is the class this branch/platform set targets.
-    BUNDLE_GSP=1
-    DESC="NVIDIA driver (kernel 5.10.55 platforms, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
-    FILESUFFIX=""
+    echo "The unsplit kver5 package ID is retired from the active package catalog; use the flavor-specific 580/595 variants." >&2
+    exit 2
     ;;
   kver4-72)
-    PACKAGE_REVISION=4
+    PACKAGE_REVISION=5
     DRIVER=550.163.01
     KSUFFIX=44302
     PLATFORMS="$KVER4_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver4-dsm72
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=0
-    DESC="NVIDIA driver (kernel 4.4.302, DSM 7.2-7.4, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
+    DESC="NVIDIA driver (kernel 4.4.302, DSM 7.2-7.4, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}. Startup selects the current platform's modules only when their bundled kernel ABI matches; after migration with NVIDIA modules loaded, reboot to activate the selected set."
     FILESUFFIX="-dsm7.2-7.4"
     ;;
   kver4-70)
-    PACKAGE_REVISION=4
+    PACKAGE_REVISION=5
     DRIVER=550.163.01
     KSUFFIX=44180
     PLATFORMS="$KVER4_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver4-dsm70
     OS_MIN_VER=7.0-00000
     BUNDLE_GSP=0
-    DESC="NVIDIA driver (kernel 4.4.180, DSM 7.0-7.1, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}."
+    DESC="NVIDIA driver (kernel 4.4.180, DSM 7.0-7.1, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}. Startup selects the current platform's modules only when their bundled kernel ABI matches; after migration with NVIDIA modules loaded, reboot to activate the selected set."
     FILESUFFIX="-dsm7.0-7.1"
     ;;
-  *) echo "Unknown variant: $VARIANT (expected kver5 | kver4-72 | kver4-70)" >&2; exit 2 ;;
+  *) echo "Unknown variant: $VARIANT (expected kver5-580-open | kver5-580-proprietary | kver5-595-open | kver5-595-proprietary | kver4-72 | kver4-70)" >&2; exit 2 ;;
 esac
+
+# Keep migration candidates isolated from existing SPKs and assembly trees.
+if [[ "${PLATFORM_MIGRATION_BUILD:-0}" == 1 ]]; then
+  WORK="$ROOT/work/platform-migration-$VARIANT"
+fi
 
 # Wipe everything except dl/ (the downloaded release assets) so re-running
 # after an INFO/script fix doesn't re-pull ~500MB-900MB over the network.
 rm -rf "$WORK/target" "$WORK/scripts" "$WORK/conf" "$WORK/INFO" "$WORK"/*.PNG
 mkdir -p "$WORK/target/lib/modules" "$WORK/target/lib/nvidia/bin" "$WORK/target/lib/nvidia/lib" \
          "$WORK/target/lib/firmware" "$WORK/target/share" "$WORK/scripts" "$WORK/conf" "$WORK/dl"
+case "$KSUFFIX" in
+  51055) PACKAGE_KERNEL_VERSION=5.10.55 ;;
+  44302) PACKAGE_KERNEL_VERSION=4.4.302 ;;
+  44180) PACKAGE_KERNEL_VERSION=4.4.180 ;;
+  *) echo "Unknown kernel suffix '$KSUFFIX'; refusing to build without kernel metadata" >&2; exit 1 ;;
+esac
+printf '%s\n' "$PACKAGE_KERNEL_VERSION" > "$WORK/target/share/nvidia-kernel-version"
 bash "$ROOT/scripts/check-shared-nvidia-layers.sh"
 
 fetch() {
@@ -126,6 +166,42 @@ if [ "$ENABLE_NVIDIA_DRM_MODESET" = 1 ]; then
   : > "$WORK/target/share/nvidia-drm-kms-modeset.enabled"
 fi
 
+# ---- matching quad-DRM provider archives (580 proprietary K5 only) -------
+# Preserve each upstream archive whole in the SPK. At runtime the backend
+# extracts only the active platform's pack into a package-private kmod tree;
+# it never overlays the system module directory or force-loads GPU drivers.
+if [ "$VARIANT" = "kver5-580-proprietary" ]; then
+  DRM_CACHE="$ROOT/work/kver5-580-proprietary-quad-drm-26.10.13"
+  DRM_STAGE="$WORK/target/lib/drm-provider"
+  mkdir -p "$DRM_STAGE" "$DRM_CACHE"
+  while read -r platform sha; do
+    [ -n "$platform" ] || continue
+    asset="${platform}-7.4-5.10.55-drm.tgz"
+    src="$DRM_CACHE/$asset"
+    if [ ! -s "$src" ]; then
+      tmp="$src.tmp.$$"
+      echo "fetching pinned quad DRM provider $asset"
+      curl -sL --fail "$DRM_REL/$asset" -o "$tmp"
+      mv "$tmp" "$src"
+    fi
+    actual=$(shasum -a 256 "$src" | awk '{print $1}')
+    [ "$actual" = "$sha" ] || {
+      echo "quad DRM provider checksum mismatch for $asset: expected $sha, got $actual" >&2
+      exit 1
+    }
+    tar -tzf "$src" | grep -qx 'drm.ko' || { echo "invalid DRM archive: $asset" >&2; exit 1; }
+    tar -tzf "$src" | grep -qx 'drm_kms_helper.ko' || { echo "missing drm_kms_helper.ko: $asset" >&2; exit 1; }
+    cp "$src" "$DRM_STAGE/$asset"
+  done <<'DRM_ASSETS'
+epyc7002 5d9b7e5473102106859740bc329a94323635cf4c3ae0c51a5c6a6916bc424cf9
+epyc7003 722669eb04384dea78ae7aeec75aaa039e2582e352af5536a447e50ef54cdd1f
+geminilakenk 5f7d81c6e511c8e5db7d471bcf44e30d156643c9f14b6a1c43a76db967dfed92
+icelaked 5c0960e5eb598c80df07cf2a17714ba9ebd274a8a944efb070112da81388010d
+r1000nk 424d51a8b2f4b912da6e11f006762447ad5128e7d568705a32ec04e3c9a41b17
+v1000nk b9fadf760f40ff7916f948521a8667da86f145e6797c5b099b8f545ac5812f0a
+DRM_ASSETS
+fi
+
 # ---- GSP firmware (kver5/580 only - no gsp_fw entries exist for 550) ------
 if [ "$BUNDLE_GSP" = 1 ]; then
   GSP="nv-gsp-${DRIVER}.tgz"
@@ -139,7 +215,31 @@ if [ "$BUNDLE_GSP" = 1 ]; then
   tar -tzf "$SHARED_GSP" | grep -Eq '(^|/)gsp_[^/]+\.bin$' || {
     echo "shared GSP archive is invalid: $SHARED_GSP" >&2; exit 1;
   }
-  tar -xzf "$SHARED_GSP" -C "$WORK/target/lib/firmware"
+  # The shared GSP layer already has a top-level firmware/ directory. Unpack
+  # it into a temporary directory and flatten only that directory into the
+  # package's lib/firmware path expected by nvidia-backend.sh; retain the
+  # archive's LICENSE and VERSION alongside the firmware files.
+  GSP_STAGE="$WORK/target/.gsp-stage"
+  mkdir -p "$GSP_STAGE" "$WORK/target/lib/firmware"
+  tar -xzf "$SHARED_GSP" -C "$GSP_STAGE"
+  if [ -d "$GSP_STAGE/firmware" ]; then
+    cp -a "$GSP_STAGE/firmware/." "$WORK/target/lib/firmware/"
+  else
+    # Some published GSP layers contain gsp_*.bin at archive root while
+    # others use firmware/. Normalize both layouts into the package path
+    # consumed by nvidia-backend.sh; never ship an empty firmware directory.
+    found_gsp=0
+    for fw in "$GSP_STAGE"/gsp_*.bin; do
+      [ -s "$fw" ] || continue
+      cp -p "$fw" "$WORK/target/lib/firmware/" || exit 1
+      found_gsp=1
+    done
+    [ "$found_gsp" -eq 1 ] || { echo "shared GSP archive has no firmware/gsp_*.bin payload: $SHARED_GSP" >&2; exit 1; }
+  fi
+  for metadata in LICENSE VERSION; do
+    [ ! -f "$GSP_STAGE/$metadata" ] || cp -f "$GSP_STAGE/$metadata" "$WORK/target/lib/firmware/$metadata"
+  done
+  rm -rf "$GSP_STAGE"
 fi
 
 # ---- bundled GPU-support table (offline copy, not live-fetched) -----------

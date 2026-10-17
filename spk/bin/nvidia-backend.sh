@@ -16,6 +16,7 @@ SUP="$RUNTIME/share/nvidia-gpu-support.json"
 NVDIR=/usr/local/nvidia
 RCLOG=/var/log/nvidia-driver.log
 ACTIVATION_STATE=/usr/lib/modules/.nvidia-activation-state
+PLATFORM_MIGRATION_PENDING=/usr/lib/modules/.nvidia-platform-migration-pending
 rclog(){ echo "$(date '+%H:%M:%S') nvidia-backend: $*" >>"$RCLOG" 2>/dev/null; }
 
 # The payload's VERSION is the authoritative userspace driver version. Do not
@@ -81,54 +82,214 @@ lock_payload() {
 # their platform-specific modules safely at that point.  Limit this recovery
 # to the 5.10.55 family for now; kver4 package behaviour is intentionally
 # unchanged.
+package_kernel_version() {
+  sed -n '1{s/[[:space:]]*$//;p;}' "$RUNTIME/share/nvidia-kernel-version" 2>/dev/null
+}
+
+nvidia_modules_loaded() {
+  grep -Eq '^nvidia(_uvm|_modeset|_drm)?[[:space:]]' /proc/modules 2>/dev/null
+}
+
+module_vermagic() {
+  module=$1
+  if command -v modinfo >/dev/null 2>&1; then
+    modinfo -F vermagic "$module" 2>/dev/null
+  elif [ -x /usr/bin/kmod ]; then
+    /usr/bin/kmod modinfo -F vermagic "$module" 2>/dev/null
+  elif [ -x /bin/kmod ]; then
+    /bin/kmod modinfo -F vermagic "$module" 2>/dev/null
+  else
+    return 1
+  fi
+}
+
+platform_modules_match() {
+  platform=$1
+  moddir="$RUNTIME/lib/modules/$platform"
+  [ -d "$moddir" ] || return 1
+  found=0
+  for ko in "$moddir"/*.ko; do
+    [ -s "$ko" ] || continue
+    found=1
+    cmp -s "$ko" "/usr/lib/modules/$(basename "$ko")" || return 1
+  done
+  [ "$found" -eq 1 ]
+}
+
+# Re-select the matching module set from this package's offline platform
+# matrix. A platform switch is safe to stage on disk, but a live NVIDIA stack
+# is never forcibly unloaded: if one is resident, defer activation to reboot.
+stage_platform_modules() {
+  platform=$1
+  kver=$2
+  krel=${3:-$(uname -r)}
+  moddir="$RUNTIME/lib/modules/$platform"
+  expected_kver=$(package_kernel_version)
+
+  if [ -z "$expected_kver" ]; then
+    rclog "platform migration unavailable: package has no kernel-version metadata"
+    return 1
+  fi
+  if [ "$kver" != "$expected_kver" ]; then
+    rclog "platform migration unavailable: package targets kernel '$expected_kver', running '$kver'"
+    return 1
+  fi
+  if [ ! -d "$moddir" ]; then
+    rclog "platform migration unavailable: no bundled module set for '$platform'"
+    return 1
+  fi
+
+  if [ "$(cat "$moddir/PLATFORM" 2>/dev/null)" != "$platform" ] ||
+     [ "$(cat "$moddir/KVER" 2>/dev/null)" != "$expected_kver" ]; then
+    rclog "platform migration unavailable: module manifest mismatch in '$moddir'"
+    return 1
+  fi
+
+  # Validate the full candidate before changing /usr/lib/modules. A platform
+  # label alone is not enough: a missing module or wrong kernel ABI must never
+  # leave a mixed/partial set or fall back to the previous platform's files.
+  for module in nvidia.ko nvidia-uvm.ko nvidia-modeset.ko nvidia-drm.ko; do
+    [ -s "$moddir/$module" ] || {
+      rclog "platform migration unavailable: '$platform' bundle lacks $module"
+      return 1
+    }
+  done
+  found=0
+  for ko in "$moddir"/*.ko; do
+    [ -s "$ko" ] || continue
+    found=1
+    vermagic=$(module_vermagic "$ko") || {
+      rclog "platform migration unavailable: cannot inspect ABI of $(basename "$ko")"
+      return 1
+    }
+    module_krel=${vermagic%% *}
+    if [ "$module_krel" != "$krel" ]; then
+      rclog "platform migration unavailable: $(basename "$ko") ABI '$module_krel' does not match running '$krel'"
+      return 1
+    fi
+  done
+  [ "$found" -eq 1 ] || {
+    rclog "platform migration unavailable: payload for '$platform' has no .ko files"
+    return 1
+  }
+
+  stage="/usr/lib/modules/.nvidia-stage.$$"
+  rm -rf "$stage"
+  mkdir -p "$stage" /usr/lib/modules || return 1
+  for ko in "$moddir"/*.ko; do
+    [ -s "$ko" ] || continue
+    cp -f "$ko" "$stage/$(basename "$ko")" || { rm -rf "$stage"; return 1; }
+  done
+  for ko in "$stage"/*.ko; do
+    [ -s "$ko" ] || continue
+    mv -f "$ko" "/usr/lib/modules/$(basename "$ko")" || { rm -rf "$stage"; return 1; }
+  done
+  rm -rf "$stage"
+  marker_tmp="/usr/lib/modules/.nvidia-platform.tmp.$$"
+  printf '%s %s %s\n' "$platform" "$kver" "$krel" > "$marker_tmp" || return 1
+  mv -f "$marker_tmp" /usr/lib/modules/.nvidia-platform || return 1
+  rclog "staged validated module set for '$platform' ($krel)"
+  return 0
+}
+
 stage_kver5_modules() {
   platform=$1
   kver=$2
-  moddir="$RUNTIME/lib/modules/$platform"
-
+  krel=${3:-$(uname -r)}
   [ "$kver" = "5.10.55" ] || return 0
-  if [ ! -d "$moddir" ]; then
-    rclog "module recovery unavailable: no payload for platform '$platform'"
-    return 1
-  fi
-
-  mkdir -p /usr/lib/modules
-  found=0
-  for ko in "$moddir"/*.ko; do
-    [ -f "$ko" ] || continue
-    cp -f "$ko" "/usr/lib/modules/$(basename "$ko")"
-    found=1
-  done
-  if [ "$found" -ne 1 ]; then
-    rclog "module recovery unavailable: payload for '$platform' has no .ko files"
-    return 1
-  fi
-  echo "$platform $kver" > /usr/lib/modules/.nvidia-platform
-  return 0
+  stage_platform_modules "$platform" "$kver" "$krel"
 }
 
 restore_kver5_modules_if_missing() {
   platform=$1
   kver=$2
-
+  krel=${3:-$(uname -r)}
   [ "$kver" = "5.10.55" ] || return 0
   missing=0
   for module in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
     [ -f "/usr/lib/modules/$module.ko" ] || missing=1
   done
   [ "$missing" -eq 1 ] || return 0
-
-  rclog "module recovery: /usr/lib/modules NVIDIA files missing; restoring payload for '$platform'"
-  if stage_kver5_modules "$platform" "$kver"; then
-    rclog "module recovery: restored NVIDIA modules for '$platform'"
+  rclog "module recovery: NVIDIA files are missing; validating bundled set for '$platform'"
+  if stage_platform_modules "$platform" "$kver" "$krel"; then
+    rclog "module recovery: restored validated NVIDIA modules for '$platform'"
   else
-    rclog "module recovery: failed for '$platform'"
+    rclog "module recovery: refused unsafe module set for '$platform'"
+    return 1
   fi
+}
+
+# K5 proprietary -3 bundles the full platform-specific quad-DRM pack, but
+# should load only the provider closure needed by NVIDIA DRM. Keep those
+# modules under this package's private kmod root rather than replacing files
+# in /usr/lib/modules. Loading drm_kms_helper through modprobe follows the
+# matching pack's modules.dep; it does not request i915/amdgpu/bochs.
+load_quad_drm_provider() {
+  platform=$1
+  krel=$2
+  case "$krel" in 5.10.55*) ;; *)
+    rclog "quad DRM provider: unsupported kernel '$krel'"
+    return 1
+    ;;
+  esac
+
+  archive="$RUNTIME/lib/drm-provider/${platform}-7.4-5.10.55-drm.tgz"
+  provider_root="$RUNTIME/lib/drm-provider/root"
+  module_dir="$provider_root/lib/modules/$krel/kernel/quad-drm"
+  stamp="$RUNTIME/lib/drm-provider/.staged-${platform}-${krel}"
+  [ -s "$archive" ] || { rclog "quad DRM provider: missing archive for '$platform'"; return 1; }
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    archive_id=$(sha256sum "$archive" | awk '{print $1}')
+  else
+    archive_id=$(cksum "$archive" | awk '{print $1 ":" $2}')
+  fi
+  if [ "$(cat "$stamp" 2>/dev/null)" != "$archive_id" ] ||
+     [ ! -s "$module_dir/drm.ko" ] || [ ! -s "$module_dir/drm_kms_helper.ko" ]; then
+    rm -rf "$provider_root/lib/modules/$krel"
+    mkdir -p "$module_dir"
+    if ! tar -xzf "$archive" -C "$module_dir" >>"$RCLOG" 2>&1; then
+      rclog "quad DRM provider: extraction failed for '$platform'"
+      return 1
+    fi
+    for required in drm.ko drm_kms_helper.ko; do
+      if [ ! -s "$module_dir/$required" ]; then
+        rclog "quad DRM provider: archive for '$platform' lacks $required"
+        return 1
+      fi
+    done
+    printf '%s\n' "$archive_id" > "$stamp"
+  fi
+
+  # This private root contains only the bundled out-of-tree modules. Empty
+  # metadata files make depmod treat that intentionally minimal tree cleanly
+  # instead of logging missing modules.order/modules.builtin warnings.
+  for metadata in modules.order modules.builtin modules.builtin.modinfo; do
+    [ -f "$provider_root/lib/modules/$krel/$metadata" ] ||
+      : > "$provider_root/lib/modules/$krel/$metadata"
+  done
+
+  DEPMOD=$(command -v depmod 2>/dev/null || true)
+  MODPROBE=$(command -v modprobe 2>/dev/null || true)
+  [ -n "$DEPMOD" ] && [ -n "$MODPROBE" ] || {
+    rclog "quad DRM provider: depmod/modprobe unavailable"
+    return 1
+  }
+  if ! "$DEPMOD" -b "$provider_root" "$krel" >>"$RCLOG" 2>&1; then
+    rclog "quad DRM provider: depmod failed for '$platform' ($krel)"
+    return 1
+  fi
+  if ! "$MODPROBE" -d "$provider_root" -S "$krel" drm_kms_helper >>"$RCLOG" 2>&1; then
+    rclog "quad DRM provider: failed to load drm_kms_helper dependency closure for '$platform'"
+    return 1
+  fi
+  rclog "quad DRM provider: loaded drm_kms_helper dependency closure for '$platform'; GPU driver modules were not requested"
+  return 0
 }
 
 do_postinst() {
   lock_payload
-  PLATFORM="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
+  PLATFORM="$(uname -a | awk '{for (i=1; i<=NF; i++) if ($i ~ /^synology_/) { sub(/^synology_/, "", $i); sub(/_.*/, "", $i); print $i; exit }}')"
   KREL="$(uname -r)"
   KVER="$(echo "$KREL" | sed 's/[^0-9.].*$//')"
 
@@ -137,17 +298,9 @@ do_postinst() {
     exit 1
   fi
 
-  # The kver5 helper also writes the platform marker used by do_start.
-  # Keep the existing direct copy fallback for kver4 package builds, which
-  # are deliberately not receiving boot-time recovery in this change.
-  if [ "$KVER" = "5.10.55" ]; then
-    stage_kver5_modules "$PLATFORM" "$KVER" || exit 1
-  else
-    mkdir -p /usr/lib/modules
-    for ko in "$RUNTIME/lib/modules/$PLATFORM"/*.ko; do
-      [ -f "$ko" ] && cp -f "$ko" "/usr/lib/modules/$(basename "$ko")"
-    done
-    echo "$PLATFORM $KVER" > /usr/lib/modules/.nvidia-platform
+  if ! stage_platform_modules "$PLATFORM" "$KVER" "$KREL"; then
+    echo "nvidia-driver: no ABI-compatible module bundle for '$PLATFORM' on '$KREL'; refusing to stage or load modules." >&2
+    exit 1
   fi
 
   # ---- userspace (shared across every platform in this variant) ----
@@ -221,24 +374,44 @@ do_start() {
   # Platform/kernel guard: vermagic alone cannot catch a platform mismatch
   # (it is textually identical across every kver5 platform), and a DSM
   # upgrade can move the same platform to a different kernel point release.
-  CURP="$(uname -a | awk '{print $NF}' | cut -d'_' -f2)"
-  CURK="$(uname -r | sed 's/[^0-9.].*$//')"
+  CURP="$(uname -a | awk '{for (i=1; i<=NF; i++) if ($i ~ /^synology_/) { sub(/^synology_/, "", $i); sub(/_.*/, "", $i); print $i; exit }}')"
+  CURL="$(uname -r)"
+  CURK="$(echo "$CURL" | sed 's/[^0-9.].*$//')"
   STORED="$(cat /usr/lib/modules/.nvidia-platform 2>/dev/null)"
   STOREDP="${STORED%% *}"
-  STOREDK=""; case "$STORED" in *" "*) STOREDK="${STORED##* }" ;; esac
-  if [ -n "$STOREDP" ] && [ "$STOREDP" != "$CURP" ]; then
-    rclog "SKIPPED: installed .ko are for platform '$STOREDP' but running on '$CURP'"
-    return 0
+  STOREDK=""; STOREDL=""
+  case "$STORED" in
+    *" "*) REST="${STORED#* }"; STOREDK="${REST%% *}"; case "$REST" in *" "*) STOREDL="${REST#* }" ;; esac ;;
+  esac
+  if [ -z "$STOREDP" ] || [ "$STOREDP" != "$CURP" ] || [ "$STOREDK" != "$CURK" ] || [ "$STOREDL" != "$CURL" ] || ! platform_modules_match "$CURP"; then
+    rclog "platform/kernel changed: stored '$STOREDP $STOREDK $STOREDL', running '$CURP $CURK $CURL'; validating and selecting matching bundled modules"
+    if ! stage_platform_modules "$CURP" "$CURK" "$CURL"; then
+      rclog "REFUSED: package has no ABI-compatible module set for '$CURP $CURL'; existing modules were not loaded or replaced"
+      echo "nvidia-driver: no compatible bundled modules for platform '$CURP' kernel '$CURL'; refusing to load the previous platform's modules." >&2
+      return 1
+    fi
+    if nvidia_modules_loaded; then
+      printf '%s\n' "$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || date '+%s')" > "$PLATFORM_MIGRATION_PENDING"
+      rclog "validated modules staged for '$CURP', but NVIDIA modules are resident; reboot required before activation"
+      echo "nvidia-driver: compatible modules for '$CURP' are staged; reboot DSM to activate them safely." >&2
+      return 0
+    fi
+    rclog "platform/kernel modules staged for '$CURP $CURL'; continuing with activation"
   fi
-  if [ -n "$STOREDK" ] && [ "$STOREDK" != "$CURK" ]; then
-    rclog "SKIPPED: installed .ko are for kernel '$STOREDK' but running '$CURK' (DSM upgraded?) - reinstall this package"
-    return 0
+
+  if [ -f "$PLATFORM_MIGRATION_PENDING" ]; then
+    if nvidia_modules_loaded; then
+      rclog "SKIPPED: platform/kernel migration is staged but NVIDIA modules remain resident; reboot required"
+      return 0
+    fi
+    rm -f "$PLATFORM_MIGRATION_PENDING"
+    rclog "platform/kernel migration pending flag cleared; activating staged modules"
   fi
 
   # This self-heals only kver5 packages.  It runs after compatibility guards
   # but before any insmod attempt, so a RR/PML boot-time module-directory
   # rebuild cannot leave a superficially "running" package with no driver.
-  restore_kver5_modules_if_missing "$CURP" "$CURK"
+  restore_kver5_modules_if_missing "$CURP" "$CURK" "$CURL"
 
   # A package upgrade replaces .ko files and userspace immediately, but it
   # cannot safely unload a live NVIDIA stack: Plex/Jellyfin/Docker/CUDA may
@@ -254,8 +427,22 @@ do_start() {
     return 0
   fi
 
+  DRM_PROVIDER_READY=1
+  if [ -f "$RUNTIME/share/nvidia-drm-kms-modeset.enabled" ]; then
+    if load_quad_drm_provider "$CURP" "$(uname -r)"; then
+      DRM_PROVIDER_READY=1
+    else
+      DRM_PROVIDER_READY=0
+      rclog "NVIDIA DRM/KMS will be skipped; NVIDIA core modules may still load"
+    fi
+  fi
+
   for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
     if [ -f "/usr/lib/modules/$m.ko" ]; then
+      if [ "$m" = nvidia-drm ] && [ -f "$RUNTIME/share/nvidia-drm-kms-modeset.enabled" ] && [ "$DRM_PROVIDER_READY" -ne 1 ]; then
+        rclog "skipping nvidia-drm because the bundled DRM provider closure is not ready"
+        continue
+      fi
       if [ "$m" = nvidia-drm ] && [ -f "$RUNTIME/share/nvidia-drm-kms-modeset.enabled" ]; then
         if /sbin/insmod "/usr/lib/modules/$m.ko" modeset=1 2>>"$RCLOG"; then
           rclog "insmod $m modeset=1 OK"
@@ -365,7 +552,8 @@ do_uninstall() {
   for m in nvidia-drm nvidia-modeset nvidia-uvm nvidia; do
     lsmod 2>/dev/null | grep -q "^$m " && rmmod "$m" 2>/dev/null || true
   done
-  rm -f /usr/lib/modules/nvidia*.ko /usr/lib/modules/.nvidia-platform /usr/lib/modules/.nvidia-gpuarch "$ACTIVATION_STATE"
+  rm -f /usr/lib/modules/nvidia*.ko /usr/lib/modules/.nvidia-platform /usr/lib/modules/.nvidia-gpuarch \
+    "$ACTIVATION_STATE" "$PLATFORM_MIGRATION_PENDING"
 
   # Userspace + library search path.
   rm -f /etc/ld.so.conf.d/nvidia.conf
