@@ -10,11 +10,11 @@ OUT="$ROOT/dist"
 IMAGE=${FFMPEG_HELPER_BUILD_IMAGE:-gcc:14-bookworm}
 RELEASE=https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia
 
-usage() { echo "Usage: $0 {550.163.01|580.173.02|580.173.02-ffmpeg8|595.99.02|all}" >&2; exit 2; }
+usage() { echo "Usage: $0 {550.163.01|580.173.02|580.173.02-ffmpeg8|595.99.02-ffmpeg7|595.99.02|all}" >&2; exit 2; }
 selected=${1:-all}
 case "$selected" in
-    all) versions=(550.163.01 580.173.02 580.173.02-ffmpeg8 595.99.02) ;;
-    550.163.01|580.173.02|580.173.02-ffmpeg8|595.99.02) versions=("$selected") ;;
+    all) versions=(550.163.01 580.173.02 580.173.02-ffmpeg8 595.99.02-ffmpeg7 595.99.02) ;;
+    550.163.01|580.173.02|580.173.02-ffmpeg8|595.99.02-ffmpeg7|595.99.02) versions=("$selected") ;;
     *) usage ;;
 esac
 
@@ -30,13 +30,13 @@ fetch() {
 for driver in "${versions[@]}"; do
     case "$driver" in
         550.163.01)
-            package_id=syno-nvidia-ffmpeg
-            display_name="Synology NVIDIA FFmpeg 7"
-            package_user=sc-nvidia-ffmpeg
-            package_group=nvidia-ffmpeg
+            package_id=syno-nvidia-ffmpeg7-550
+            display_name="Synology NVIDIA FFmpeg 7 (550)"
+            package_user=sc-nv-ffmpeg7-550
+            package_group=nv-ffmpeg7-550
             ffmpeg_major=7
             jellyfin_default=/var/packages/ffmpeg7/target/bin/ffmpeg
-            package_revision=4
+            package_revision=1
             archive=nv-ffmpeg-550.163.01.tgz
             digest=509fd4f7f6e07ae616c7f16f65bee6aaebdd33d34653816c5c4dbc4f708b8165
             source_url="$RELEASE/$archive"
@@ -44,13 +44,13 @@ for driver in "${versions[@]}"; do
             jellyfin_min_major=0
             dsm_min=7.0-00000 ;;
         580.173.02)
-            package_id=syno-nvidia-ffmpeg
-            display_name="Synology NVIDIA FFmpeg 7"
-            package_user=sc-nvidia-ffmpeg
-            package_group=nvidia-ffmpeg
+            package_id=syno-nvidia-ffmpeg7-580
+            display_name="Synology NVIDIA FFmpeg 7 (580)"
+            package_user=sc-nv-ffmpeg7-580
+            package_group=nv-ffmpeg7-580
             ffmpeg_major=7
             jellyfin_default=/var/packages/ffmpeg7/target/bin/ffmpeg
-            package_revision=6
+            package_revision=1
             archive=nv-ffmpeg-580.173.02.tgz
             digest=64ee797d1b391eec07ebf1a9b558079d8ad1bbb2fb48352f3c3cb77a38e242a3
             source_url="$RELEASE/$archive"
@@ -62,7 +62,7 @@ for driver in "${versions[@]}"; do
             package_id=syno-nvidia-ffmpeg8-580
             display_name="Synology NVIDIA FFmpeg 8 (580)"
             package_user=sc-nv-ffmpeg8-580
-            package_group=nvidia-ffmpeg8-580
+            package_group=nv-ffmpeg8-580
             ffmpeg_major=8
             jellyfin_default=/var/packages/ffmpeg8/target/bin/ffmpeg
             package_revision=1
@@ -73,19 +73,34 @@ for driver in "${versions[@]}"; do
             jellyfin_min_major=12
             dsm_min=7.2-00000 ;;
         595.99.02)
-            package_id=syno-nvidia-ffmpeg8
-            display_name="Synology NVIDIA FFmpeg 8"
-            package_user=sc-nvidia-ffmpeg8
-            package_group=nvidia-ffmpeg8
+            package_id=syno-nvidia-ffmpeg8-595
+            display_name="Synology NVIDIA FFmpeg 8 (595)"
+            package_user=sc-nv-ffmpeg8-595
+            package_group=nv-ffmpeg8-595
             ffmpeg_major=8
             jellyfin_default=/var/packages/ffmpeg8/target/bin/ffmpeg
-            package_revision=3
+            package_revision=1
             archive=jellyfin-ffmpeg_8.1.3-1_portable_linux64-gpl.tar.xz
             digest=b86dc023c64a5a9a410e6e3a938a970460214fae78f31c1553c9f88f1c289b6a
             source_url="https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v8.1.3-1/$archive"
             jellyfin_version=8.1.3-1
             # Upstream explicitly targets Jellyfin 12, not stable 10.11.
             jellyfin_min_major=12
+            dsm_min=7.2-00000 ;;
+        595.99.02-ffmpeg7)
+            driver=595.99.02
+            package_id=syno-nvidia-ffmpeg7-595
+            display_name="Synology NVIDIA FFmpeg 7 (595)"
+            package_user=sc-nv-ffmpeg7-595
+            package_group=nv-ffmpeg7-595
+            ffmpeg_major=7
+            jellyfin_default=/var/packages/ffmpeg7/target/bin/ffmpeg
+            package_revision=1
+            archive=nv-ffmpeg7-595.99.02.tgz
+            digest=5f5b5e3eeec99e1c3aafef15cdecbc5f05028465e76498d0fa728a7dc6caa418
+            source_url="$RELEASE/$archive"
+            jellyfin_version=7.1.4-3
+            jellyfin_min_major=0
             dsm_min=7.2-00000 ;;
     esac
 
