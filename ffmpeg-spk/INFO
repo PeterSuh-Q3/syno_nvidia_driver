@@ -1,7 +1,7 @@
 package="__PACKAGE__"
 version="__VERSION__"
 displayname="__DISPLAYNAME__"
-description="Jellyfin FFmpeg __FFMPEG_MAJOR__ with NVIDIA NVDEC/NVENC support for driver __DRIVER__."
+description="Requires the matching NVIDIA driver __DRIVER__; other driver versions are rejected. Jellyfin FFmpeg __FFMPEG_MAJOR__ with NVIDIA NVDEC/NVENC support."
 arch="x86_64"
 os_min_ver="__OS_MIN_VER__"
 maintainer="PeterSuh-Q3"

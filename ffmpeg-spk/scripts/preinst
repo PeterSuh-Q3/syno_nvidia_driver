@@ -4,6 +4,7 @@
 set -eu
 EXPECTED=__DRIVER__
 FOUND=""
+DETECTED=""
 # Include both the legacy package IDs and the current flavor-specific IDs.
 # New 580/595 SPKs have distinct IDs, so checking only the old generic IDs
 # rejects a valid matching driver before the payload can be installed.
@@ -17,10 +18,22 @@ for PACKAGE in \
     syno-nvidia-driver-kver4-dsm70; do
     INFO="/var/packages/$PACKAGE/INFO"
     [ -r "$INFO" ] || continue
-    INSTALLED="$(sed -n 's/^version="\([0-9][0-9.]*\)-[0-9][0-9]*"$/\1/p' "$INFO" | head -1)"
-    [ "$INSTALLED" = "$EXPECTED" ] && FOUND="$PACKAGE"
+    PACKAGE_VERSION="$(sed -n 's/^version="\([^"]*\)"$/\1/p' "$INFO" | head -1)"
+    [ -n "$PACKAGE_VERSION" ] || continue
+    DRIVER_VERSION="$(printf '%s\n' "$PACKAGE_VERSION" | sed 's/-[0-9][0-9]*$//')"
+    if [ "$DRIVER_VERSION" = "$EXPECTED" ]; then
+        FOUND="$PACKAGE ($PACKAGE_VERSION)"
+    else
+        DETECTED="${DETECTED}${DETECTED:+; }$PACKAGE ($PACKAGE_VERSION; driver $DRIVER_VERSION)"
+    fi
 done
 [ -n "$FOUND" ] || {
-    echo "NVIDIA FFmpeg: install the matching NVIDIA driver SPK ($EXPECTED) first" >&2
+    echo "NVIDIA FFmpeg installation blocked: this package requires NVIDIA driver $EXPECTED." >&2
+    if [ -n "$DETECTED" ]; then
+        echo "Detected installed NVIDIA driver package(s): $DETECTED." >&2
+    else
+        echo "No supported NVIDIA driver package was detected." >&2
+    fi
+    echo "Install the matching $EXPECTED driver package first, or choose an FFmpeg package built for the installed driver." >&2
     exit 1
 }

@@ -50,7 +50,7 @@ for driver in "${versions[@]}"; do
             package_group=nvidia-ffmpeg
             ffmpeg_major=7
             jellyfin_default=/var/packages/ffmpeg7/target/bin/ffmpeg
-            package_revision=4
+            package_revision=5
             archive=nv-ffmpeg-580.173.02.tgz
             digest=64ee797d1b391eec07ebf1a9b558079d8ad1bbb2fb48352f3c3cb77a38e242a3
             source_url="$RELEASE/$archive"
@@ -64,7 +64,7 @@ for driver in "${versions[@]}"; do
             package_group=nvidia-ffmpeg8
             ffmpeg_major=8
             jellyfin_default=/var/packages/ffmpeg8/target/bin/ffmpeg
-            package_revision=1
+            package_revision=2
             archive=jellyfin-ffmpeg_8.1.3-1_portable_linux64-gpl.tar.xz
             digest=b86dc023c64a5a9a410e6e3a938a970460214fae78f31c1553c9f88f1c289b6a
             source_url="https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v8.1.3-1/$archive"
