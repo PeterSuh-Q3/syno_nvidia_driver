@@ -364,10 +364,121 @@ do_postinst() {
 
   echo "nvidia-driver: installed for platform '$PLATFORM' (kernel $KVER)"
   echo "nvidia-driver: loading modules now (also re-runs on every future boot via start-stop-status)"
-  do_start
+  do_start install
+  restart_plex install
+}
+
+plex_process_signature() {
+  signature=""
+  for cmdline in /proc/[0-9]*/cmdline; do
+    [ -r "$cmdline" ] || continue
+    args="$(tr '\000' ' ' < "$cmdline" 2>/dev/null || true)"
+    case "$args" in
+      *"/Plex Media Server"*|*"Plex Media Server"*)
+        pid="${cmdline#/proc/}"
+        pid="${pid%/cmdline}"
+        signature="${signature}${pid} "
+        ;;
+    esac
+  done
+  printf '%s' "$signature" | sed 's/[[:space:]]*$//'
+}
+
+plex_driver_ready() {
+  expected="$(expected_driver_version)"
+  running="$(running_driver_version)"
+  [ -n "$expected" ] && [ "$expected" = "$running" ] &&
+    [ -e /dev/nvidia0 ] && [ -d /proc/driver/nvidia/gpus ] &&
+    [ -n "$(ls -A /proc/driver/nvidia/gpus 2>/dev/null)" ]
+}
+
+plex_restart_result() {
+  printf 'NVIDIA_PLEX_RESULT=%s\n' "$1"
+}
+
+restart_plex() {
+  reason=${1:-boot}
+  PLEX_PKG=PlexMediaServer
+  SYNOPKG=/usr/syno/bin/synopkg
+
+  # This integration is intentionally scoped to package builds that opt in
+  # with a payload marker, so other NVIDIA branches keep their old behavior.
+  [ -f "$RUNTIME/share/nvidia-plex-restart.enabled" ] || return 0
+
+  [ -f "/var/packages/$PLEX_PKG/INFO" ] || {
+    rclog "Plex restart skipped: Plex package not installed"
+    [ "$reason" = install ] && plex_restart_result absent
+    return 0
+  }
+
+  before="$(plex_process_signature)"
+  if [ -z "$before" ]; then
+    rclog "Plex restart skipped: Plex was not running ($reason)"
+    [ "$reason" = install ] && plex_restart_result not_running
+    return 0
+  fi
+
+  if ! plex_driver_ready; then
+    rclog "Plex restart skipped: NVIDIA driver is not active ($reason)"
+    [ "$reason" = install ] && plex_restart_result driver_not_ready
+    return 0
+  fi
+
+  if [ "$reason" = boot ]; then
+    # /run is volatile and recreated at boot, so the marker limits this boot
+    # hook to one attempt without suppressing the next DSM boot's retry.
+    marker_dir=/run/syno-nvidia-driver
+    [ -d /run ] || marker_dir=/tmp/syno-nvidia-driver
+    mkdir -p "$marker_dir" 2>/dev/null || true
+    marker="$marker_dir/plex-restart-at-boot.done"
+    if [ -e "$marker" ]; then
+      rclog "Plex boot restart skipped: already attempted this boot"
+      return 0
+    fi
+    : > "$marker" 2>/dev/null || true
+  else
+    # Installation itself already performed the restart for this boot. If
+    # DSM invokes start-stop-status again immediately after postinst, do not
+    # restart Plex a second time in the same boot.
+    marker_dir=/run/syno-nvidia-driver
+    [ -d /run ] || marker_dir=/tmp/syno-nvidia-driver
+    mkdir -p "$marker_dir" 2>/dev/null || true
+    marker="$marker_dir/plex-restart-at-boot.done"
+    : > "$marker" 2>/dev/null || true
+  fi
+
+  rclog "Plex restart requested ($reason); NVIDIA $(expected_driver_version) is active"
+  if [ ! -x "$SYNOPKG" ] || ! "$SYNOPKG" restart "$PLEX_PKG" >>"$RCLOG" 2>&1; then
+    rclog "Plex restart command failed ($reason)"
+    [ "$reason" = install ] && plex_restart_result restart_failed
+    return 0
+  fi
+
+  elapsed=0
+  stable=0
+  while [ "$elapsed" -lt 120 ]; do
+    current="$(plex_process_signature)"
+    if [ -n "$current" ] && [ "$current" != "$before" ]; then
+      stable=$((stable + 1))
+      [ "$stable" -ge 2 ] && {
+        rclog "Plex restart succeeded ($reason); new process IDs: $current"
+        [ "$reason" = install ] && plex_restart_result restart_success
+        return 0
+      }
+    else
+      stable=0
+    fi
+    sleep 3
+    elapsed=$((elapsed + 3))
+  done
+
+  rclog "Plex restart timed out ($reason); previous process IDs: $before"
+  [ "$reason" = install ] && plex_restart_result restart_timeout
+  return 0
 }
 
 do_start() {
+  START_REASON=${1:-boot}
   rclog "=== start ==="
   lock_payload
 
@@ -427,22 +538,16 @@ do_start() {
     return 0
   fi
 
-  DRM_PROVIDER_READY=1
-  if [ -f "$RUNTIME/share/nvidia-drm-kms-modeset.enabled" ]; then
-    if load_quad_drm_provider "$CURP" "$(uname -r)"; then
-      DRM_PROVIDER_READY=1
-    else
-      DRM_PROVIDER_READY=0
-      rclog "NVIDIA DRM/KMS will be skipped; NVIDIA core modules may still load"
+  if [ -f "$RUNTIME/share/nvidia-drm-provider.enabled" ]; then
+    if ! load_quad_drm_provider "$CURP" "$(uname -r)"; then
+      rclog "NVIDIA module activation skipped because the bundled DRM provider closure is unavailable"
+      echo "nvidia-driver: matching DRM dependencies could not be loaded; refusing to load NVIDIA modules with unresolved symbols." >&2
+      return 1
     fi
   fi
 
   for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
     if [ -f "/usr/lib/modules/$m.ko" ]; then
-      if [ "$m" = nvidia-drm ] && [ -f "$RUNTIME/share/nvidia-drm-kms-modeset.enabled" ] && [ "$DRM_PROVIDER_READY" -ne 1 ]; then
-        rclog "skipping nvidia-drm because the bundled DRM provider closure is not ready"
-        continue
-      fi
       if [ "$m" = nvidia-drm ] && [ -f "$RUNTIME/share/nvidia-drm-kms-modeset.enabled" ]; then
         if /sbin/insmod "/usr/lib/modules/$m.ko" modeset=1 2>>"$RCLOG"; then
           rclog "insmod $m modeset=1 OK"
@@ -519,6 +624,7 @@ do_start() {
 
   rclog "loaded: $(lsmod 2>/dev/null | grep -c '^nvidia') nvidia modules; nodes: $(ls /dev/nvidia* 2>/dev/null | tr '\n' ' ')"
   rclog "=== start done ==="
+  [ "$START_REASON" = install ] || restart_plex boot
   return 0
 }
 
@@ -569,7 +675,7 @@ do_uninstall() {
 
 case "${1:-}" in
   postinst)  do_postinst ;;
-  start)     do_start ;;
+  start)     do_start boot ;;
   uninstall) do_uninstall ;;
   *) echo "nvidia-backend: unknown action '${1:-}'" >&2; exit 1 ;;
 esac

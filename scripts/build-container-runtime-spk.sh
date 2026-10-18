@@ -7,13 +7,13 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SOURCE="$ROOT/container-runtime-spk"
 PACKAGE=syno-nvidia-container-runtime
-VERSION=1.19.1-7
+VERSION=1.19.1-8
 ARCH=x86_64
 ASSET=nv-container-runtime-1.19.1.tgz
 ASSET_SHA256=5c39123aa2cc2a2539828aa557f812b14a789fc865ce2cf242e625381de0257e
 RELEASE=https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia
 WORK="$ROOT/work/$PACKAGE-$ARCH-$VERSION"
-OUT="$ROOT/dist"
+OUT="${DIST_DIR:-$ROOT/dist}"
 BUILD_IMAGE=${CONTAINER_RUNTIME_BUILD_IMAGE:-gcc:14-bookworm}
 
 rm -rf "$WORK"

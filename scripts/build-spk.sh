@@ -24,13 +24,15 @@ KVER5_PLATFORMS="epyc7002 epyc7003 geminilakenk icelaked r1000nk v1000nk"
 KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap geminilake purley r1000 v1000"
 KO_FLAVOR_PREFIX=""
 ENABLE_NVIDIA_DRM_MODESET=0
+BUNDLE_DRM_PROVIDER=0
+ENABLE_PLEX_RESTART=0
 DISPLAYNAME="Synology NVIDIA Driver"
 
 case "$VARIANT" in
   kver5-580-open)
     WORK="$ROOT/work/spk-kver5-580-open-rev2"
     DRIVER=580.173.02
-    PACKAGE_REVISION=3
+    PACKAGE_REVISION=4
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-580-open
@@ -38,14 +40,17 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="open-"
-    DESC="NVIDIA 580.173.02 open driver; CUDA API 13.0; GPU: Turing and Ampere (open-module support; Ada/Blackwell excluded by the bundled 580 GPU table); kernel 5.10.55. Offline platforms: ${PLATFORMS}. At startup, the package reselects the bundled module set for the detected platform and validates its kernel ABI; if the driver is already loaded after migration, reboot to activate the validated set."
+    DESC_EN="NVIDIA 580.173.02 open driver; CUDA API 13.0; supports Turing and Ampere GPUs listed in the bundled compatibility table (Ada and Blackwell are excluded); kernel 5.10.55. Bundled platforms: ${PLATFORMS}. Selects and validates the module set for the detected platform at startup. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 580.173.02 오픈 드라이버입니다. CUDA API 13.0을 제공하며, 번들 호환성 표에 포함된 Turing 및 Ampere GPU를 지원합니다(Ada 및 Blackwell 제외). 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 시작 시 감지된 플랫폼에 맞는 모듈을 선택하고 ABI를 확인합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-580-proprietary)
-    # Keep this revision's assembly tree separate from older builds.
-    WORK="$ROOT/work/spk-kver5-580-proprietary-rev3"
+    # Include the matching DRM provider and retain the modeset=1 path used by
+    # revision -4. Restart Plex after the driver is ready so its CUDA probe is
+    # not lost to the DSM boot-time service ordering race.
+    WORK="$ROOT/work/spk-kver5-580-proprietary-rev4"
     DRIVER=580.173.02
-    PACKAGE_REVISION=4
+    PACKAGE_REVISION=6
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-580-proprietary
@@ -53,14 +58,17 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="proprietary-"
+    BUNDLE_DRM_PROVIDER=1
     ENABLE_NVIDIA_DRM_MODESET=1
-    DESC="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; Maxwell-through-Ampere GPUs in the bundled compatibility table; kernel 5.10.55. Includes the six-platform quad DRM provider bundle. Required DRM dependencies are loaded before NVIDIA DRM; bundled i915, amdgpu and virtual GPU drivers are not force-loaded. KMS enabled: ${PLATFORMS}. At startup, the package reselects the detected platform's module set and verifies its kernel ABI; reboot after migration when NVIDIA modules are already resident."
+    ENABLE_PLEX_RESTART=1
+    DESC_EN="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; supports Maxwell-through-Ampere GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. Includes the matching six-platform DRM provider and DRM/KMS modesetting (modeset=1). If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 580.173.02 독점 드라이버입니다. CUDA API 13.0을 제공하며, 번들 호환성 표에 포함된 Maxwell부터 Ampere까지의 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 6개 플랫폼에 맞는 DRM 공급자와 DRM/KMS 모드 설정(modeset=1)을 포함합니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-595-open)
     WORK="$ROOT/work/spk-kver5-595-open"
     DRIVER=595.99.02
-    PACKAGE_REVISION=2
+    PACKAGE_REVISION=3
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-595-open
@@ -68,13 +76,14 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="open-"
-    DESC="NVIDIA 595.99.02 open driver; CUDA API 13.2; GPU: Turing and newer (as listed by the bundled GPU support table); kernel 5.10.55. Offline platforms: ${PLATFORMS}. At startup, the package reselects the detected platform's module set and validates its kernel ABI; if NVIDIA modules are already loaded after migration, reboot to activate the validated set."
+    DESC_EN="NVIDIA 595.99.02 open driver; CUDA API 13.2; supports Turing and newer GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. Selects and validates the module set for the detected platform at startup. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 595.99.02 오픈 드라이버입니다. CUDA API 13.2를 제공하며, 번들 호환성 표에 포함된 Turing 이상 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 시작 시 감지된 플랫폼에 맞는 모듈을 선택하고 ABI를 확인합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-595-proprietary)
     WORK="$ROOT/work/spk-kver5-595-proprietary"
     DRIVER=595.99.02
-    PACKAGE_REVISION=2
+    PACKAGE_REVISION=3
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-595-proprietary
@@ -82,7 +91,8 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="proprietary-"
-    DESC="NVIDIA 595.99.02 proprietary driver; CUDA API 13.2; GPU: Turing and newer (as listed by the bundled GPU support table); kernel 5.10.55. Offline platforms: ${PLATFORMS}. This is the proprietary flavor with its own package ID and GPU compatibility pre-check. At startup, the package reselects the detected platform's module set and validates its kernel ABI; if NVIDIA modules are already loaded after migration, reboot to activate the validated set."
+    DESC_EN="NVIDIA 595.99.02 proprietary driver; CUDA API 13.2; supports Turing and newer GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. This proprietary flavor has a GPU compatibility pre-check. Selects and validates the module set for the detected platform at startup. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 595.99.02 독점 드라이버입니다. CUDA API 13.2를 제공하며, 번들 호환성 표에 포함된 Turing 이상 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 독점 버전은 GPU 호환성 사전 검사를 수행합니다. 시작 시 감지된 플랫폼에 맞는 모듈을 선택하고 ABI를 확인합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5)
@@ -90,25 +100,27 @@ case "$VARIANT" in
     exit 2
     ;;
   kver4-72)
-    PACKAGE_REVISION=5
+    PACKAGE_REVISION=6
     DRIVER=550.163.01
     KSUFFIX=44302
     PLATFORMS="$KVER4_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver4-dsm72
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=0
-    DESC="NVIDIA driver (kernel 4.4.302, DSM 7.2-7.4, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}. Startup selects the current platform's modules only when their bundled kernel ABI matches; after migration with NVIDIA modules loaded, reboot to activate the selected set."
+    DESC_EN="NVIDIA 550.163.01 driver for kernel 4.4.302 (DSM 7.2–7.4); bundled platforms: ${PLATFORMS}. At startup, selects the current platform's modules only when the bundled kernel ABI matches. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="커널 4.4.302용 NVIDIA 550.163.01 드라이버입니다(DSM 7.2–7.4). 포함 플랫폼은 ${PLATFORMS}입니다. 시작 시 번들 커널 ABI가 일치하는 경우에만 현재 플랫폼의 모듈을 선택합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX="-dsm7.2-7.4"
     ;;
   kver4-70)
-    PACKAGE_REVISION=5
+    PACKAGE_REVISION=6
     DRIVER=550.163.01
     KSUFFIX=44180
     PLATFORMS="$KVER4_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver4-dsm70
     OS_MIN_VER=7.0-00000
     BUNDLE_GSP=0
-    DESC="NVIDIA driver (kernel 4.4.180, DSM 7.0-7.1, driver ${DRIVER}). Bundled offline for: ${PLATFORMS}. Startup selects the current platform's modules only when their bundled kernel ABI matches; after migration with NVIDIA modules loaded, reboot to activate the selected set."
+    DESC_EN="NVIDIA 550.163.01 driver for kernel 4.4.180 (DSM 7.0–7.1); bundled platforms: ${PLATFORMS}. At startup, selects the current platform's modules only when the bundled kernel ABI matches. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="커널 4.4.180용 NVIDIA 550.163.01 드라이버입니다(DSM 7.0–7.1). 포함 플랫폼은 ${PLATFORMS}입니다. 시작 시 번들 커널 ABI가 일치하는 경우에만 현재 플랫폼의 모듈을 선택합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX="-dsm7.0-7.1"
     ;;
   *) echo "Unknown variant: $VARIANT (expected kver5-580-open | kver5-580-proprietary | kver5-595-open | kver5-595-proprietary | kver4-72 | kver4-70)" >&2; exit 2 ;;
@@ -165,12 +177,16 @@ if [ "$ENABLE_NVIDIA_DRM_MODESET" = 1 ]; then
   mkdir -p "$WORK/target/share"
   : > "$WORK/target/share/nvidia-drm-kms-modeset.enabled"
 fi
+if [ "$ENABLE_PLEX_RESTART" = 1 ]; then
+  mkdir -p "$WORK/target/share"
+  : > "$WORK/target/share/nvidia-plex-restart.enabled"
+fi
 
-# ---- matching quad-DRM provider archives (580 proprietary K5 only) -------
-# Preserve each upstream archive whole in the SPK. At runtime the backend
-# extracts only the active platform's pack into a package-private kmod tree;
-# it never overlays the system module directory or force-loads GPU drivers.
-if [ "$VARIANT" = "kver5-580-proprietary" ]; then
+# ---- matching quad-DRM provider archives (580 proprietary K5) -------------
+# The current NVIDIA module packs reference DRM symbols even when modeset=1
+# is disabled. Bundle the exact platform-matched provider and load its DRM
+# dependency closure before NVIDIA modules; this flag is independent of KMS.
+if [ "$BUNDLE_DRM_PROVIDER" = 1 ]; then
   DRM_CACHE="$ROOT/work/kver5-580-proprietary-quad-drm-26.10.13"
   DRM_STAGE="$WORK/target/lib/drm-provider"
   mkdir -p "$DRM_STAGE" "$DRM_CACHE"
@@ -200,6 +216,8 @@ icelaked 5c0960e5eb598c80df07cf2a17714ba9ebd274a8a944efb070112da81388010d
 r1000nk 424d51a8b2f4b912da6e11f006762447ad5128e7d568705a32ec04e3c9a41b17
 v1000nk b9fadf760f40ff7916f948521a8667da86f145e6797c5b099b8f545ac5812f0a
 DRM_ASSETS
+  mkdir -p "$WORK/target/share"
+  : > "$WORK/target/share/nvidia-drm-provider.enabled"
 fi
 
 # ---- GSP firmware (kver5/580 only - no gsp_fw entries exist for 550) ------
@@ -301,7 +319,8 @@ sed -i.bak \
   -e "s/^displayname=\"[^\"]*\"/displayname=\"$DISPLAYNAME\"/" \
   -e "s/^arch=\"[^\"]*\"/arch=\"$PLATFORMS\"/" \
   -e "s/^os_min_ver=\"[^\"]*\"/os_min_ver=\"$OS_MIN_VER\"/" \
-  -e "s#^description=\".*\"#description=\"$DESC\"#" \
+  -e "s#__DESC_EN__#$DESC_EN#g" \
+  -e "s#__DESC_KR__#$DESC_KR#g" \
   "$WORK/INFO"
 rm -f "$WORK/INFO.bak"
 VERSION=$(sed -n 's/^version="\([^"]*\)"$/\1/p' "$WORK/INFO" | head -1)

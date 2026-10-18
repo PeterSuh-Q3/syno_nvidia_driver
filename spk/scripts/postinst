@@ -18,4 +18,61 @@ if [ ! -u "$HELPER" ]; then
   exit 1
 fi
 
-"$HELPER" postinst
+set +e
+OUTPUT=$("$HELPER" postinst 2>&1)
+STATUS=$?
+set -e
+
+RESULT=$(printf '%s\n' "$OUTPUT" | sed -n 's/^NVIDIA_PLEX_RESULT=//p' | tail -1)
+case "$RESULT" in
+  restart_success)
+    if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+      MESSAGE="NVIDIA 드라이버 설치 후 Plex를 재시작했습니다. Plex가 정상 기동한 것을 확인했으며, NVIDIA GPU 초기화를 다시 수행하도록 하여 하드웨어 트랜스코딩 장치 인식을 안정화합니다."
+    else
+      MESSAGE="Plex was restarted after NVIDIA driver installation and returned successfully. This lets Plex initialize the NVIDIA GPU after the driver is ready and helps stabilize hardware-transcoding device detection."
+    fi
+    ;;
+  restart_failed)
+    if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+      MESSAGE="NVIDIA 드라이버 설치는 완료됐지만 Plex 재시작 요청에 실패했습니다. Plex 상태를 확인하고 수동으로 재시작해 주세요."
+    else
+      MESSAGE="The NVIDIA driver was installed, but the Plex restart request failed. Check Plex and restart it manually."
+    fi
+    ;;
+  restart_timeout)
+    if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+      MESSAGE="Plex 재시작 요청은 전달했지만 제한 시간 안에 새 Plex 프로세스의 정상 기동을 확인하지 못했습니다. Plex 상태를 확인해 주세요."
+    else
+      MESSAGE="Plex was asked to restart, but a new Plex process was not confirmed before the timeout. Check Plex's status."
+    fi
+    ;;
+  not_running)
+    if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+      MESSAGE="NVIDIA 드라이버 설치는 완료됐습니다. 설치 시 Plex가 실행 중이 아니어서 재시작하지 않았습니다. Plex를 시작하면 NVIDIA GPU를 초기화합니다."
+    else
+      MESSAGE="The NVIDIA driver was installed. Plex was not running, so it was not restarted; Plex will initialize the NVIDIA GPU when started."
+    fi
+    ;;
+  driver_not_ready)
+    if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+      MESSAGE="NVIDIA 드라이버 파일 설치는 완료됐지만 커널 드라이버가 아직 활성 상태가 아니어서 Plex를 재시작하지 않았습니다. 재부팅 후 Plex GPU 인식을 확인해 주세요."
+    else
+      MESSAGE="The NVIDIA driver files were installed, but the kernel driver is not active yet, so Plex was not restarted. Check GPU detection after rebooting."
+    fi
+    ;;
+  absent)
+    MESSAGE=""
+    ;;
+  *)
+    MESSAGE=""
+    ;;
+esac
+
+if [ -n "${MESSAGE:-}" ] && [ -n "${SYNOPKG_TEMP_LOGFILE:-}" ]; then
+  printf '%s\n' "$MESSAGE" >> "$SYNOPKG_TEMP_LOGFILE" 2>/dev/null || true
+fi
+
+if [ "$STATUS" -ne 0 ]; then
+  printf '%s\n' "$OUTPUT" | sed '/^NVIDIA_PLEX_RESULT=/d' >&2
+  exit "$STATUS"
+fi

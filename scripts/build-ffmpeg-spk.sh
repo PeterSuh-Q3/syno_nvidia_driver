@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SOURCE="$ROOT/ffmpeg-spk"
 DL="$ROOT/work/nvidia-ffmpeg-spk/dl"
-OUT="$ROOT/dist"
+OUT="${DIST_DIR:-$ROOT/dist}"
 IMAGE=${FFMPEG_HELPER_BUILD_IMAGE:-gcc:14-bookworm}
 RELEASE=https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/nvidia
 
@@ -36,7 +36,7 @@ for driver in "${versions[@]}"; do
             package_group=nv-ffmpeg7-550
             ffmpeg_major=7
             jellyfin_default=/var/packages/ffmpeg7/target/bin/ffmpeg
-            package_revision=1
+            package_revision=2
             archive=nv-ffmpeg-550.163.01.tgz
             digest=509fd4f7f6e07ae616c7f16f65bee6aaebdd33d34653816c5c4dbc4f708b8165
             source_url="$RELEASE/$archive"
@@ -50,7 +50,7 @@ for driver in "${versions[@]}"; do
             package_group=nv-ffmpeg7-580
             ffmpeg_major=7
             jellyfin_default=/var/packages/ffmpeg7/target/bin/ffmpeg
-            package_revision=1
+            package_revision=2
             archive=nv-ffmpeg-580.173.02.tgz
             digest=64ee797d1b391eec07ebf1a9b558079d8ad1bbb2fb48352f3c3cb77a38e242a3
             source_url="$RELEASE/$archive"
@@ -65,7 +65,7 @@ for driver in "${versions[@]}"; do
             package_group=nv-ffmpeg8-580
             ffmpeg_major=8
             jellyfin_default=/var/packages/ffmpeg8/target/bin/ffmpeg
-            package_revision=2
+            package_revision=3
             archive=jellyfin-ffmpeg_8.1.3-1_portable_linux64-gpl.tar.xz
             digest=b86dc023c64a5a9a410e6e3a938a970460214fae78f31c1553c9f88f1c289b6a
             source_url="https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v8.1.3-1/$archive"
@@ -79,7 +79,7 @@ for driver in "${versions[@]}"; do
             package_group=nv-ffmpeg8-595
             ffmpeg_major=8
             jellyfin_default=/var/packages/ffmpeg8/target/bin/ffmpeg
-            package_revision=1
+            package_revision=2
             archive=jellyfin-ffmpeg_8.1.3-1_portable_linux64-gpl.tar.xz
             digest=b86dc023c64a5a9a410e6e3a938a970460214fae78f31c1553c9f88f1c289b6a
             source_url="https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v8.1.3-1/$archive"
@@ -95,7 +95,7 @@ for driver in "${versions[@]}"; do
             package_group=nv-ffmpeg7-595
             ffmpeg_major=7
             jellyfin_default=/var/packages/ffmpeg7/target/bin/ffmpeg
-            package_revision=1
+            package_revision=2
             archive=nv-ffmpeg7-595.99.02.tgz
             digest=5f5b5e3eeec99e1c3aafef15cdecbc5f05028465e76498d0fa728a7dc6caa418
             source_url="$RELEASE/$archive"
@@ -152,9 +152,12 @@ for driver in "${versions[@]}"; do
     chmod 0755 "$work/scripts/"*
     sed -e "s/__PACKAGE_USER__/$package_user/g" -e "s/__PACKAGE_GROUP__/$package_group/g" \
         "$SOURCE/conf/privilege" > "$work/conf/privilege"
+    DESC_EN="Requires the matching NVIDIA driver $driver; other driver versions are rejected. Jellyfin FFmpeg $ffmpeg_major with NVIDIA NVDEC/NVENC hardware transcoding support. Configure Jellyfin to use this package's FFmpeg path and restart Jellyfin after installation."
+    DESC_KR="NVIDIA 드라이버 $driver 전용 패키지이며 다른 드라이버 버전에서는 설치가 거부됩니다. NVIDIA NVDEC/NVENC 하드웨어 트랜스코딩을 지원하는 Jellyfin FFmpeg ${ffmpeg_major}를 제공합니다. 설치 후 Jellyfin의 FFmpeg 경로를 이 패키지 경로로 지정하고 Jellyfin을 재시작하십시오."
     sed -e "s/__VERSION__/$driver-$package_revision/g" -e "s/__DRIVER__/$driver/g" \
         -e "s/__PACKAGE__/$package_id/g" -e "s/__DISPLAYNAME__/$display_name/g" \
         -e "s/__FFMPEG_MAJOR__/$ffmpeg_major/g" \
+        -e "s#__DESC_EN__#$DESC_EN#g" -e "s#__DESC_KR__#$DESC_KR#g" \
         -e "s/__OS_MIN_VER__/$dsm_min/g" "$SOURCE/INFO" > "$work/INFO"
     cp "$SOURCE/PACKAGE_ICON.PNG" "$SOURCE/PACKAGE_ICON_256.PNG" "$work/"
 
