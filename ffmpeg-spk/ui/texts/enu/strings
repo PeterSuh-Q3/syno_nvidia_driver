@@ -1,8 +1,8 @@
 [notification]
 app_title="Synology NVIDIA FFmpeg"
 app_desc="NVIDIA-enabled Jellyfin FFmpeg package"
-restart_started="The Jellyfin FFmpeg path was updated. Jellyfin is restarting to apply the change; please wait."
-restart_success="Jellyfin restarted successfully and is running with the NVIDIA FFmpeg path."
+restart_started="Jellyfin is restarting because its configured FFmpeg executable was changed to this package's NVIDIA-enabled FFmpeg 8."
+restart_success="Jellyfin restarted successfully to apply this package's NVIDIA-enabled FFmpeg 8 path, and is running with the new path."
 restart_failed="Jellyfin restart could not be started. The FFmpeg package remains installed; check Jellyfin and restart it manually."
 restart_timeout="Jellyfin did not return with the NVIDIA FFmpeg path before the timeout. Check Jellyfin and the package log."
 not_running="The Jellyfin FFmpeg path was updated, but Jellyfin was not running, so no restart was performed. Start Jellyfin to apply it."

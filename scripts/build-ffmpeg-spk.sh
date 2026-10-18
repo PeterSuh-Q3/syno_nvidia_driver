@@ -106,6 +106,9 @@ for driver in "${versions[@]}"; do
 
     fetch "$source_url" "$DL/$archive" "$digest"
     work="$ROOT/work/nvidia-ffmpeg-spk/build-$selected-r$package_revision"
+    # Recreate this generated build tree so files from an earlier layout
+    # cannot leak into package.tgz or the outer SPK.
+    rm -rf "$work"
     mkdir -p "$work/target/bin/helper" "$work/target/share" "$work/target/ui/texts/enu" "$work/target/ui/texts/krn" "$work/scripts" "$work/conf" "$OUT"
     if [[ $archive == *.tgz ]]; then
         tar -xzf "$DL/$archive" -C "$work/target" ./bin/ffmpeg ./bin/ffprobe ./SOURCE
@@ -166,6 +169,7 @@ for driver in "${versions[@]}"; do
     spk="$OUT/$package_id-$driver-$package_revision-x86_64.spk"
     tar -C "$work" -cf "$spk" INFO package.tgz scripts conf PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG
     tar -tf "$spk" | grep -qx package.tgz
+    tar -xOf "$spk" package.tgz | tar -tzf - | grep -qx './ui/config'
     printf 'Built %s\n' "$spk"
     sha256sum "$spk"
 done

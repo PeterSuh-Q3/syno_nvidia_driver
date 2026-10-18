@@ -2,4 +2,51 @@
 set -eu
 HELPER=/var/packages/__PACKAGE__/target/bin/helper/nvidia-ffmpeg-helper.x86_64
 [ -u "$HELPER" ] || { echo "NVIDIA FFmpeg: setuid helper unavailable" >&2; exit 1; }
-exec "$HELPER" postinst
+FFMPEG_MAJOR=$(printf '%s\n' "$HELPER" | sed -n 's#^.*/syno-nvidia-ffmpeg\([78]\)-[0-9].*/.*#\1#p')
+[ -n "$FFMPEG_MAJOR" ] || FFMPEG_MAJOR=8
+set +e
+OUTPUT=$("$HELPER" postinst 2>&1)
+STATUS=$?
+set -e
+
+RESULT=$(printf '%s\n' "$OUTPUT" | sed -n 's/^NVIDIA_FFMPEG_RESULT=//p' | tail -1)
+case "$RESULT" in
+    jellyfin_restart_success)
+        if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+            MESSAGE="Jellyfin 앱을 재시작했습니다. 이 패키지의 NVIDIA 지원 FFmpeg ${FFMPEG_MAJOR} 경로를 적용하기 위해 Jellyfin의 FFmpeg 경로를 변경했으며, 새 경로로 정상 기동한 것을 확인했습니다."
+        else
+            MESSAGE="Jellyfin was restarted to apply this package's NVIDIA-enabled FFmpeg ${FFMPEG_MAJOR} path. It started successfully, and its configured FFmpeg path now points to this package."
+        fi
+        ;;
+    jellyfin_not_running)
+        if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+            MESSAGE="Jellyfin의 FFmpeg ${FFMPEG_MAJOR} 경로를 이 패키지로 변경했습니다. 당시 Jellyfin이 실행 중이 아니어서 재시작하지 않았습니다. 적용을 위해 Jellyfin을 시작해 주세요."
+        else
+            MESSAGE="Jellyfin's FFmpeg ${FFMPEG_MAJOR} path was changed to this package. Jellyfin was not running, so it was not restarted; start Jellyfin to apply the new path."
+        fi
+        ;;
+    jellyfin_restart_failed)
+        if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+            MESSAGE="FFmpeg ${FFMPEG_MAJOR} 경로 변경 적용을 위한 Jellyfin 재시작에 실패했습니다. 기존 FFmpeg 경로로 되돌렸습니다. Jellyfin 상태를 확인해 주세요."
+        else
+            MESSAGE="Jellyfin could not be restarted to apply the FFmpeg ${FFMPEG_MAJOR} path change. The previous FFmpeg path was restored; check Jellyfin's status."
+        fi
+        ;;
+    jellyfin_restart_timeout)
+        if [ "${SYNOPKG_DSM_LANGUAGE:-enu}" = krn ]; then
+            MESSAGE="FFmpeg ${FFMPEG_MAJOR} 경로 변경 적용 후 제한 시간 안에 Jellyfin의 정상 기동을 확인하지 못했습니다. 이전 FFmpeg 경로로 되돌렸습니다. Jellyfin 상태를 확인해 주세요."
+        else
+            MESSAGE="Jellyfin did not return with the new FFmpeg ${FFMPEG_MAJOR} path before the timeout. The previous FFmpeg path was restored; check Jellyfin's status."
+        fi
+        ;;
+    *) MESSAGE="" ;;
+esac
+
+if [ -n "$MESSAGE" ] && [ -n "${SYNOPKG_TEMP_LOGFILE:-}" ]; then
+    printf '%s\n' "$MESSAGE" >> "$SYNOPKG_TEMP_LOGFILE" 2>/dev/null || true
+fi
+
+if [ "$STATUS" -ne 0 ]; then
+    printf '%s\n' "$OUTPUT" | sed '/^NVIDIA_FFMPEG_RESULT=/d' >&2
+    exit "$STATUS"
+fi

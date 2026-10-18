@@ -319,3 +319,15 @@ da4fe2bcf6a4d0d9cfe5d69cdd1398d7df96a6978b1469861459a4a262b2231a  syno-nvidia-dr
 epyc7002(SA6400) + Quadro P1000 실기에서 end-to-end 검증 완료: `synopkg install`
 성공, NVIDIA 커널 모듈 4개 전부 로드, `nvidia-smi`가 GPU를 정상 인식.
 시스템 파티션/권한 수정은 DS1621+(v1000/kver4)에서 별도 검증.
+
+---
+
+# Synology NVIDIA FFmpeg packages — separated driver and FFmpeg versions
+
+## English
+
+Five separately identified packages are provided for the supported NVIDIA-driver / Jellyfin FFmpeg combinations: FFmpeg 7 for drivers 550, 580, and 595, plus FFmpeg 8 for drivers 580 and 595. Each package has its own package ID and install path, requires the matching NVIDIA driver version, and does not replace Synology Community FFmpeg files. After changing Jellyfin's FFmpeg path, the installer restarts Jellyfin and reports the reason and whether it returned successfully in the installation result popup. Enable and verify Jellyfin hardware acceleration separately. The 580 / FFmpeg 8 package was directly reinstalled on the test NAS and confirmed to restart Jellyfin successfully; 595 / FFmpeg 7 still needs NVDEC/NVENC testing on a 595-equipped system.
+
+## 한국어
+
+지원되는 NVIDIA 드라이버와 Jellyfin FFmpeg 조합을 5개 패키지로 분리했습니다. 드라이버 550·580·595용 FFmpeg 7과 드라이버 580·595용 FFmpeg 8을 제공하며, 각 패키지는 고유한 패키지 ID와 설치 경로를 사용하고 같은 버전의 NVIDIA 드라이버를 요구합니다. Synology Community FFmpeg 파일은 교체하지 않습니다. Jellyfin FFmpeg 경로를 변경한 경우 설치기가 Jellyfin을 재시작하며, 재시작 사유와 정상 기동 여부를 설치 결과 팝업에 표시합니다. Jellyfin의 하드웨어 가속은 별도로 활성화하고 검증해야 합니다. 580 / FFmpeg 8 패키지는 실기에 직접 재설치해 Jellyfin 재시작 성공을 확인했으며, 595 / FFmpeg 7의 NVDEC·NVENC 실기 검증은 아직 필요합니다.

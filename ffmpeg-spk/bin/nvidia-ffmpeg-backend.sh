@@ -2,6 +2,7 @@
 # Fixed-action backend: only the package-owned FFmpeg files and a recognised
 # SynoCommunity Jellyfin launch argument may be touched.
 set -eu
+ACTION=${1:-}
 
 PKG_ID="$(cat "$(dirname "$0")/../share/package-id" 2>/dev/null || true)"
 [ -n "$PKG_ID" ] || { echo "NVIDIA FFmpeg: package ID metadata missing" >&2; exit 1; }
@@ -21,18 +22,9 @@ OLD_PATH_FILE="$STATE_DIR/previous-ffmpeg-path"
 
 log() { printf '%s NVIDIA FFmpeg: %s\n' "$(date '+%F %T')" "$*" >> "$LOG" 2>/dev/null || true; }
 
-notify() {
-    key=$1
-    [ -x /usr/syno/bin/synodsmnotify ] || { log "desktop notification unavailable: $key"; return 1; }
-    /usr/syno/bin/synodsmnotify \
-        -c "SYNO.SDS._ThirdParty.App.$PKG_ID" \
-        @administrators \
-        "$PKG_ID:notification:app_title" \
-        "$PKG_ID:notification:$key" >/dev/null 2>&1 || {
-            log "desktop notification failed: $key"
-            return 1
-        }
-    log "desktop notification sent: $key"
+emit_install_result() {
+    [ "$ACTION" = postinst ] || return 0
+    printf 'NVIDIA_FFMPEG_RESULT=%s\n' "$1"
 }
 
 active_driver() {
@@ -111,18 +103,17 @@ wait_for_jellyfin_ready() {
 
 restart_jellyfin_after_path_change() {
     is_jellyfin_running || {
-        notify not_running || true
         log "FFmpeg path updated while Jellyfin was stopped; restart deferred"
+        emit_install_result jellyfin_not_running
         return 0
     }
-    notify restart_started || true
     /usr/syno/bin/synopkg restart jellyfin >/dev/null 2>&1 || {
         log "Jellyfin restart command failed"
         return 1
     }
     if wait_for_jellyfin_ready; then
         log "Jellyfin returned to running with the NVIDIA FFmpeg path"
-        notify restart_success || true
+        emit_install_result jellyfin_restart_success
         return 0
     fi
     log "Jellyfin readiness check timed out after 120 seconds"
@@ -185,9 +176,9 @@ configure() {
             /usr/syno/bin/synopkg restart jellyfin >/dev/null 2>&1 || log "Jellyfin restart after path rollback failed"
         fi
         if [ "$restart_result" -eq 2 ]; then
-            notify restart_timeout || true
+            emit_install_result jellyfin_restart_timeout
         else
-            notify restart_failed || true
+            emit_install_result jellyfin_restart_failed
         fi
         log "Jellyfin FFmpeg path rolled back; package remains installed"
     fi

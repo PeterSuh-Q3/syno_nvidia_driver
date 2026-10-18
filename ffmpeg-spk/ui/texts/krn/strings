@@ -1,8 +1,8 @@
 [notification]
 app_title="Synology NVIDIA FFmpeg"
 app_desc="NVIDIA 가속 Jellyfin FFmpeg 패키지"
-restart_started="Jellyfin FFmpeg 경로를 변경했습니다. 적용을 위해 Jellyfin을 재시작 중입니다. 잠시 기다려 주세요."
-restart_success="Jellyfin이 정상적으로 재시작되었고 NVIDIA FFmpeg 경로를 사용 중입니다."
+restart_started="Jellyfin의 FFmpeg 실행 경로를 이 패키지의 NVIDIA 지원 FFmpeg 8로 바꾸어 적용을 위해 재시작하고 있습니다."
+restart_success="이 패키지의 NVIDIA 지원 FFmpeg 8 경로를 적용하기 위해 Jellyfin을 재시작했으며, 새 경로로 정상 기동했습니다."
 restart_failed="Jellyfin 재시작 요청에 실패했습니다. FFmpeg 패키지는 설치된 상태입니다. Jellyfin 상태를 확인한 뒤 수동으로 재시작해 주세요."
 restart_timeout="제한 시간 안에 Jellyfin이 NVIDIA FFmpeg 경로로 정상 기동하지 않았습니다. Jellyfin과 패키지 로그를 확인해 주세요."
 not_running="Jellyfin FFmpeg 경로를 변경했지만 Jellyfin이 실행 중이 아니어서 재시작하지 않았습니다. 설정을 적용하려면 Jellyfin을 시작해 주세요."

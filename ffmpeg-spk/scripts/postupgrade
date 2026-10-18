@@ -1,0 +1,4 @@
+#!/bin/sh
+# DSM requires explicit upgrade hooks for third-party SPKs. Re-run the
+# idempotent post-install setup after the new payload has been installed.
+exec "$(dirname "$0")/postinst" "$@"

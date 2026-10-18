@@ -1,0 +1,4 @@
+#!/bin/sh
+# Leave the currently configured Jellyfin FFmpeg path in place while DSM
+# replaces this package's payload. The upgrade hook re-applies integration.
+exit 0
