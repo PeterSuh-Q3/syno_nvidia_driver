@@ -61,8 +61,8 @@ case "$VARIANT" in
     BUNDLE_DRM_PROVIDER=1
     ENABLE_NVIDIA_DRM_MODESET=1
     ENABLE_PLEX_RESTART=1
-    DESC_EN="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; supports Maxwell-through-Ampere GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. Includes the matching six-platform DRM provider and DRM/KMS modesetting (modeset=1). If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Reboot after migration if NVIDIA modules are already loaded."
-    DESC_KR="NVIDIA 580.173.02 독점 드라이버입니다. CUDA API 13.0을 제공하며, 번들 호환성 표에 포함된 Maxwell부터 Ampere까지의 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 6개 플랫폼에 맞는 DRM 공급자와 DRM/KMS 모드 설정(modeset=1)을 포함합니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
+    DESC_EN="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; supports Maxwell-through-Ampere GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. Includes matching DRM providers for the five platforms that require a bundled provider and DRM/KMS modesetting (modeset=1); geminilakenk uses its existing DRM stack and does not bundle or load a separate provider pack. If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 580.173.02 독점 드라이버입니다. CUDA API 13.0을 제공하며, 번들 호환성 표에 포함된 Maxwell부터 Ampere까지의 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 별도 DRM 공급자 팩이 필요한 5개 플랫폼에만 해당 provider를 포함하며 DRM/KMS 모드 설정(modeset=1)을 적용합니다. geminilakenk는 기존 DRM 스택을 사용하므로 별도 provider 팩을 포함하거나 적재하지 않습니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-595-open)
@@ -183,9 +183,9 @@ if [ "$ENABLE_PLEX_RESTART" = 1 ]; then
 fi
 
 # ---- matching quad-DRM provider archives (580 proprietary K5) -------------
-# The current NVIDIA module packs reference DRM symbols even when modeset=1
-# is disabled. Bundle the exact platform-matched provider and load its DRM
-# dependency closure before NVIDIA modules; this flag is independent of KMS.
+# Five platforms require the bundled DRM provider closure before NVIDIA
+# modules. geminilakenk has a verified KMS path using its existing DRM stack,
+# so it is intentionally excluded from this cache, package payload, and load.
 if [ "$BUNDLE_DRM_PROVIDER" = 1 ]; then
   DRM_CACHE="$ROOT/work/kver5-580-proprietary-quad-drm-26.10.13"
   DRM_STAGE="$WORK/target/lib/drm-provider"
@@ -211,7 +211,6 @@ if [ "$BUNDLE_DRM_PROVIDER" = 1 ]; then
   done <<'DRM_ASSETS'
 epyc7002 5d9b7e5473102106859740bc329a94323635cf4c3ae0c51a5c6a6916bc424cf9
 epyc7003 722669eb04384dea78ae7aeec75aaa039e2582e352af5536a447e50ef54cdd1f
-geminilakenk 5f7d81c6e511c8e5db7d471bcf44e30d156643c9f14b6a1c43a76db967dfed92
 icelaked 5c0960e5eb598c80df07cf2a17714ba9ebd274a8a944efb070112da81388010d
 r1000nk 424d51a8b2f4b912da6e11f006762447ad5128e7d568705a32ec04e3c9a41b17
 v1000nk b9fadf760f40ff7916f948521a8667da86f145e6797c5b099b8f545ac5812f0a

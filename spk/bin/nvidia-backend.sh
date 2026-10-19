@@ -219,14 +219,18 @@ restore_kver5_modules_if_missing() {
   fi
 }
 
-# K5 proprietary -3 bundles the full platform-specific quad-DRM pack, but
-# should load only the provider closure needed by NVIDIA DRM. Keep those
-# modules under this package's private kmod root rather than replacing files
-# in /usr/lib/modules. Loading drm_kms_helper through modprobe follows the
-# matching pack's modules.dep; it does not request i915/amdgpu/bochs.
+# K5 proprietary bundles platform-specific quad-DRM packs only for platforms
+# that need them. Load only the provider closure needed by NVIDIA DRM. Keep
+# those modules under this package's private kmod root rather than replacing
+# files in /usr/lib/modules. Loading drm_kms_helper through modprobe follows
+# the matching pack's modules.dep; it does not request i915/amdgpu/bochs.
 load_quad_drm_provider() {
   platform=$1
   krel=$2
+  if [ "$platform" = geminilakenk ]; then
+    rclog "quad DRM provider: skipped for geminilakenk; using the platform's existing DRM stack"
+    return 0
+  fi
   case "$krel" in 5.10.55*) ;; *)
     rclog "quad DRM provider: unsupported kernel '$krel'"
     return 1
