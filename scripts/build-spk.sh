@@ -81,9 +81,9 @@ case "$VARIANT" in
     FILESUFFIX=""
     ;;
   kver5-595-proprietary)
-    WORK="$ROOT/work/spk-kver5-595-proprietary"
+    WORK="$ROOT/work/spk-kver5-595-proprietary-rev4"
     DRIVER=595.99.02
-    PACKAGE_REVISION=3
+    PACKAGE_REVISION=4
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-595-proprietary
@@ -91,8 +91,11 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="proprietary-"
-    DESC_EN="NVIDIA 595.99.02 proprietary driver; CUDA API 13.2; supports Turing and newer GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. This proprietary flavor has a GPU compatibility pre-check. Selects and validates the module set for the detected platform at startup. Reboot after migration if NVIDIA modules are already loaded."
-    DESC_KR="NVIDIA 595.99.02 독점 드라이버입니다. CUDA API 13.2를 제공하며, 번들 호환성 표에 포함된 Turing 이상 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 독점 버전은 GPU 호환성 사전 검사를 수행합니다. 시작 시 감지된 플랫폼에 맞는 모듈을 선택하고 ABI를 확인합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
+    BUNDLE_DRM_PROVIDER=1
+    ENABLE_NVIDIA_DRM_MODESET=1
+    ENABLE_PLEX_RESTART=1
+    DESC_EN="NVIDIA 595.99.02 proprietary driver; CUDA API 13.2; supports Turing and newer GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. This flavor performs a GPU compatibility pre-check and enables DRM/KMS modesetting (modeset=1). Matching DRM providers are bundled for the five platforms that require them; geminilakenk uses its existing DRM stack without a separate provider pack. If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 595.99.02 독점 드라이버입니다. CUDA API 13.2를 제공하며, 번들 호환성 표에 포함된 Turing 이상 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. GPU 호환성 사전 검사를 수행하고 DRM/KMS 모드 설정(modeset=1)을 활성화합니다. 별도 DRM 공급자가 필요한 5개 플랫폼에는 일치하는 provider를 포함하고, geminilakenk는 기존 DRM 스택을 사용해 별도 provider 팩을 포함하지 않습니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5)
