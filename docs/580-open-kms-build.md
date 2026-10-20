@@ -71,17 +71,19 @@ Shared-layer hashes at preparation time: userspace
 
 | Platform | Exact provider pack hash checked | Candidate build | Physical KMS test | Promotion |
 | --- | --- | --- | --- | --- |
-| epyc7002 | `1e2485c6c5e963c7f392781c5375b3cb8374f0bd8541b7c0fab866b5434dd64c` | Not started | Pending | Not promoted |
-| epyc7003 | `86f3676a0269faf73439f3cb4afb9979def9f64ba7292769fd43463634309910` | Not started | Pending | Not promoted |
-| icelaked | `0e673b94ebea05442163a4ce1c49a96f2aadb0be8be2d4f608b8a8fc7adb53d9` | Not started | Pending | Not promoted |
-| r1000nk | `da8bd4d3fa08acd46f1a0c4632ed3cd68807a528742c2b2160fc0743334e8e68` | Not started | Pending | Not promoted |
-| v1000nk | `f8306467031a58bf2c06cbb55bae6ccb47c8295380c638bf52fb163b2c28ac65` | Not started | Pending | Not promoted |
-| geminilakenk | `542621fbb5d731dedde7fe108e7e058ead28e04252e1a8ba6043583c7f3ac4fc` | Not started; intentionally last | Pending | Not promoted |
+| epyc7002 | `1e2485c6c5e963c7f392781c5375b3cb8374f0bd8541b7c0fab866b5434dd64c` | Passed static checks; `out/kms-expansion/kver5-580-open/epyc7002-20261020T140944Z/artifacts/nv-ko-580.173.02-open-epyc7002-51055.tgz`; SHA-256 `193b75c0ee20a3dc86967a165336b6d8a1fe1519bde6a8b8543d6515db6e3e49` | Pending | Not promoted |
+| epyc7003 | `86f3676a0269faf73439f3cb4afb9979def9f64ba7292769fd43463634309910` | Passed static checks; `out/kms-expansion/kver5-580-open/epyc7003-20261020T141119Z/artifacts/nv-ko-580.173.02-open-epyc7003-51055.tgz`; SHA-256 `4eec471d93dfed950e56ea4e390a6ff115cd8806439443f4186727832fe0f451` | Pending | Not promoted |
+| icelaked | `0e673b94ebea05442163a4ce1c49a96f2aadb0be8be2d4f608b8a8fc7adb53d9` | Passed static checks; `out/kms-expansion/kver5-580-open/icelaked-20261020T141250Z/artifacts/nv-ko-580.173.02-open-icelaked-51055.tgz`; SHA-256 `dd4c765cb3f4ebe23e6b289007d617f2a7988690f4e95d26110e54de83be8f26` | Pending | Not promoted |
+| r1000nk | `da8bd4d3fa08acd46f1a0c4632ed3cd68807a528742c2b2160fc0743334e8e68` | Passed static checks; `out/kms-expansion/kver5-580-open/r1000nk-20261020T141421Z/artifacts/nv-ko-580.173.02-open-r1000nk-51055.tgz`; SHA-256 `87a1384232d65b2fff2255c2d5fada17cc1f26c6748483b09392fc5c6e757da2` | Pending | Not promoted |
+| v1000nk | `f8306467031a58bf2c06cbb55bae6ccb47c8295380c638bf52fb163b2c28ac65` | Passed static checks; `out/kms-expansion/kver5-580-open/v1000nk-20261020T141551Z/artifacts/nv-ko-580.173.02-open-v1000nk-51055.tgz`; SHA-256 `6ab38aad4cee54a5bff4835489fff3558527a140ba43842d0384d4374af6fa01` | Pending | Not promoted |
+| geminilakenk | `542621fbb5d731dedde7fe108e7e058ead28e04252e1a8ba6043583c7f3ac4fc` | Passed static checks; intentionally last; `out/kms-expansion/kver5-580-open/geminilakenk-20261020T141716Z/artifacts/nv-ko-580.173.02-open-geminilakenk-51055.tgz`; SHA-256 `85e6c168014c6b7e1b65fcb6eb28d5f36ee86259ae906322a5ceb7fc3b318277` | Pending | Not promoted |
 
 All six baseline archives, provider receipts/modules/headers/symbol tables,
 shared userspace/GSP files, and the pinned `.run` were present at this
-checkpoint. The new scripts passed `bash -n` and `git diff --check`; no 580
-Open KMS compilation or NAS load test has been performed yet.
+checkpoint. The scripts pass `bash -n` and ShellCheck. All six candidates
+passed the build and static ABI gates in the prescribed
+order, with `geminilakenk` last. Physical KMS load tests are pending for all
+platforms. No candidate has been promoted.
 
 ## Run
 
