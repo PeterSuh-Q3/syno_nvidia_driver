@@ -29,6 +29,11 @@ expected_driver_version() {
 # /proc reports the module already resident in memory. modinfo would instead
 # report the newly installed file on disk and cannot detect an unsafe upgrade.
 running_driver_version() {
+  # A fresh install or postinst before module activation has no proc entry.
+  # Treat that as "no loaded driver" (not an awk I/O failure); the caller can
+  # then continue to load the staged modules. When the entry exists, preserve
+  # the version comparison that prevents unsafe live replacement.
+  [ -r /proc/driver/nvidia/version ] || return 0
   # Proprietary modules report "Kernel Module 580.173.02", while open
   # modules report "Open Kernel Module for x86_64 580.173.02". Extract the
   # version-shaped token instead of assuming it immediately follows
