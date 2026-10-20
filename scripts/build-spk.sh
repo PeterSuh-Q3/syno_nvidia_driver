@@ -25,13 +25,17 @@ KO_FLAVOR_PREFIX=""
 ENABLE_NVIDIA_DRM_MODESET=0
 BUNDLE_DRM_PROVIDER=0
 ENABLE_PLEX_RESTART=0
+KO_ASSET_DIR=""
+DRM_PROVIDER_SOURCE="release-26.10.13"
 DISPLAYNAME="Synology NVIDIA Driver"
 
 case "$VARIANT" in
   kver5-580-open)
-    WORK="$ROOT/work/spk-kver5-580-open-rev2"
+    # KMS candidate promotion: keep the prior no-KMS SPK/version recoverable,
+    # while the standard open package now consumes the promoted KMS module set.
+    WORK="$ROOT/work/spk-kver5-580-open-kms"
     DRIVER=580.173.02
-    PACKAGE_REVISION=4
+    PACKAGE_REVISION=5
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-580-open
@@ -39,8 +43,13 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="open-"
-    DESC_EN="NVIDIA 580.173.02 open driver; CUDA API 13.0; supports Turing and Ampere GPUs listed in the bundled compatibility table (Ada and Blackwell are excluded); kernel 5.10.55. Bundled platforms: ${PLATFORMS}. Selects and validates the module set for the detected platform at startup. Reboot after migration if NVIDIA modules are already loaded."
-    DESC_KR="NVIDIA 580.173.02 오픈 드라이버입니다. CUDA API 13.0을 제공하며, 번들 호환성 표에 포함된 Turing 및 Ampere GPU를 지원합니다(Ada 및 Blackwell 제외). 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 시작 시 감지된 플랫폼에 맞는 모듈을 선택하고 ABI를 확인합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
+    KO_ASSET_DIR="$ROOT/out/release-assets-nvidia/kver5-580-open"
+    BUNDLE_DRM_PROVIDER=1
+    DRM_PROVIDER_SOURCE="work-26.10.15"
+    ENABLE_NVIDIA_DRM_MODESET=1
+    ENABLE_PLEX_RESTART=1
+    DESC_EN="NVIDIA 580.173.02 open driver; CUDA API 13.0; supports Turing and Ampere GPUs listed in the bundled compatibility table (Ada and Blackwell are excluded); kernel 5.10.55. Bundled platforms: ${PLATFORMS}. This KMS-enabled build uses matching platform quad-DRM providers and loads nvidia-drm with modeset=1. If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Physical KMS validation is pending for these candidate modules. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 580.173.02 오픈 드라이버입니다. CUDA API 13.0을 제공하며, 번들 호환성 표에 포함된 Turing 및 Ampere GPU를 지원합니다(Ada 및 Blackwell 제외). 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. KMS 활성화 빌드로 플랫폼별 quad-DRM provider를 포함하고 nvidia-drm을 modeset=1로 적재합니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 이 후보 모듈의 실기 KMS 검증은 아직 완료되지 않았습니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-580-proprietary)
@@ -65,9 +74,11 @@ case "$VARIANT" in
     FILESUFFIX=""
     ;;
   kver5-595-open)
-    WORK="$ROOT/work/spk-kver5-595-open"
+    # Keep the previous no-KMS assembly tree intact; package the promoted KMS
+    # modules and current shared quad-DRM provider archives in a new tree.
+    WORK="$ROOT/work/spk-kver5-595-open-kms"
     DRIVER=595.99.02
-    PACKAGE_REVISION=3
+    PACKAGE_REVISION=4
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-595-open
@@ -75,8 +86,13 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="open-"
-    DESC_EN="NVIDIA 595.99.02 open driver; CUDA API 13.2; supports Turing and newer GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. Selects and validates the module set for the detected platform at startup. Reboot after migration if NVIDIA modules are already loaded."
-    DESC_KR="NVIDIA 595.99.02 오픈 드라이버입니다. CUDA API 13.2를 제공하며, 번들 호환성 표에 포함된 Turing 이상 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 시작 시 감지된 플랫폼에 맞는 모듈을 선택하고 ABI를 확인합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
+    KO_ASSET_DIR="$ROOT/out/release-assets-nvidia/kver5-595-open"
+    BUNDLE_DRM_PROVIDER=1
+    DRM_PROVIDER_SOURCE="work-26.10.15"
+    ENABLE_NVIDIA_DRM_MODESET=1
+    ENABLE_PLEX_RESTART=1
+    DESC_EN="NVIDIA 595.99.02 open driver; CUDA API 13.2; supports Turing and newer GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. This KMS-enabled build uses matching platform quad-DRM providers and loads nvidia-drm with modeset=1. If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Physical KMS validation is pending for these candidate modules. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 595.99.02 오픈 드라이버입니다. CUDA API 13.2를 제공하며, 번들 호환성 표에 포함된 Turing 이상 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. KMS 활성화 빌드로 플랫폼별 quad-DRM provider를 포함하고 nvidia-drm을 modeset=1로 적재합니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 이 후보 모듈의 실기 KMS 검증은 아직 완료되지 않았습니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-595-proprietary)
@@ -157,7 +173,12 @@ fetch() {
 # ---- kernel modules (one nv-ko tgz per platform, this variant's kernel) ----
 for p in $PLATFORMS; do
   KO="nv-ko-${DRIVER}-${KO_FLAVOR_PREFIX}${p}-${KSUFFIX}.tgz"
-  fetch "$KO"
+  if [ -n "$KO_ASSET_DIR" ]; then
+    [ -s "$KO_ASSET_DIR/$KO" ] || { echo "missing promoted module archive: $KO_ASSET_DIR/$KO" >&2; exit 1; }
+    cp -p "$KO_ASSET_DIR/$KO" "$WORK/dl/$KO"
+  else
+    fetch "$KO"
+  fi
   mkdir -p "$WORK/target/lib/modules/$p"
   tar -xzf "$WORK/dl/$KO" -C "$WORK/target/lib/modules/$p"
 done
@@ -191,12 +212,12 @@ if [ "$BUNDLE_DRM_PROVIDER" = 1 ]; then
   DRM_CACHE="$ROOT/work/shared-quad-drm-providers"
   DRM_STAGE="$WORK/target/lib/drm-provider"
   mkdir -p "$DRM_STAGE" "$DRM_CACHE"
-  while read -r platform sha source_base; do
-    [ -n "$platform" ] || continue
-    [ "$platform" = geminilakenk ] && [ "$DRIVER" != 595.99.02 ] && continue
-    asset="${platform}-7.4-5.10.55-drm.tgz"
-    src="$DRM_CACHE/$asset"
+  stage_drm_provider() {
+    local platform=$1 sha=$2 source_base=$3
+    local asset="${platform}-7.4-5.10.55-drm.tgz" actual tmp
+    local src="$DRM_CACHE/$asset"
     if [ ! -s "$src" ]; then
+      [ "$source_base" != local ] || { echo "missing local quad DRM provider: $src" >&2; exit 1; }
       tmp="$src.tmp.$$"
       echo "fetching pinned quad DRM provider $asset"
       curl -sL --fail "$source_base/$asset" -o "$tmp"
@@ -210,7 +231,26 @@ if [ "$BUNDLE_DRM_PROVIDER" = 1 ]; then
     tar -tzf "$src" | grep -qx 'drm.ko' || { echo "invalid DRM archive: $asset" >&2; exit 1; }
     tar -tzf "$src" | grep -qx 'drm_kms_helper.ko' || { echo "missing drm_kms_helper.ko: $asset" >&2; exit 1; }
     cp "$src" "$DRM_STAGE/$asset"
-  done <<'DRM_ASSETS'
+  }
+
+  if [ "$DRM_PROVIDER_SOURCE" = "work-26.10.15" ]; then
+    while read -r platform sha; do
+      [ -n "$platform" ] || continue
+      stage_drm_provider "$platform" "$sha" local
+    done <<'DRM_ASSETS'
+epyc7002 1e2485c6c5e963c7f392781c5375b3cb8374f0bd8541b7c0fab866b5434dd64c
+epyc7003 86f3676a0269faf73439f3cb4afb9979def9f64ba7292769fd43463634309910
+icelaked 0e673b94ebea05442163a4ce1c49a96f2aadb0be8be2d4f608b8a8fc7adb53d9
+r1000nk da8bd4d3fa08acd46f1a0c4632ed3cd68807a528742c2b2160fc0743334e8e68
+v1000nk f8306467031a58bf2c06cbb55bae6ccb47c8295380c638bf52fb163b2c28ac65
+geminilakenk 542621fbb5d731dedde7fe108e7e058ead28e04252e1a8ba6043583c7f3ac4fc
+DRM_ASSETS
+  else
+    while read -r platform sha source_base; do
+      [ -n "$platform" ] || continue
+      [ "$platform" = geminilakenk ] && [ "$DRIVER" != 595.99.02 ] && continue
+      stage_drm_provider "$platform" "$sha" "$source_base"
+    done <<'DRM_ASSETS'
 epyc7002 5d9b7e5473102106859740bc329a94323635cf4c3ae0c51a5c6a6916bc424cf9 https://github.com/PeterSuh-Q3/mshell-modules/releases/download/26.10.13
 epyc7003 722669eb04384dea78ae7aeec75aaa039e2582e352af5536a447e50ef54cdd1f https://github.com/PeterSuh-Q3/mshell-modules/releases/download/26.10.13
 icelaked 5c0960e5eb598c80df07cf2a17714ba9ebd274a8a944efb070112da81388010d https://github.com/PeterSuh-Q3/mshell-modules/releases/download/26.10.13
@@ -218,6 +258,7 @@ r1000nk 424d51a8b2f4b912da6e11f006762447ad5128e7d568705a32ec04e3c9a41b17 https:/
 v1000nk b9fadf760f40ff7916f948521a8667da86f145e6797c5b099b8f545ac5812f0a https://github.com/PeterSuh-Q3/mshell-modules/releases/download/26.10.13
 geminilakenk 542621fbb5d731dedde7fe108e7e058ead28e04252e1a8ba6043583c7f3ac4fc https://github.com/PeterSuh-Q3/tcrp-modules/releases/download/26.10.15
 DRM_ASSETS
+  fi
   mkdir -p "$WORK/target/share"
   : > "$WORK/target/share/nvidia-drm-provider.enabled"
 fi

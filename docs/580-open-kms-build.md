@@ -5,9 +5,10 @@
 This recipe prepares KMS-enabled `580.173.02` Open kernel-module candidates
 for the six supported K5 platforms. It follows the successful 580 Proprietary
 full-header/provider-ABI method and the later 595 Open execution safeguards.
-It does **not** change canonical Open module packs, build an SPK, publish a
-release, or claim physical KMS validation. Results stay under
-`out/kms-expansion/kver5-580-open/` until separately reviewed and tested.
+The initial candidate build did not alter canonical module packs or build an
+SPK. On 2026-10-20, the user explicitly directed promotion and test-package
+builds before physical KMS validation was complete; the original no-KMS
+archives were preserved under `out/kms-expansion/kver5-580-open/`.
 
 The host runner is
 `scripts/kms-compat/580.173.02/build-open-six-platforms.sh`. It uses this
@@ -71,19 +72,52 @@ Shared-layer hashes at preparation time: userspace
 
 | Platform | Exact provider pack hash checked | Candidate build | Physical KMS test | Promotion |
 | --- | --- | --- | --- | --- |
-| epyc7002 | `1e2485c6c5e963c7f392781c5375b3cb8374f0bd8541b7c0fab866b5434dd64c` | Passed static checks; `out/kms-expansion/kver5-580-open/epyc7002-20261020T140944Z/artifacts/nv-ko-580.173.02-open-epyc7002-51055.tgz`; SHA-256 `193b75c0ee20a3dc86967a165336b6d8a1fe1519bde6a8b8543d6515db6e3e49` | Pending | Not promoted |
-| epyc7003 | `86f3676a0269faf73439f3cb4afb9979def9f64ba7292769fd43463634309910` | Passed static checks; `out/kms-expansion/kver5-580-open/epyc7003-20261020T141119Z/artifacts/nv-ko-580.173.02-open-epyc7003-51055.tgz`; SHA-256 `4eec471d93dfed950e56ea4e390a6ff115cd8806439443f4186727832fe0f451` | Pending | Not promoted |
-| icelaked | `0e673b94ebea05442163a4ce1c49a96f2aadb0be8be2d4f608b8a8fc7adb53d9` | Passed static checks; `out/kms-expansion/kver5-580-open/icelaked-20261020T141250Z/artifacts/nv-ko-580.173.02-open-icelaked-51055.tgz`; SHA-256 `dd4c765cb3f4ebe23e6b289007d617f2a7988690f4e95d26110e54de83be8f26` | Pending | Not promoted |
-| r1000nk | `da8bd4d3fa08acd46f1a0c4632ed3cd68807a528742c2b2160fc0743334e8e68` | Passed static checks; `out/kms-expansion/kver5-580-open/r1000nk-20261020T141421Z/artifacts/nv-ko-580.173.02-open-r1000nk-51055.tgz`; SHA-256 `87a1384232d65b2fff2255c2d5fada17cc1f26c6748483b09392fc5c6e757da2` | Pending | Not promoted |
-| v1000nk | `f8306467031a58bf2c06cbb55bae6ccb47c8295380c638bf52fb163b2c28ac65` | Passed static checks; `out/kms-expansion/kver5-580-open/v1000nk-20261020T141551Z/artifacts/nv-ko-580.173.02-open-v1000nk-51055.tgz`; SHA-256 `6ab38aad4cee54a5bff4835489fff3558527a140ba43842d0384d4374af6fa01` | Pending | Not promoted |
-| geminilakenk | `542621fbb5d731dedde7fe108e7e058ead28e04252e1a8ba6043583c7f3ac4fc` | Passed static checks; intentionally last; `out/kms-expansion/kver5-580-open/geminilakenk-20261020T141716Z/artifacts/nv-ko-580.173.02-open-geminilakenk-51055.tgz`; SHA-256 `85e6c168014c6b7e1b65fcb6eb28d5f36ee86259ae906322a5ceb7fc3b318277` | Pending | Not promoted |
+| epyc7002 | `1e2485c6c5e963c7f392781c5375b3cb8374f0bd8541b7c0fab866b5434dd64c` | Passed static checks; `out/kms-expansion/kver5-580-open/epyc7002-20261020T140944Z/artifacts/nv-ko-580.173.02-open-epyc7002-51055.tgz`; SHA-256 `193b75c0ee20a3dc86967a165336b6d8a1fe1519bde6a8b8543d6515db6e3e49` | Pending | Promoted to local canonical KMS asset set |
+| epyc7003 | `86f3676a0269faf73439f3cb4afb9979def9f64ba7292769fd43463634309910` | Passed static checks; `out/kms-expansion/kver5-580-open/epyc7003-20261020T141119Z/artifacts/nv-ko-580.173.02-open-epyc7003-51055.tgz`; SHA-256 `4eec471d93dfed950e56ea4e390a6ff115cd8806439443f4186727832fe0f451` | Pending | Promoted to local canonical KMS asset set |
+| icelaked | `0e673b94ebea05442163a4ce1c49a96f2aadb0be8be2d4f608b8a8fc7adb53d9` | Passed static checks; `out/kms-expansion/kver5-580-open/icelaked-20261020T141250Z/artifacts/nv-ko-580.173.02-open-icelaked-51055.tgz`; SHA-256 `dd4c765cb3f4ebe23e6b289007d617f2a7988690f4e95d26110e54de83be8f26` | Pending | Promoted to local canonical KMS asset set |
+| r1000nk | `da8bd4d3fa08acd46f1a0c4632ed3cd68807a528742c2b2160fc0743334e8e68` | Passed static checks; `out/kms-expansion/kver5-580-open/r1000nk-20261020T141421Z/artifacts/nv-ko-580.173.02-open-r1000nk-51055.tgz`; SHA-256 `87a1384232d65b2fff2255c2d5fada17cc1f26c6748483b09392fc5c6e757da2` | Pending | Promoted to local canonical KMS asset set |
+| v1000nk | `f8306467031a58bf2c06cbb55bae6ccb47c8295380c638bf52fb163b2c28ac65` | Passed static checks; `out/kms-expansion/kver5-580-open/v1000nk-20261020T141551Z/artifacts/nv-ko-580.173.02-open-v1000nk-51055.tgz`; SHA-256 `6ab38aad4cee54a5bff4835489fff3558527a140ba43842d0384d4374af6fa01` | Pending | Promoted to local canonical KMS asset set |
+| geminilakenk | `542621fbb5d731dedde7fe108e7e058ead28e04252e1a8ba6043583c7f3ac4fc` | Passed static checks; intentionally last; `out/kms-expansion/kver5-580-open/geminilakenk-20261020T141716Z/artifacts/nv-ko-580.173.02-open-geminilakenk-51055.tgz`; SHA-256 `85e6c168014c6b7e1b65fcb6eb28d5f36ee86259ae906322a5ceb7fc3b318277` | Pending | Promoted to local canonical KMS asset set |
 
 All six baseline archives, provider receipts/modules/headers/symbol tables,
 shared userspace/GSP files, and the pinned `.run` were present at this
 checkpoint. The scripts pass `bash -n` and ShellCheck. All six candidates
 passed the build and static ABI gates in the prescribed
 order, with `geminilakenk` last. Physical KMS load tests are pending for all
-platforms. No candidate has been promoted.
+platforms. The explicit later promotion and SPK build are recorded below; no
+physical KMS result should be inferred from that promotion.
+
+The six built module archives have also been gathered, without modifying the
+per-platform evidence directories, in
+`out/kms-expansion/kver5-580-open/candidate-set/`. This mirrors the
+`candidate-set` layout used by 595 Proprietary. The gathered files were
+byte-compared with their original build outputs; their hashes are the
+candidate hashes listed above. The collection itself does not constitute
+physical KMS validation.
+
+## Explicit promotion and SPK build (2026-10-20)
+
+The original canonical no-KMS module archives were preserved byte-for-byte in
+`out/kms-expansion/kver5-580-open/no-kms-canonical-baseline/`. The six KMS
+archives from `candidate-set/` were then promoted to
+`out/release-assets-nvidia/kver5-580-open/`; the promoted hashes match the
+candidate table above. The same local promotion was performed for 595 Open.
+No GitHub release or package-source publication was performed.
+
+The standard build recipe now consumes the promoted local module directory,
+bundles the six exact 26.10.15 quad-DRM provider packs from
+`work/shared-quad-drm-providers/`, enables `modeset=1`, and opts into the
+existing Plex restart behavior:
+
+- `dist/syno-nvidia-driver-kver5-580-open-580.173.02-5.spk` — SHA-256
+  `e6d4d2d63211d97475064fcdcd98c973e8204e8541fc811f27370fd02043a45c`
+- `dist/syno-nvidia-driver-kver5-595-open-595.99.02-4.spk` — SHA-256
+  `d1ce7657cdd290369044149e7690ddaefb31987437f2540903e7a3c8a4251411`
+
+Both packages include all six platform NVIDIA DRM modules, six matching
+provider archives, and KMS/provider/Plex-restart markers. The descriptions
+explicitly state that physical KMS validation is pending. These are local test
+packages only; do not describe them as runtime-validated or publicly released.
 
 ## Run
 
