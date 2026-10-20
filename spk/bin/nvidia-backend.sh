@@ -29,8 +29,20 @@ expected_driver_version() {
 # /proc reports the module already resident in memory. modinfo would instead
 # report the newly installed file on disk and cannot detect an unsafe upgrade.
 running_driver_version() {
-  sed -n 's/.*Kernel Module[[:space:]][[:space:]]*\([^[:space:]]*\).*/\1/p' \
-    /proc/driver/nvidia/version 2>/dev/null | head -1
+  # Proprietary modules report "Kernel Module 580.173.02", while open
+  # modules report "Open Kernel Module for x86_64 580.173.02". Extract the
+  # version-shaped token instead of assuming it immediately follows
+  # "Kernel Module"; otherwise the open flavor is misread as version "for".
+  awk '
+    /Kernel Module/ {
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^[0-9][0-9][0-9][.][0-9][0-9]*[.][0-9][0-9]$/) {
+          print $i
+          exit
+        }
+      }
+    }
+  ' /proc/driver/nvidia/version 2>/dev/null
 }
 
 record_activation_state() {
