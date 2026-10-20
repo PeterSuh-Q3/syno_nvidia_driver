@@ -17,16 +17,46 @@ the `modeset` parameter is not proof of runtime KMS support.
 
 ## Evidence and current baseline status
 
-The 580 Proprietary method to reproduce is the full-header, exact-platform
-recipe documented in `docs/nvidia-580-r1000nk-kms-pilot-succ.md` and
-`docs/nvidia-580-remaining-kms-build-candidates.md`, with the successful
-EPYC7002 `focused3-shim` procedure as the reference. It uses the platform's
-matching DRM provider headers and `Module.symvers`, the pinned alias shim,
-matching Kbuild/conftest inputs, and validates the resulting module against
-that platform's provider. Do not substitute a provider or kernel input from a
-different platform. Do not load a provider pack merely because the build used
-its headers: on the confirmed EPYC7002 runtime test, the additional provider
-pack was not needed for the successful module load.
+The 580 Proprietary method is not one universal shim recipe. Use the exact-
+platform provider headers and `Module.symvers` where the selected build needs
+the provider ABI, and select compatibility shims based on that platform's
+actual conftest/build inputs and resulting imports. The successful EPYC7002
+`focused3-shim` build is one reference, not a blanket instruction to inject
+that alias shim into every platform or driver version. Do not substitute a
+provider or kernel input from a different platform. Do not load a provider
+pack merely because the build used its headers: on the confirmed EPYC7002
+runtime test, the additional provider pack was not needed for the successful
+module load.
+
+### Shim taxonomy and platform evidence
+
+“Shim” refers to distinct compatibility mechanisms in this work; they are not
+interchangeable:
+
+| Mechanism | What it adapts | Evidence / applicability |
+| --- | --- | --- |
+| Provider-header ABI inputs (`drm-include`, `i915-include`, matching `Module.symvers`) | Makes NVIDIA conftest/Kbuild see the same DRM declarations and exported-symbol ABI as the selected provider build. These are build inputs, not themselves a shim. | Must match the exact platform, DSM release, and kernel. Never borrow another platform's headers or symbol table. |
+| `video/nomodeset.h` compatibility wrapper | Bridges the provider backport's `nomodeset` header/API into NVIDIA's build. | Recorded for the 580 Gemini Lake provider-header pilot in `docs/geminilake-nvidia-drm-abi.md`; this does not imply use of the focused3 DMA-BUF alias shim. |
+| `drm-provider-symbol-aliases.h` (“focused3” DMA-BUF alias shim) | Maps NVIDIA's `LINUX_DMABUF_BACKPORT(...)` references to the provider's `dmabufbkpt_*` exports. | Used by the physically KMS-tested 580 EPYC7002 focused3 path and by the 580 r1000nk successful pilot. Apply only when the target build's source/conftest and imports call for it; shim presence alone does not establish compatibility. |
+
+The final 580 Proprietary SPK's Gemini Lake `nvidia-drm.ko` matches the
+recorded provider-header pilot artifact. Its undefined-symbol table contains
+no `dmabufbkpt_*` reference, so the focused3 DMA-BUF alias shim is not
+evidenced as part of that Gemini artifact. The Gemini pilot record does
+document the provider-header inputs and `video/nomodeset.h` wrapper, but marks
+that artifact as compile-time/symbol-check evidence rather than a captured
+runtime certification. Keep those evidence levels distinct.
+
+For 595 Proprietary, the KMS pilot script pins the focused3 alias shim and
+supports optional exact-platform provider-source headers. However, the
+Gemini Lake archive in the current 595 Proprietary candidate set is byte-for-
+byte identical to the pre-promotion archive; there is no Gemini Lake run
+directory/receipt showing that the 595 pilot recipe was executed for it. Its
+lack of `dmabufbkpt_*` imports therefore does not prove that the shim is
+unnecessary for a newly built 595 Gemini module. Rebuild Gemini separately
+with its matching provider inputs, inspect the generated imports to decide
+whether the alias shim is needed, then perform runtime KMS validation before
+promoting it.
 
 The current canonical 580 Proprietary module assets have already been promoted
 to the KMS-enabled set. The repository does not currently establish that the
