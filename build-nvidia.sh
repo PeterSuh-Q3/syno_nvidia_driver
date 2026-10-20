@@ -69,6 +69,15 @@ log "parallel jobs: $JOBS"
 RUN_FILE="${RUN_FILE:-$HERE/run/NVIDIA-Linux-${ARCH}-${DRV}.run}"
 [ -f "$RUN_FILE" ] || die "NVIDIA .run not found: $RUN_FILE"
 
+# NVIDIA's .run contains two independent kernel-module source trees. Select the
+# requested flavor explicitly; silently building `kernel/` for an Open package
+# would produce a mislabeled proprietary module set.
+NV_KERNEL_MODULE_TYPE="${NV_KERNEL_MODULE_TYPE:-proprietary}"
+case "$NV_KERNEL_MODULE_TYPE" in
+  open|proprietary) ;;
+  *) die "NV_KERNEL_MODULE_TYPE must be 'open' or 'proprietary'" ;;
+esac
+
 # One userspace archive per driver version. A platform build must never write
 # its own copy under OUT. Explicit bootstrap creates the canonical shared file.
 SHARED_USERSPACE="$HERE/out/release-assets-nvidia/shared/${DRV%%.*}/nv-userspace-${DRV}.tgz"
@@ -87,6 +96,11 @@ WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 log "extracting $(basename "$RUN_FILE")"
 sh "$RUN_FILE" --extract-only --target "$WORK/nv" >/dev/null
 SRC="$WORK/nv"
+case "$NV_KERNEL_MODULE_TYPE" in
+  proprietary) KERNEL_SRC="$SRC/kernel" ;;
+  open)        KERNEL_SRC="$SRC/kernel-open" ;;
+esac
+[ -d "$KERNEL_SRC" ] || die "NVIDIA $NV_KERNEL_MODULE_TYPE kernel source tree missing: $KERNEL_SRC"
 
 # --- Synology-kernel compat patches ------------------------------------------
 # Synology's kernels are built with `# CONFIG_X86_PAT is not set`, which forces
@@ -133,12 +147,12 @@ else
 fi
 npatch=0
 if [ "$NEED_COMPAT" = "1" ]; then
-for f in $(grep -rl '__flush_tlb()' "$SRC/kernel" 2>/dev/null || true); do
+for f in $(grep -rl '__flush_tlb()' "$KERNEL_SRC" 2>/dev/null || true); do
   sed -i 's/__flush_tlb()/native_write_cr3(__native_read_cr3())/g' "$f"
   log "compat: ${f#$SRC/} __flush_tlb() -> native_write_cr3(__native_read_cr3())"
   npatch=$((npatch+1))
 done
-for f in $(grep -rl '__write_cr4(' "$SRC/kernel" 2>/dev/null || true); do
+for f in $(grep -rl '__write_cr4(' "$KERNEL_SRC" 2>/dev/null || true); do
   # Match up to the closing paren only - NOT requiring a trailing ';'. Call
   # sites (e.g. 580's nv-pat.c) have one: "__write_cr4(x);". But ≤550's
   # nv-linux.h defines the wrapper macro itself with no trailing semicolon:
@@ -151,7 +165,7 @@ for f in $(grep -rl '__write_cr4(' "$SRC/kernel" 2>/dev/null || true); do
   log "compat: ${f#$SRC/} __write_cr4() -> inline asm (native_write_cr4 not exported)"
   npatch=$((npatch+1))
 done
-leftover="$(grep -rn '__flush_tlb()\|__write_cr4(' "$SRC/kernel" 2>/dev/null || true)"
+leftover="$(grep -rn '__flush_tlb()\|__write_cr4(' "$KERNEL_SRC" 2>/dev/null || true)"
 [ -z "$leftover" ] || die "Syno compat patch did not fully apply. These call sites survive and WILL fail at modpost:
 $leftover
 This driver branch moved or reshaped them - update the compat block in build-nvidia.sh."
@@ -196,7 +210,7 @@ else
 fi
 
 if [ "${NV_DRM_IOSYS_COMPAT:-0}" = "1" ]; then
-  GEM_SOURCE="$SRC/kernel/nvidia-drm/nvidia-drm-gem.c"
+  GEM_SOURCE="$KERNEL_SRC/nvidia-drm/nvidia-drm-gem.c"
   [ -f "$GEM_SOURCE" ] || die "NVIDIA DRM GEM source missing: $GEM_SOURCE"
   grep -q '^#include "linux/dma-buf.h"$' "$GEM_SOURCE" || die "NVIDIA DRM GEM include anchor changed"
   sed -i '/^#include "linux\/dma-buf.h"$/a #include <linux/iosys-map.h>' "$GEM_SOURCE"
@@ -206,7 +220,7 @@ fi
 # =============================================================================
 # LAYER 1 - kernel modules (.ko), platform-specific
 # =============================================================================
-log "compiling glue against $KVER / $PLATFORM (NVIDIA kbuild drives conftest.sh)"
+log "compiling $NV_KERNEL_MODULE_TYPE kernel modules against $KVER / $PLATFORM (NVIDIA kbuild drives conftest.sh)"
 KBUILD_ARGS=(
   SYSSRC="$KSRC" SYSOUT="$KSRC"
   ARCH="$ARCH"
@@ -221,7 +235,7 @@ KBUILD_ARGS=(
 # (used by the focused DRM-provider compatibility build).
 [[ -n "${KBUILD_EXTRA_SYMBOLS:-}" ]] && KBUILD_ARGS+=(KBUILD_EXTRA_SYMBOLS="$KBUILD_EXTRA_SYMBOLS")
 [[ -n "${EXTRA_CFLAGS:-}" ]] && KBUILD_ARGS+=(EXTRA_CFLAGS="$EXTRA_CFLAGS")
-make -C "$SRC/kernel" modules "${KBUILD_ARGS[@]}"
+make -C "$KERNEL_SRC" modules "${KBUILD_ARGS[@]}"
 
 KO_STAGE="$WORK/ko"; mkdir -p "$KO_STAGE"
 STRIP="${CROSS_COMPILE:-}strip"
@@ -232,7 +246,7 @@ command -v modinfo >/dev/null 2>&1 && MODINFO="modinfo" || MODINFO="${CROSS_COMP
 command -v nm      >/dev/null 2>&1 && NM="nm"           || NM="${CROSS_COMPILE:-}nm"
 found=0
 for m in nvidia nvidia-uvm nvidia-modeset nvidia-drm nvidia-peermem; do
-  f="$SRC/kernel/$m.ko"; [ -f "$f" ] || continue
+  f="$KERNEL_SRC/$m.ko"; [ -f "$f" ] || continue
   "$STRIP" --strip-debug "$f" -o "$KO_STAGE/$m.ko" 2>/dev/null || cp "$f" "$KO_STAGE/$m.ko"
   vm="$("$MODINFO" -F vermagic "$KO_STAGE/$m.ko" 2>/dev/null || echo '?')"
   log "  $m.ko  vermagic: $vm"

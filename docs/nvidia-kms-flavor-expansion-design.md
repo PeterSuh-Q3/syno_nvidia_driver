@@ -120,6 +120,27 @@ separate actions and are not part of this design phase.
 
 ## Build and validation sequence
 
+### Repeated build-prerequisite failure and prevention (2026-10-20)
+
+The base pinned compiler image lacks `flex`/`lex` and `bison`. The provider
+`defconfig-drm` step fails before compilation if they are absent. This was
+missed twice: first during the 595 Open EPYC7002 provider-input preparation,
+then again during EPYC7003 preparation, even though the first occurrence had
+already been recorded in the working handoff. This was an execution oversight,
+not a source or ABI failure. New disposable containers do not inherit packages
+installed in earlier `docker run --rm` invocations.
+
+Before provider preparation, install and record the pinned packages
+`flex=2.6.4-8.2` and `bison=2:3.8.2+dfsg-1+b1`. The platform-preparation script
+must assert these versions before invoking the workflow. The Open expansion
+runner installs them afresh in one disposable container per platform and
+records versions under
+`out/kms-expansion/kver5-595-open/dependencies/<platform>-<run-id>.txt`.
+The provider workflow uses a fixed `/tmp/drm` path, so do not loop through
+platforms inside one container. Validate modules from the workflow's actual
+`source/out/modules` output directory rather than assuming the `OUT_MODULES`
+override controls the final module copy.
+
 1. **Inventory and freeze:** record current baseline hashes for all 18 target
    module archives, shared userspace/GSP hashes, `.run` hashes, source commit,
    current package IDs/revisions, and relevant build settings. Confirm the
