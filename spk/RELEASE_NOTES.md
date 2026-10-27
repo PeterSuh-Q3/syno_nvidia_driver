@@ -95,9 +95,13 @@ is not enabled for K4 packages.
 
 The K5 580 Open (`-6`), 580 Proprietary (`-7`), 595 Open (`-5`), and 595 Proprietary (`-6`) packages add a boot-time recovery path for loader/DSM update cases where NVIDIA module files or the platform marker disappear from `/usr/lib/modules`. The package validates the matching platform payload, restores missing or mismatched files, and sends administrators a DSM notification with the recovery result and whether a reboot is needed. If recovery requires a reboot while Plex is running, Plex is restarted after the recovery handling. The recovery path and Plex restart were exercised on a DSM 7.4.1 / kernel 5.10.55 test NAS with 595 Proprietary; the other package variants were built and statically checked, but were not each physically tested.
 
+The flavor pre-install check also enforces the GPU range for Open kernel modules and blocks known unsupported GPU generations before replacing an installed driver.
+
 ### 한국어
 
 K5 580 Open(`-6`), 580 Proprietary(`-7`), 595 Open(`-5`), 595 Proprietary(`-6`) 패키지에 로더/DSM 업데이트 후 `/usr/lib/modules`의 NVIDIA 모듈 파일 또는 플랫폼 표식이 사라지는 경우를 위한 부팅 시 복구 처리를 추가했습니다. 패키지가 현재 플랫폼에 맞는 payload를 검증하고 누락되거나 불일치한 파일을 복원하며, 복구 결과와 재부팅 필요 여부를 DSM 관리자에게 알립니다. 복구 과정에서 재부팅이 필요하고 Plex가 실행 중이면 복구 처리 후 Plex도 재시작합니다. 이 복구 경로와 Plex 재시작은 DSM 7.4.1 / 커널 5.10.55 실기에서 595 Proprietary로 시험했습니다. 나머지 패키지도 빌드 및 정적 검사를 마쳤지만 각 패키지를 실기에서 개별 시험하지는 않았습니다.
+
+Open flavor의 설치 전 검사도 GPU 지원 범위를 확인하고, 지원되지 않는 것으로 알려진 GPU 세대라면 기존 드라이버를 교체하기 전에 설치를 차단합니다.
 
 ## What's actually inside
 
