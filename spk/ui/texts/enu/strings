@@ -1,0 +1,6 @@
+[notification]
+app_title="Synology NVIDIA Driver"
+app_desc="NVIDIA driver recovery status"
+module_recovered="NVIDIA kernel modules were restored for {0} ({1}). Driver activation is continuing."
+module_reboot_required="NVIDIA kernel modules were restored for {0} ({1}), but older modules are still loaded. Reboot DSM to activate the restored files."
+module_recovery_failed="Compatible NVIDIA kernel modules could not be restored for {0} ({1}). Check /var/log/nvidia-driver.log."

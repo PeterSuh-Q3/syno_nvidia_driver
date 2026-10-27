@@ -1,0 +1,6 @@
+[notification]
+app_title="Synology NVIDIA Driver"
+app_desc="NVIDIA 드라이버 자동 복구 상태"
+module_recovered="{0} ({1}) NVIDIA 커널 모듈을 복구했으며 드라이버 활성화를 계속합니다."
+module_reboot_required="{0} ({1}) NVIDIA 커널 모듈을 복구했지만 이전 모듈이 메모리에 적재되어 있습니다. 복구된 파일을 적용하려면 DSM을 재부팅하십시오."
+module_recovery_failed="{0} ({1})에 호환되는 NVIDIA 커널 모듈을 복구하지 못했습니다. /var/log/nvidia-driver.log를 확인하십시오."

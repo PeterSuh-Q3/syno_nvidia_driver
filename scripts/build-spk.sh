@@ -35,7 +35,7 @@ case "$VARIANT" in
     # while the standard open package now consumes the promoted KMS module set.
     WORK="$ROOT/work/spk-kver5-580-open-kms"
     DRIVER=580.173.02
-    PACKAGE_REVISION=5
+    PACKAGE_REVISION=6
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-580-open
@@ -48,8 +48,8 @@ case "$VARIANT" in
     DRM_PROVIDER_SOURCE="work-26.10.15"
     ENABLE_NVIDIA_DRM_MODESET=1
     ENABLE_PLEX_RESTART=1
-    DESC_EN="NVIDIA 580.173.02 open driver; CUDA API 13.0; supports Turing and Ampere GPUs listed in the bundled compatibility table (Ada and Blackwell are excluded); kernel 5.10.55. Bundled platforms: ${PLATFORMS}. This KMS-enabled build uses matching platform quad-DRM providers and loads nvidia-drm with modeset=1. If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Physical KMS validation is pending for these candidate modules. Reboot after migration if NVIDIA modules are already loaded."
-    DESC_KR="NVIDIA 580.173.02 오픈 드라이버입니다. CUDA API 13.0을 제공하며, 번들 호환성 표에 포함된 Turing 및 Ampere GPU를 지원합니다(Ada 및 Blackwell 제외). 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. KMS 활성화 빌드로 플랫폼별 quad-DRM provider를 포함하고 nvidia-drm을 modeset=1로 적재합니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 이 후보 모듈의 실기 KMS 검증은 아직 완료되지 않았습니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
+    DESC_EN="NVIDIA 580.173.02 open driver; CUDA API 13.0; supports Turing/Ampere GPUs in the bundled compatibility table (not Ada/Blackwell); kernel 5.10.55. Platforms: ${PLATFORMS}. KMS enabled with matching quad-DRM providers and nvidia-drm modeset=1. Automatic recovery validates and restores missing/mismatched platform modules from this package after boot-time DSM/loader changes and notifies administrators; it reports when a reboot is required. Plex is restarted and checked after driver activation, including after recovery. Physical KMS validation is pending. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 580.173.02 오픈 드라이버입니다. CUDA API 13.0을 제공하고 번들 호환성 표의 Turing/Ampere GPU를 지원합니다(Ada/Blackwell 제외). 커널 5.10.55용, 플랫폼: ${PLATFORMS}. 일치하는 quad-DRM provider와 nvidia-drm modeset=1로 KMS를 활성화합니다. 부팅 중 DSM/로더 변경으로 플랫폼 모듈이 누락되거나 불일치하면 패키지에서 검증·복구하고 관리자에게 알리며, 재부팅 필요 여부도 안내합니다. 복구 후에도 드라이버 활성화를 확인한 다음 Plex를 재시작하고 결과를 확인합니다. 실기 KMS 검증은 진행 전입니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있으면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-580-proprietary)
@@ -58,7 +58,7 @@ case "$VARIANT" in
     # not lost to the DSM boot-time service ordering race.
     WORK="$ROOT/work/spk-kver5-580-proprietary-rev4"
     DRIVER=580.173.02
-    PACKAGE_REVISION=6
+    PACKAGE_REVISION=7
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-580-proprietary
@@ -69,8 +69,8 @@ case "$VARIANT" in
     BUNDLE_DRM_PROVIDER=1
     ENABLE_NVIDIA_DRM_MODESET=1
     ENABLE_PLEX_RESTART=1
-    DESC_EN="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; supports Maxwell-through-Ampere GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. Includes matching DRM providers for the five platforms that require a bundled provider and DRM/KMS modesetting (modeset=1); geminilakenk uses its existing DRM stack and does not bundle or load a separate provider pack. If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Reboot after migration if NVIDIA modules are already loaded."
-    DESC_KR="NVIDIA 580.173.02 독점 드라이버입니다. CUDA API 13.0을 제공하며, 번들 호환성 표에 포함된 Maxwell부터 Ampere까지의 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. 별도 DRM 공급자 팩이 필요한 5개 플랫폼에만 해당 provider를 포함하며 DRM/KMS 모드 설정(modeset=1)을 적용합니다. geminilakenk는 기존 DRM 스택을 사용하므로 별도 provider 팩을 포함하거나 적재하지 않습니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
+    DESC_EN="NVIDIA 580.173.02 proprietary driver; CUDA API 13.0; supports Maxwell–Ampere GPUs in the bundled compatibility table; kernel 5.10.55. Platforms: ${PLATFORMS}. Includes matching quad-DRM providers and KMS modeset=1. After boot-time DSM/loader changes, startup validates and restores missing/mismatched platform modules from this package, notifies administrators, and reports if reboot is required. Plex is restarted and checked after driver activation, including after recovery. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 580.173.02 독점 드라이버입니다. CUDA API 13.0을 제공하고 번들 호환성 표의 Maxwell–Ampere GPU를 지원합니다. 커널 5.10.55용, 플랫폼: ${PLATFORMS}. 일치하는 quad-DRM provider와 KMS modeset=1을 포함합니다. 부팅 중 DSM/로더 변경으로 플랫폼 모듈이 누락되거나 불일치하면 시작 시 패키지에서 검증·복구하고 관리자에게 알리며, 재부팅 필요 여부도 안내합니다. 복구 후에도 드라이버 활성화를 확인한 다음 Plex를 재시작하고 결과를 확인합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있으면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-595-open)
@@ -78,7 +78,7 @@ case "$VARIANT" in
     # modules and current shared quad-DRM provider archives in a new tree.
     WORK="$ROOT/work/spk-kver5-595-open-kms"
     DRIVER=595.99.02
-    PACKAGE_REVISION=4
+    PACKAGE_REVISION=5
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-595-open
@@ -91,14 +91,14 @@ case "$VARIANT" in
     DRM_PROVIDER_SOURCE="work-26.10.15"
     ENABLE_NVIDIA_DRM_MODESET=1
     ENABLE_PLEX_RESTART=1
-    DESC_EN="NVIDIA 595.99.02 open driver; CUDA API 13.2; supports Turing and newer GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. This KMS-enabled build uses matching platform quad-DRM providers and loads nvidia-drm with modeset=1. If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Physical KMS validation is pending for these candidate modules. Reboot after migration if NVIDIA modules are already loaded."
-    DESC_KR="NVIDIA 595.99.02 오픈 드라이버입니다. CUDA API 13.2를 제공하며, 번들 호환성 표에 포함된 Turing 이상 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. KMS 활성화 빌드로 플랫폼별 quad-DRM provider를 포함하고 nvidia-drm을 modeset=1로 적재합니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 이 후보 모듈의 실기 KMS 검증은 아직 완료되지 않았습니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
+    DESC_EN="NVIDIA 595.99.02 open driver; CUDA API 13.2; supports Turing and newer GPUs in the bundled compatibility table; kernel 5.10.55. Platforms: ${PLATFORMS}. KMS enabled with matching quad-DRM providers and nvidia-drm modeset=1. Automatic recovery validates and restores missing/mismatched platform modules from this package after boot-time DSM/loader changes and notifies administrators; it reports when a reboot is required. Plex is restarted and checked after driver activation, including after recovery. Physical KMS validation is pending. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 595.99.02 오픈 드라이버입니다. CUDA API 13.2를 제공하고 번들 호환성 표의 Turing 이상 GPU를 지원합니다. 커널 5.10.55용, 플랫폼: ${PLATFORMS}. 일치하는 quad-DRM provider와 nvidia-drm modeset=1로 KMS를 활성화합니다. 부팅 중 DSM/로더 변경으로 플랫폼 모듈이 누락되거나 불일치하면 패키지에서 검증·복구하고 관리자에게 알리며, 재부팅 필요 여부도 안내합니다. 복구 후에도 드라이버 활성화를 확인한 다음 Plex를 재시작하고 결과를 확인합니다. 실기 KMS 검증은 진행 전입니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있으면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5-595-proprietary)
     WORK="$ROOT/work/spk-kver5-595-proprietary-rev5"
     DRIVER=595.99.02
-    PACKAGE_REVISION=5
+    PACKAGE_REVISION=6
     KSUFFIX=51055
     PLATFORMS="$KVER5_PLATFORMS"
     PACKAGE=syno-nvidia-driver-kver5-595-proprietary
@@ -109,8 +109,8 @@ case "$VARIANT" in
     BUNDLE_DRM_PROVIDER=1
     ENABLE_NVIDIA_DRM_MODESET=1
     ENABLE_PLEX_RESTART=1
-    DESC_EN="NVIDIA 595.99.02 proprietary driver; CUDA API 13.2; supports Turing and newer GPUs listed in the bundled compatibility table; kernel 5.10.55. Bundled platforms: ${PLATFORMS}. This flavor performs a GPU compatibility pre-check, enables DRM/KMS modesetting (modeset=1), and includes a matching quad-DRM provider for every bundled platform. If Plex is running during installation or startup, it is restarted once after NVIDIA is ready to improve GPU detection, and the result is reported. Reboot after migration if NVIDIA modules are already loaded."
-    DESC_KR="NVIDIA 595.99.02 독점 드라이버입니다. CUDA API 13.2를 제공하며, 번들 호환성 표에 포함된 Turing 이상 GPU를 지원합니다. 커널 5.10.55용이며 포함 플랫폼은 ${PLATFORMS}입니다. GPU 호환성 사전 검사를 수행하고 DRM/KMS 모드 설정(modeset=1)을 활성화하며, 모든 포함 플랫폼에 일치하는 quad-DRM provider를 포함합니다. 설치 또는 시작 시 Plex가 실행 중이면 NVIDIA 준비 후 GPU 감지를 돕기 위해 한 번 재시작하고 결과를 안내합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있다면 재부팅하십시오."
+    DESC_EN="NVIDIA 595.99.02 proprietary driver; CUDA API 13.2; supports Turing and newer GPUs in the bundled compatibility table; kernel 5.10.55. Platforms: ${PLATFORMS}. Performs a GPU compatibility pre-check and enables KMS modeset=1 with matching quad-DRM providers. After boot-time DSM/loader changes, startup validates and restores missing/mismatched platform modules from this package, notifies administrators, and reports if reboot is required. Plex is restarted and checked after driver activation, including after recovery. Reboot after migration if NVIDIA modules are already loaded."
+    DESC_KR="NVIDIA 595.99.02 독점 드라이버입니다. CUDA API 13.2를 제공하고 번들 호환성 표의 Turing 이상 GPU를 지원합니다. 커널 5.10.55용, 플랫폼: ${PLATFORMS}. GPU 호환성 사전 검사와 일치하는 quad-DRM provider, KMS modeset=1을 적용합니다. 부팅 중 DSM/로더 변경으로 플랫폼 모듈이 누락되거나 불일치하면 시작 시 패키지에서 검증·복구하고 관리자에게 알리며, 재부팅 필요 여부도 안내합니다. 복구 후에도 드라이버 활성화를 확인한 다음 Plex를 재시작하고 결과를 확인합니다. 마이그레이션 후 NVIDIA 모듈이 이미 적재되어 있으면 재부팅하십시오."
     FILESUFFIX=""
     ;;
   kver5)
@@ -149,11 +149,25 @@ if [[ "${PLATFORM_MIGRATION_BUILD:-0}" == 1 ]]; then
   WORK="$ROOT/work/platform-migration-$VARIANT"
 fi
 
+# Opt-in, local-only diagnostic package. Keep the normal package work tree,
+# dist artifact, package version, and lifecycle behavior untouched. The trace
+# is emitted by the privileged backend to a root-only log on the NAS.
+DIAGNOSTIC_SUFFIX=""
+if [[ "${NVIDIA_DIAGNOSTIC_BUILD:-0}" == 1 ]]; then
+  WORK="$ROOT/work/diagnostic-$VARIANT"
+  OUT="${DIAGNOSTIC_DIST_DIR:-$ROOT/dist/diagnostic}"
+  DIAGNOSTIC_SUFFIX="-diagnostic"
+  DISPLAYNAME="$DISPLAYNAME (Install Diagnostic)"
+  DESC_EN="$DESC_EN Diagnostic build: records a root-only execution trace at /var/log/nvidia-driver-diagnostic.log for troubleshooting; not for normal distribution."
+  DESC_KR="$DESC_KR 진단용 빌드입니다. 문제 분석을 위해 /var/log/nvidia-driver-diagnostic.log에 root 전용 실행 추적 로그를 기록합니다. 일반 배포용이 아닙니다."
+fi
+
 # Wipe everything except dl/ (the downloaded release assets) so re-running
 # after an INFO/script fix doesn't re-pull ~500MB-900MB over the network.
 rm -rf "$WORK/target" "$WORK/scripts" "$WORK/conf" "$WORK/INFO" "$WORK"/*.PNG
 mkdir -p "$WORK/target/lib/modules" "$WORK/target/lib/nvidia/bin" "$WORK/target/lib/nvidia/lib" \
-         "$WORK/target/lib/firmware" "$WORK/target/share" "$WORK/scripts" "$WORK/conf" "$WORK/dl"
+         "$WORK/target/lib/firmware" "$WORK/target/share" "$WORK/target/ui/texts/enu" \
+         "$WORK/target/ui/texts/krn" "$WORK/target/ui/images" "$WORK/scripts" "$WORK/conf" "$WORK/dl"
 case "$KSUFFIX" in
   51055) PACKAGE_KERNEL_VERSION=5.10.55 ;;
   44302) PACKAGE_KERNEL_VERSION=4.4.302 ;;
@@ -215,13 +229,25 @@ if [ "$BUNDLE_DRM_PROVIDER" = 1 ]; then
   stage_drm_provider() {
     local platform=$1 sha=$2 source_base=$3
     local asset="${platform}-7.4-5.10.55-drm.tgz" actual tmp
-    local src="$DRM_CACHE/$asset"
+    # Identical filenames exist in multiple provider releases. Cache each
+    # immutable archive by its expected digest so a newer local archive can
+    # never shadow the pinned release selected by this package variant.
+    local src="$DRM_CACHE/$sha/$asset"
     if [ ! -s "$src" ]; then
-      [ "$source_base" != local ] || { echo "missing local quad DRM provider: $src" >&2; exit 1; }
+      mkdir -p "$(dirname "$src")"
+      if [ "$source_base" = local ]; then
+        local existing="$DRM_CACHE/$asset"
+        [ -s "$existing" ] || { echo "missing local quad DRM provider: $existing" >&2; exit 1; }
+        local existing_sha
+        existing_sha=$(shasum -a 256 "$existing" | awk '{print $1}')
+        [ "$existing_sha" = "$sha" ] || { echo "local quad DRM provider checksum mismatch for $asset: expected $sha, got $existing_sha" >&2; exit 1; }
+        cp -p "$existing" "$src"
+      else
       tmp="$src.tmp.$$"
       echo "fetching pinned quad DRM provider $asset"
       curl -sL --fail "$source_base/$asset" -o "$tmp"
       mv "$tmp" "$src"
+      fi
     fi
     actual=$(shasum -a 256 "$src" | awk '{print $1}')
     [ "$actual" = "$sha" ] || {
@@ -347,6 +373,44 @@ chmod 0755 "$WORK/scripts/"*
 mkdir -p "$WORK/target/bin/helper"
 cp "$ROOT/spk/bin/nvidia-backend.sh" "$WORK/target/bin/nvidia-backend.sh"
 chmod 0755 "$WORK/target/bin/nvidia-backend.sh"
+if [[ "${NVIDIA_DIAGNOSTIC_BUILD:-0}" == 1 ]]; then
+  python3 - "$WORK/target/bin/nvidia-backend.sh" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+needle = "set -eu\n"
+trace = '''set -eu
+# Temporary install-diagnostic instrumentation. Keep this root-only because
+# the trace can include system paths and command output.
+umask 077
+DIAGNOSTIC_LOG=/var/log/nvidia-driver-diagnostic.log
+exec 2>>"$DIAGNOSTIC_LOG"
+PS4='+$(date "+%Y-%m-%d %H:%M:%S") nvidia-backend[$$] '
+trap 'diag_status=$?; printf "%s nvidia-backend: exit=%s action=%s\\n" "$(date "+%Y-%m-%d %H:%M:%S")" "$diag_status" "${1:-unknown}" >&2' 0
+set -x
+'''
+if text.count(needle) != 1:
+    raise SystemExit(f"expected one backend set -eu, found {text.count(needle)}")
+path.write_text(text.replace(needle, trace, 1))
+PY
+  python3 - "$WORK/scripts/postinst" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+needle = 'if [ "$STATUS" -ne 0 ]; then\n'
+replacement = '''if [ "$STATUS" -ne 0 ]; then
+  echo "nvidia-driver: diagnostic trace: /var/log/nvidia-driver-diagnostic.log" >&2
+'''
+if text.count(needle) != 1:
+    raise SystemExit(f"expected one postinst failure block, found {text.count(needle)}")
+path.write_text(text.replace(needle, replacement, 1))
+PY
+  : > "$WORK/target/share/nvidia-install-diagnostic.enabled"
+fi
 docker run --rm --platform linux/amd64 \
   -v "$ROOT/spk/helper:/src" -v "$WORK/target/bin/helper:/out" -w /src gcc:latest \
   gcc -O2 -static -Wall -Wextra \
@@ -367,6 +431,15 @@ sed -i.bak \
   "$WORK/INFO"
 rm -f "$WORK/INFO.bak"
 VERSION=$(sed -n 's/^version="\([^"]*\)"$/\1/p' "$WORK/INFO" | head -1)
+
+# DSM 7 desktop notifications require localized I18N keys registered through
+# the package's hidden .url app entry; arbitrary title/message strings are
+# rejected by synodsmnotify.
+sed "s/__PACKAGE__/$PACKAGE/g" "$ROOT/spk/ui/config" > "$WORK/target/ui/config"
+cp "$ROOT/spk/ui/texts/enu/strings" "$WORK/target/ui/texts/enu/strings"
+cp "$ROOT/spk/ui/texts/krn/strings" "$WORK/target/ui/texts/krn/strings"
+cp "$ROOT/spk/PACKAGE_ICON.PNG" "$WORK/target/ui/images/app_64.png"
+cp "$ROOT/spk/PACKAGE_ICON_256.PNG" "$WORK/target/ui/images/app_256.png"
 
 for icon in PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
   [ -f "$ROOT/spk/$icon" ] && cp "$ROOT/spk/$icon" "$WORK/$icon"
@@ -392,6 +465,7 @@ members=(INFO package.tgz scripts conf)
 for icon in PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
   [ -f "$WORK/$icon" ] && members+=("$icon")
 done
-SPK="$OUT/${PACKAGE}-${VERSION}${FILESUFFIX}.spk"
+SPK="$OUT/${PACKAGE}-${VERSION}${FILESUFFIX}${DIAGNOSTIC_SUFFIX}.spk"
 tar -C "$WORK" -cf "$SPK" "${members[@]}"
+tar -xOf "$SPK" package.tgz | tar -tzf - | grep -qx './ui/config'
 echo "Built $SPK ($(du -h "$SPK" | cut -f1))"

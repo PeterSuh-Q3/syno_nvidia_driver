@@ -13,6 +13,7 @@ distributor_url="https://github.com/PeterSuh-Q3/syno_nvidia_driver"
 support_url="https://github.com/PeterSuh-Q3/syno_nvidia_driver/issues"
 thirdparty="yes"
 beta="false"
+dsmuidir="ui"
 # There is no persistent daemon process here, only kernel modules that must
 # be (re)inserted on every boot. DSM invokes start-stop-status's "start"
 # action at boot regardless of these flags (confirmed by syno-amdgpu-driver's

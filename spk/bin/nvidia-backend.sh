@@ -17,7 +17,45 @@ NVDIR=/usr/local/nvidia
 RCLOG=/var/log/nvidia-driver.log
 ACTIVATION_STATE=/usr/lib/modules/.nvidia-activation-state
 PLATFORM_MIGRATION_PENDING=/usr/lib/modules/.nvidia-platform-migration-pending
+DSM_NOTIFY=/usr/syno/bin/synodsmnotify
+# RUNTIME is reached through /var/packages/<package-id>/target, so its
+# basename is always "target" rather than the package ID.
+PACKAGE_ID=$(basename "$(dirname "$RUNTIME")")
 rclog(){ echo "$(date '+%H:%M:%S') nvidia-backend: $*" >>"$RCLOG" 2>/dev/null; }
+
+notify_module_recovery() {
+  result=$1
+  platform=$2
+  krel=$3
+  case "$result" in
+    recovered)
+      level=info
+      message_key=module_recovered
+      ;;
+    reboot)
+      level=warn
+      message_key=module_reboot_required
+      ;;
+    failed)
+      level=error
+      message_key=module_recovery_failed
+      ;;
+    *) return 0 ;;
+  esac
+
+  if [ -x "$DSM_NOTIFY" ]; then
+    if "$DSM_NOTIFY" -c "SYNO.SDS._ThirdParty.App.$PACKAGE_ID" -l "$level" \
+      @administrators "$PACKAGE_ID:notification:app_title" \
+      "$PACKAGE_ID:notification:$message_key" "$platform" "$krel" >>"$RCLOG" 2>&1; then
+      rclog "module recovery notification sent (result=$result platform=$platform kernel=$krel)"
+    else
+      rclog "module recovery notification failed (result=$result platform=$platform kernel=$krel)"
+    fi
+  else
+    rclog "module recovery notification unavailable: synodsmnotify not found (result=$result platform=$platform kernel=$krel)"
+  fi
+  return 0
+}
 
 # The payload's VERSION is the authoritative userspace driver version. Do not
 # derive it from a neighbouring INFO file: resolving the target symlink puts
@@ -101,6 +139,17 @@ lock_payload() {
 # unchanged.
 package_kernel_version() {
   sed -n '1{s/[[:space:]]*$//;p;}' "$RUNTIME/share/nvidia-kernel-version" 2>/dev/null
+}
+
+# A boot-time loader/DSM transition may remove this marker before the package
+# service starts.  This script uses `set -e`, so a bare `cat` in command
+# substitution would exit the entire backend instead of reaching the
+# platform-selection and recovery logic.  Missing/unreadable means "unknown"
+# and is deliberately handled by the caller as a recovery condition.
+read_platform_marker() {
+  marker_file=$1
+  [ -r "$marker_file" ] || return 0
+  cat "$marker_file" 2>/dev/null || true
 }
 
 nvidia_modules_loaded() {
@@ -222,16 +271,38 @@ restore_kver5_modules_if_missing() {
   kver=$2
   krel=${3:-$(uname -r)}
   [ "$kver" = "5.10.55" ] || return 0
+
+  marker_file=/usr/lib/modules/.nvidia-platform
+  stored=$(read_platform_marker "$marker_file")
+  expected="$platform $kver $krel"
   missing=0
   for module in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
     [ -f "/usr/lib/modules/$module.ko" ] || missing=1
   done
-  [ "$missing" -eq 1 ] || return 0
-  rclog "module recovery: NVIDIA files are missing; validating bundled set for '$platform'"
+  matched=1
+  platform_modules_match "$platform" || matched=0
+  if [ "$missing" -eq 0 ] && [ "$matched" -eq 1 ] && [ "$stored" = "$expected" ]; then
+    return 0
+  fi
+
+  if [ "$stored" != "$expected" ]; then
+    rclog "module recovery: platform marker missing/mismatched (found '$stored', expected '$expected')"
+  elif [ "$missing" -eq 1 ]; then
+    rclog "module recovery: one or more NVIDIA module files are missing"
+  else
+    rclog "module recovery: installed NVIDIA modules do not match the bundled '$platform' set"
+  fi
+  rclog "module recovery: validating bundled set for '$platform'"
   if stage_platform_modules "$platform" "$kver" "$krel"; then
     rclog "module recovery: restored validated NVIDIA modules for '$platform'"
+    if nvidia_modules_loaded; then
+      notify_module_recovery reboot "$platform" "$krel"
+    else
+      notify_module_recovery recovered "$platform" "$krel"
+    fi
   else
     rclog "module recovery: refused unsafe module set for '$platform'"
+    notify_module_recovery failed "$platform" "$krel"
     return 1
   fi
 }
@@ -432,6 +503,18 @@ restart_plex() {
     return 0
   }
 
+  marker_dir=/run/syno-nvidia-driver
+  [ -d /run ] || marker_dir=/tmp/syno-nvidia-driver
+  mkdir -p "$marker_dir" 2>/dev/null || true
+  install_marker="$marker_dir/plex-restart-install.done"
+  install_key="$PACKAGE_ID $(sed -n 's/^version="\([^"]*\)"$/\1/p' "/var/packages/$PACKAGE_ID/INFO" 2>/dev/null | head -1)"
+  if [ "$reason" = install ] && [ -r "$install_marker" ] &&
+     [ "$(cat "$install_marker" 2>/dev/null)" = "$install_key" ]; then
+    rclog "Plex install restart skipped: already succeeded for this package build"
+    plex_restart_result restart_success
+    return 0
+  fi
+
   before="$(plex_process_signature)"
   if [ -z "$before" ]; then
     rclog "Plex restart skipped: Plex was not running ($reason)"
@@ -448,9 +531,6 @@ restart_plex() {
   if [ "$reason" = boot ]; then
     # /run is volatile and recreated at boot, so the marker limits this boot
     # hook to one attempt without suppressing the next DSM boot's retry.
-    marker_dir=/run/syno-nvidia-driver
-    [ -d /run ] || marker_dir=/tmp/syno-nvidia-driver
-    mkdir -p "$marker_dir" 2>/dev/null || true
     marker="$marker_dir/plex-restart-at-boot.done"
     if [ -e "$marker" ]; then
       rclog "Plex boot restart skipped: already attempted this boot"
@@ -461,9 +541,6 @@ restart_plex() {
     # Installation itself already performed the restart for this boot. If
     # DSM invokes start-stop-status again immediately after postinst, do not
     # restart Plex a second time in the same boot.
-    marker_dir=/run/syno-nvidia-driver
-    [ -d /run ] || marker_dir=/tmp/syno-nvidia-driver
-    mkdir -p "$marker_dir" 2>/dev/null || true
     marker="$marker_dir/plex-restart-at-boot.done"
     : > "$marker" 2>/dev/null || true
   fi
@@ -483,7 +560,10 @@ restart_plex() {
       stable=$((stable + 1))
       [ "$stable" -ge 2 ] && {
         rclog "Plex restart succeeded ($reason); new process IDs: $current"
-        [ "$reason" = install ] && plex_restart_result restart_success
+        if [ "$reason" = install ]; then
+          printf '%s\n' "$install_key" > "$install_marker" 2>/dev/null || true
+          plex_restart_result restart_success
+        fi
         return 0
       }
     else
@@ -509,23 +589,46 @@ do_start() {
   CURP="$(uname -a | awk '{for (i=1; i<=NF; i++) if ($i ~ /^synology_/) { sub(/^synology_/, "", $i); sub(/_.*/, "", $i); print $i; exit }}')"
   CURL="$(uname -r)"
   CURK="$(echo "$CURL" | sed 's/[^0-9.].*$//')"
-  STORED="$(cat /usr/lib/modules/.nvidia-platform 2>/dev/null)"
+  STORED="$(read_platform_marker /usr/lib/modules/.nvidia-platform)"
   STOREDP="${STORED%% *}"
   STOREDK=""; STOREDL=""
   case "$STORED" in
     *" "*) REST="${STORED#* }"; STOREDK="${REST%% *}"; case "$REST" in *" "*) STOREDL="${REST#* }" ;; esac ;;
   esac
+  K5_RECOVERY=0
+  if [ "$CURK" = "5.10.55" ]; then
+    [ -r /usr/lib/modules/.nvidia-platform ] || K5_RECOVERY=1
+    for module in nvidia nvidia-uvm nvidia-modeset nvidia-drm; do
+      [ -s "/usr/lib/modules/$module.ko" ] || K5_RECOVERY=1
+    done
+  fi
   if [ -z "$STOREDP" ] || [ "$STOREDP" != "$CURP" ] || [ "$STOREDK" != "$CURK" ] || [ "$STOREDL" != "$CURL" ] || ! platform_modules_match "$CURP"; then
     rclog "platform/kernel changed: stored '$STOREDP $STOREDK $STOREDL', running '$CURP $CURK $CURL'; validating and selecting matching bundled modules"
     if ! stage_platform_modules "$CURP" "$CURK" "$CURL"; then
+      [ "$K5_RECOVERY" -eq 1 ] && notify_module_recovery failed "$CURP" "$CURL"
       rclog "REFUSED: package has no ABI-compatible module set for '$CURP $CURL'; existing modules were not loaded or replaced"
       echo "nvidia-driver: no compatible bundled modules for platform '$CURP' kernel '$CURL'; refusing to load the previous platform's modules." >&2
       return 1
+    fi
+    if [ "$K5_RECOVERY" -eq 1 ]; then
+      if nvidia_modules_loaded; then
+        notify_module_recovery reboot "$CURP" "$CURL"
+      else
+        notify_module_recovery recovered "$CURP" "$CURL"
+      fi
     fi
     if nvidia_modules_loaded; then
       printf '%s\n' "$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || date '+%s')" > "$PLATFORM_MIGRATION_PENDING"
       rclog "validated modules staged for '$CURP', but NVIDIA modules are resident; reboot required before activation"
       echo "nvidia-driver: compatible modules for '$CURP' are staged; reboot DSM to activate them safely." >&2
+      # Recovery can repair the on-disk set while the already-loaded driver
+      # remains active. If that live driver is compatible, restart Plex once
+      # so it reprobes NVIDIA instead of leaving Plex on stale GPU discovery.
+      # A mismatched/inactive driver is rejected by plex_driver_ready().
+      if [ "$K5_RECOVERY" -eq 1 ] && [ "$START_REASON" != install ]; then
+        rclog "module recovery completed with resident modules; checking Plex restart after recovery"
+        restart_plex boot
+      fi
       return 0
     fi
     rclog "platform/kernel modules staged for '$CURP $CURL'; continuing with activation"
