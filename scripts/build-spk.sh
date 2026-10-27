@@ -22,6 +22,7 @@ WORK="$ROOT/work/spk-$VARIANT"
 KVER5_PLATFORMS="epyc7002 epyc7003 geminilakenk icelaked r1000nk v1000nk"
 KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap geminilake purley r1000 v1000"
 KO_FLAVOR_PREFIX=""
+MODULE_FLAVOR="proprietary"
 ENABLE_NVIDIA_DRM_MODESET=0
 BUNDLE_DRM_PROVIDER=0
 ENABLE_PLEX_RESTART=0
@@ -43,6 +44,7 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="open-"
+    MODULE_FLAVOR="open"
     KO_ASSET_DIR="$ROOT/out/release-assets-nvidia/kver5-580-open"
     BUNDLE_DRM_PROVIDER=1
     DRM_PROVIDER_SOURCE="work-26.10.15"
@@ -66,6 +68,7 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="proprietary-"
+    MODULE_FLAVOR="proprietary"
     BUNDLE_DRM_PROVIDER=1
     ENABLE_NVIDIA_DRM_MODESET=1
     ENABLE_PLEX_RESTART=1
@@ -86,6 +89,7 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="open-"
+    MODULE_FLAVOR="open"
     KO_ASSET_DIR="$ROOT/out/release-assets-nvidia/kver5-595-open"
     BUNDLE_DRM_PROVIDER=1
     DRM_PROVIDER_SOURCE="work-26.10.15"
@@ -106,6 +110,7 @@ case "$VARIANT" in
     OS_MIN_VER=7.2-00000
     BUNDLE_GSP=1
     KO_FLAVOR_PREFIX="proprietary-"
+    MODULE_FLAVOR="proprietary"
     BUNDLE_DRM_PROVIDER=1
     ENABLE_NVIDIA_DRM_MODESET=1
     ENABLE_PLEX_RESTART=1
@@ -356,6 +361,7 @@ with open(target, "w", encoding="utf-8") as out:
         out.write("\t".join(fields) + "\n")
 PY
 printf '%s\n' "$DRIVER" > "$WORK/scripts/target-driver.txt"
+printf '%s\n' "$MODULE_FLAVOR" > "$WORK/scripts/target-module-flavor.txt"
 
 # ---- lifecycle scripts + conf (shared verbatim across all 3 variants) -----
 cp "$ROOT/spk/scripts/"* "$WORK/scripts/"

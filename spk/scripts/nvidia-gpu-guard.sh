@@ -4,10 +4,12 @@ set -u
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 TABLE="$SCRIPT_DIR/nvidia-gpu-support.tsv"
 BRANCH_FILE="$SCRIPT_DIR/target-driver.txt"
+FLAVOR_FILE="$SCRIPT_DIR/target-module-flavor.txt"
 LOGFILE="${SYNOPKG_TEMP_LOGFILE:-}"
 URL_580="https://github.com/PeterSuh-Q3/syno_nvidia_driver/releases/download/spk/syno-nvidia-driver-kver5-580-proprietary-580.173.02-1.spk"
 ACTION="${1:-installation}"
 DRIVER="$(cat "$BRANCH_FILE" 2>/dev/null || true)"
+FLAVOR="$(cat "$FLAVOR_FILE" 2>/dev/null || printf proprietary)"
 
 say() {
   if [ -n "$LOGFILE" ]; then
@@ -63,6 +65,21 @@ for dev in "$DEV_ROOT"/*; do
         ;;
     esac
   fi
+
+  if [ "$FLAVOR" = "open" ]; then
+    case "$DRIVER:$arch" in
+      580.173.02:Turing|580.173.02:Ampere|580.173.02:"Ampere GA100"|\
+      595.99.02:Turing|595.99.02:Ampere|595.99.02:"Ampere GA100"|\
+      595.99.02:Hopper|595.99.02:Ada|595.99.02:Blackwell)
+        ;;
+      *:"")
+        UNKNOWN_GPU="$UNKNOWN_GPU $id"
+        ;;
+      *)
+        UNSUPPORTED_GPU="${UNSUPPORTED_GPU}${UNSUPPORTED_GPU:+; }$name ($arch, $id)"
+        ;;
+    esac
+  fi
 done
 
 if [ "$FOUND" -eq 0 ]; then
@@ -75,11 +92,11 @@ if [ "$DRIVER" = "595.99.02" ] && [ -n "$OLDER_GPU" ]; then
   case "${SYNOPKG_DSM_LANGUAGE:-enu}" in
     krn)
       say "감지된 GPU: $OLDER_GPU. NVIDIA 595와 호환되지 않아 드라이버 설치/업데이트를 취소했습니다."
-      say "패키지 센터 > 수동 설치에서 NVIDIA 580.173.02 proprietary를 설치하세요: $URL_580"
+      say "패키지 센터 > 수동 설치에서 NVIDIA 580 Proprietary (580.173.02)를 설치하세요: $URL_580"
       ;;
     *)
       say "Detected GPU: $OLDER_GPU. NVIDIA 595 is incompatible; driver installation/upgrade was canceled."
-      say "In Package Center, choose Manual Install and install NVIDIA 580.173.02 proprietary package revision 1: $URL_580"
+      say "In Package Center, choose Manual Install and install NVIDIA 580 Proprietary (580.173.02), package revision 1: $URL_580"
       ;;
   esac
   exit 1
@@ -92,7 +109,24 @@ if [ "$DRIVER" = "595.99.02" ] && [ -n "$UNSUPPORTED_GPU" ]; then
   exit 1
 fi
 
+if [ "$FLAVOR" = "open" ] && [ -n "$UNSUPPORTED_GPU" ]; then
+  case "${SYNOPKG_DSM_LANGUAGE:-enu}" in
+    krn)
+      say "감지된 GPU가 NVIDIA ${DRIVER} open 커널 모듈의 지원 범위에 없어 설치/업데이트를 취소했습니다: $UNSUPPORTED_GPU"
+      ;;
+    *)
+      say "The detected GPU is outside the supported range for the NVIDIA ${DRIVER} open kernel module; installation/upgrade was canceled: $UNSUPPORTED_GPU"
+      ;;
+  esac
+  exit 1
+fi
+
 if [ -n "$UNKNOWN_GPU" ]; then
+  if [ "$FLAVOR" = "open" ]; then
+    say "감지된 NVIDIA GPU의 계열을 확인할 수 없어 open 모듈 설치를 중단했습니다. GPU 지원표를 확인하세요: $UNKNOWN_GPU"
+    say "The NVIDIA GPU architecture could not be identified, so open-module installation was stopped. Check the supported GPU table: $UNKNOWN_GPU"
+    exit 1
+  fi
   say "일부 NVIDIA GPU의 PCI ID가 지원표에 없어 계열을 확인하지 못했습니다. 설치를 계속하지만 호환성을 직접 확인하세요: $UNKNOWN_GPU"
   say "One or more NVIDIA PCI IDs are missing from the support table; compatibility could not be verified. Continuing with manual verification recommended: $UNKNOWN_GPU"
 fi
