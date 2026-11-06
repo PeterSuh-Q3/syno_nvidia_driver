@@ -2,4 +2,26 @@
 # Verify GPU presence and driver-branch compatibility before package files are
 # installed. A nonzero result aborts installation without touching the system.
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
+# Synology DVA models ship their own NVIDIA driver; installing this package
+# there would conflict with (and could overwrite) Synology's modules. INFO excludes these models via exclude_model, but
+# that filter only applies on DSM 7.2+ and only in Package Center, so refuse
+# here as well. NVIDIA_UNAME_A is a test hook.
+UNAME_A="${NVIDIA_UNAME_A:-$(uname -a 2>/dev/null)}"
+case " $UNAME_A " in
+  *" synology_"*"_dva"*)
+    MODEL="$(printf '%s\n' "$UNAME_A" | tr ' ' '\n' | sed -n 's/^synology_[^_]*_//p' | head -1)"
+    case "${SYNOPKG_DSM_LANGUAGE:-enu}" in
+      krn) MSG="$MODEL 모델은 Synology 정식 NVIDIA 드라이버를 탑재하고 있어 이 패키지를 설치할 수 없습니다." ;;
+      *) MSG="$MODEL ships Synology's own NVIDIA driver; this package would replace it and is not installed on DVA models." ;;
+    esac
+    if [ -n "${SYNOPKG_TEMP_LOGFILE:-}" ]; then
+      printf '%s\n' "$MSG" >> "$SYNOPKG_TEMP_LOGFILE"
+    else
+      printf '%s\n' "$MSG" >&2
+    fi
+    exit 1
+    ;;
+esac
+
 exec "$SCRIPT_DIR/nvidia-gpu-guard.sh" install
