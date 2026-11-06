@@ -55,7 +55,7 @@ actual_run_sha="$(sha256_file "$RUN_REL")"
 [[ -s "$SHARED_USERSPACE" ]] || die "shared userspace archive is missing: $SHARED_USERSPACE"
 [[ -s "$SHARED_GSP" ]] || die "shared GSP archive is missing: $SHARED_GSP"
 tar -tzf "$SHARED_GSP" >/dev/null 2>&1 || die "shared GSP archive is corrupt: $SHARED_GSP"
-tar -tzf "$SHARED_GSP" | grep -Eq '(^|/)gsp_[^/]+\.bin$' || die "shared GSP archive contains no firmware: $SHARED_GSP"
+tar -tzf "$SHARED_GSP" | grep -Ec '(^|/)gsp_[^/]+\.bin$' >/dev/null || die "shared GSP archive contains no firmware: $SHARED_GSP"
 
 log "Locked profile: driver=$DRIVER flavor=proprietary DSM=$DSM_VERSION kernel=$KERNEL_VERSION jobs=$JOBS"
 log "Platforms: ${PLATFORMS[*]}"
