@@ -5,6 +5,10 @@ description="__DESC_EN__"
 description_enu="__DESC_EN__"
 description_krn="__DESC_KR__"
 arch="__PACKAGE_ARCHES__"
+# DVA3219/DVA3221 (denverton) ship Synology's own NVIDIA driver; this package
+# would replace those modules. exclude_model needs the DSM 7.2 package
+# framework; scripts/preinst enforces the same rule on older DSM.
+exclude_model="synology_denverton_dva3219 synology_denverton_dva3221"
 os_min_ver="__OS_MIN_VER__"
 maintainer="PeterSuh-Q3"
 maintainer_url="https://github.com/PeterSuh-Q3/syno_nvidia_driver"

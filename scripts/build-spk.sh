@@ -20,7 +20,7 @@ WORK="$ROOT/work/spk-$VARIANT"
 # 40df760c9ebeafac00b8c61149c2b4dfe6141d1c, the same one install.sh reads).
 # epyc7003ntb (PAS7700) is no longer supported by this driver.
 KVER5_PLATFORMS="epyc7002 epyc7003 geminilakenk icelaked r1000nk v1000nk"
-KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap geminilake purley r1000 v1000"
+KVER4_PLATFORMS="apollolake broadwell broadwellnk broadwellnkv2 broadwellntbap denverton geminilake purley r1000 v1000"
 KO_FLAVOR_PREFIX=""
 MODULE_FLAVOR="proprietary"
 ENABLE_NVIDIA_DRM_MODESET=0

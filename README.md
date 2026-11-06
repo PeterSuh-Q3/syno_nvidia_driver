@@ -349,6 +349,7 @@ both the installer and offline SPKs.
 | `broadwellnk`     | DS3622xs+ / RS4021xs+         | ✅ | ✅ |
 | `broadwellnkv2`   | RS3621xs+                     | ✅ | ✅ |
 | `broadwellntbap`  | SA3400                        | ✅ | ✅ |
+| `denverton`       | DS1819+ / DS2419+ / RS820+    | ✅ | ✅ |
 | `geminilake`      | DS220+ / DS420+ / DS720+      | ✅ | ✅ |
 | `purley`          | FS6400 / HD6500               | ✅ | ✅ |
 | `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
@@ -407,8 +408,9 @@ The platform matrix identifies package targets; it does not mean every
 platform has been individually tested on hardware. See the [SPK release
 notes](spk/RELEASE_NOTES.md) for the hardware checks that were performed.
 
-**Not supported:** `denverton` (DSM already ships a vanilla NVIDIA driver there
-for DVA) and kernel 3.10 platforms — `avoton` / `braswell` / `bromolow`.
+**Not supported:** the DVA models on `denverton` (DVA3219 / DVA3221), which
+already ship Synology's own NVIDIA driver — the package excludes them — and
+kernel 3.10 platforms — `avoton` / `braswell` / `bromolow`.
 
 <details>
 <summary><b>Why 550 is the ceiling on kernel 4.4</b></summary>
@@ -864,6 +866,7 @@ SPK 모두에서 제외되어 있습니다.
 | `broadwellnk`     | DS3622xs+ / RS4021xs+         | ✅ | ✅ |
 | `broadwellnkv2`   | RS3621xs+                     | ✅ | ✅ |
 | `broadwellntbap`  | SA3400                        | ✅ | ✅ |
+| `denverton`       | DS1819+ / DS2419+ / RS820+    | ✅ | ✅ |
 | `geminilake`      | DS220+ / DS420+ / DS720+      | ✅ | ✅ |
 | `purley`          | FS6400 / HD6500               | ✅ | ✅ |
 | `r1000`           | DS723+ / DS923+ / DS1522+     | ✅ | ✅ |
@@ -918,8 +921,9 @@ GPU가 proprietary 표에만 있거나 기존 비공개 커널 모듈을 선호�
 시험했다는 뜻은 아닙니다. 실제 하드웨어 검증 범위는
 [SPK 릴리즈 노트](spk/RELEASE_NOTES.md)를 참고하세요.
 
-**미지원:** `denverton`(DSM이 DVA용으로 이미 정식 NVIDIA 드라이버를 탑재),
-그리고 커널 3.10 플랫폼 — `avoton` / `braswell` / `bromolow`.
+**미지원:** `denverton`의 DVA 모델(DVA3219 / DVA3221 — Synology 정식 NVIDIA
+드라이버를 이미 탑재하므로 패키지에서 제외), 그리고 커널 3.10 플랫폼 —
+`avoton` / `braswell` / `bromolow`.
 
 <details>
 <summary><b>커널 4.4에서 550이 상한인 이유</b></summary>
