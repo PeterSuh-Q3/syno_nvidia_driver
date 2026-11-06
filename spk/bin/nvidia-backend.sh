@@ -169,6 +169,33 @@ module_vermagic() {
   fi
 }
 
+# license= of a kernel module, read like module_vermagic (no modinfo needed).
+# Only nvidia.ko tells the flavors apart: "Dual MIT/GPL" for NVIDIA's open
+# kernel modules, "NVIDIA" for the proprietary ones. nvidia-uvm.ko reports
+# "Dual MIT/GPL" in both flavors, so always pass nvidia.ko.
+module_license() {
+  tr '\000' '\n' < "$1" 2>/dev/null | sed -n 's/^license=//p' | head -1
+}
+
+# Message for a GPU that the support table marks needs_gsp when this package
+# bundles no GSP firmware for it. GSP firmware is mandatory only for the open
+# kernel modules; the proprietary modules run Turing and Ampere without it
+# (verified: RTX A1000 / GA107 on the kver4 550.163.01 proprietary package -
+# even with gsp_ga10x.bin present, nvidia-smi reports "GSP Firmware Version:
+# N/A"). Every other combination keeps the original warning.
+gsp_missing_notice() {
+  gpuid=$1 arch=$2 module=$3
+  if [ "$(module_license "$module")" = "NVIDIA" ]; then
+    case "$arch" in
+      Turing|Ampere)
+        echo "nvidia-driver: note - $gpuid ($arch) has no bundled GSP firmware; the proprietary kernel module runs this GPU without GSP."
+        return 0
+        ;;
+    esac
+  fi
+  echo "nvidia-driver: WARNING - $gpuid needs GSP firmware but none is bundled for it; the driver will load but the GPU will not initialise." >&2
+}
+
 platform_modules_match() {
   platform=$1
   moddir="$RUNTIME/lib/modules/$platform"
@@ -450,7 +477,7 @@ do_postinst() {
       cp -f "$RUNTIME/lib/firmware/$GSP_FW" "$FWDIR/$GSP_FW"
       echo "nvidia-driver: GSP firmware $GSP_FW staged -> $FWDIR"
     elif [ "$NEEDS_GSP" = "true" ]; then
-      echo "nvidia-driver: WARNING - $GPUID needs GSP firmware but none is bundled for it; the driver will load but the GPU will not initialise." >&2
+      gsp_missing_notice "$GPUID" "$(cat /usr/lib/modules/.nvidia-gpuarch 2>/dev/null)" /usr/lib/modules/nvidia.ko
     fi
   fi
 
