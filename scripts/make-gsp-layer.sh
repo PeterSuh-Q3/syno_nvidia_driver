@@ -41,7 +41,7 @@ mkdir -p "$OUT"
 # module build. Validate that it is readable and contains firmware first.
 if [ -s "$ARCHIVE" ] && [ "$OUT" = "$ROOT/out/release-assets-nvidia/shared/${DRIVER%%.*}" ]; then
   tar -tzf "$ARCHIVE" >/dev/null 2>&1 || die "shared GSP archive is corrupt: $ARCHIVE"
-  tar -tzf "$ARCHIVE" | grep -Eq '(^|/)gsp_[^/]+\.bin$' || die "shared GSP archive contains no firmware: $ARCHIVE"
+  tar -tzf "$ARCHIVE" | grep -Ec '(^|/)gsp_[^/]+\.bin$' >/dev/null || die "shared GSP archive contains no firmware: $ARCHIVE"
   log "reusing shared GSP archive: $ARCHIVE"
   log "archive sha256: $(sha256sum "$ARCHIVE" | awk '{print $1}')"
   exit 0

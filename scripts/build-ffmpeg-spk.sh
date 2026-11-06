@@ -171,8 +171,8 @@ for driver in "${versions[@]}"; do
     } >> "$work/INFO"
     spk="$OUT/$package_id-$driver-$package_revision-x86_64.spk"
     tar -C "$work" -cf "$spk" INFO package.tgz scripts conf PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG
-    tar -tf "$spk" | grep -qx package.tgz
-    tar -xOf "$spk" package.tgz | tar -tzf - | grep -qx './ui/config'
+    tar -tf "$spk" | grep -cx package.tgz >/dev/null
+    tar -xOf "$spk" package.tgz | tar -tzf - | grep -cx './ui/config' >/dev/null
     printf 'Built %s\n' "$spk"
     sha256sum "$spk"
 done

@@ -259,8 +259,8 @@ if [ "$BUNDLE_DRM_PROVIDER" = 1 ]; then
       echo "quad DRM provider checksum mismatch for $asset: expected $sha, got $actual" >&2
       exit 1
     }
-    tar -tzf "$src" | grep -qx 'drm.ko' || { echo "invalid DRM archive: $asset" >&2; exit 1; }
-    tar -tzf "$src" | grep -qx 'drm_kms_helper.ko' || { echo "missing drm_kms_helper.ko: $asset" >&2; exit 1; }
+    tar -tzf "$src" | grep -cx 'drm.ko' >/dev/null || { echo "invalid DRM archive: $asset" >&2; exit 1; }
+    tar -tzf "$src" | grep -cx 'drm_kms_helper.ko' >/dev/null || { echo "missing drm_kms_helper.ko: $asset" >&2; exit 1; }
     cp "$src" "$DRM_STAGE/$asset"
   }
 
@@ -304,7 +304,7 @@ if [ "$BUNDLE_GSP" = 1 ]; then
     curl -sL --fail "$REL/$GSP" -o "$SHARED_GSP.tmp.$$"
     mv "$SHARED_GSP.tmp.$$" "$SHARED_GSP"
   fi
-  tar -tzf "$SHARED_GSP" | grep -Eq '(^|/)gsp_[^/]+\.bin$' || {
+  tar -tzf "$SHARED_GSP" | grep -Ec '(^|/)gsp_[^/]+\.bin$' >/dev/null || {
     echo "shared GSP archive is invalid: $SHARED_GSP" >&2; exit 1;
   }
   # The shared GSP layer already has a top-level firmware/ directory. Unpack
@@ -417,7 +417,7 @@ path.write_text(text.replace(needle, replacement, 1))
 PY
   : > "$WORK/target/share/nvidia-install-diagnostic.enabled"
 fi
-docker run --rm --platform linux/amd64 \
+docker run --rm --platform linux/amd64 -u "$(id -u):$(id -g)" \
   -v "$ROOT/spk/helper:/src" -v "$WORK/target/bin/helper:/out" -w /src gcc:latest \
   gcc -O2 -static -Wall -Wextra \
   -DTARGET_SCRIPT="\"/var/packages/${PACKAGE}/target/bin/nvidia-backend.sh\"" \
@@ -473,5 +473,5 @@ for icon in PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
 done
 SPK="$OUT/${PACKAGE}-${VERSION}${FILESUFFIX}${DIAGNOSTIC_SUFFIX}.spk"
 tar -C "$WORK" -cf "$SPK" "${members[@]}"
-tar -xOf "$SPK" package.tgz | tar -tzf - | grep -qx './ui/config'
+tar -xOf "$SPK" package.tgz | tar -tzf - | grep -cx './ui/config' >/dev/null
 echo "Built $SPK ($(du -h "$SPK" | cut -f1))"
