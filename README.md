@@ -434,6 +434,72 @@ boot hook detects the mismatch, refuses to load, and logs why.
 
 </details>
 
+<details>
+<summary><b>CUDA 13 applications on the kernel-4.4 (550) packages — unofficial</b></summary>
+
+<br>
+
+The 550 kernel module itself reports CUDA 12.4. Applications built for CUDA
+13.0 can still run in a container through NVIDIA's forward-compatibility
+libraries (`cuda-compat-13-0`, user-space driver 580.x) on top of the 550
+kernel module. This is **not an officially supported combination**: NVIDIA
+limits forward compatibility to data-center GPUs and select NGC-ready RTX
+SKUs, and R550 is no longer listed as a target branch. It is a per-container
+workaround that does not change the driver package.
+
+Verified on an RS820+ (denverton, DSM 7.2, 4.4.302+) with an RTX A1000 and
+compat libraries 580.65.06: `cuInit` succeeds, the driver reports CUDA
+`13000`, and a context can be created. Newer compat packages (13.2+) are
+reported to fail with error 803 on R550. CUDA–OpenGL/Vulkan interop is not
+available through forward compatibility.
+
+1. The `nvidia/cuda:13.0.0-*` images already ship the compat libraries in
+   `/usr/local/cuda/compat/`. Images built on them only need step 3's
+   `LD_LIBRARY_PATH`; for any other image, copy the libraries once to a
+   folder on the NAS:
+
+   ```sh
+   docker run --rm -v /volume1/docker/cuda-compat:/out nvidia/cuda:13.0.0-base-ubuntu24.04 \
+     cp -a /usr/local/cuda/compat/. /out/
+   ```
+
+2. Mount them into the container that needs CUDA 13 and put them first on
+   the library path (keep any `LD_LIBRARY_PATH` entries the image already
+   sets):
+
+   ```yaml
+   runtime: nvidia
+   volumes:
+     - /volume1/docker/cuda-compat:/cuda-compat:ro
+   environment:
+     NVIDIA_VISIBLE_DEVICES: all
+     NVIDIA_DRIVER_CAPABILITIES: compute,utility
+     LD_LIBRARY_PATH: /cuda-compat
+   ```
+
+3. Check (expected: `cuInit: 0`, `driver CUDA: 13000`, `context: 0`;
+   without `LD_LIBRARY_PATH` the driver reports `12040`):
+
+   ```sh
+   docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
+     -e NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+     nvidia/cuda:13.0.0-base-ubuntu24.04 bash -c '
+     ls /usr/local/cuda/compat/
+     apt-get update -qq && apt-get install -y -qq python3 >/dev/null 2>&1
+     LD_LIBRARY_PATH=/usr/local/cuda/compat python3 -c "
+   import ctypes
+   c=ctypes.CDLL(\"libcuda.so.1\")
+   print(\"cuInit:\", c.cuInit(0))
+   v=ctypes.c_int(); c.cuDriverGetVersion(ctypes.byref(v)); print(\"driver CUDA:\", v.value)
+   d=ctypes.c_int(); c.cuDeviceGet(ctypes.byref(d),0)
+   ctx=ctypes.c_void_p(); print(\"context:\", c.cuCtxCreate_v2(ctypes.byref(ctx),0,d))
+   "'
+   ```
+
+Software that runs fine on CUDA 12.x (for example Ollama) does not need this.
+
+</details>
+
 <br>
 
 ### Driver branches
@@ -942,6 +1008,71 @@ GPU가 proprietary 표에만 있거나 기존 비공개 커널 모듈을 선호�
 때문입니다. 설치기는 플랫폼 이름이 아니라 `uname -r`로 판단합니다. DSM을
 업그레이드해 이 경계를 넘으면 부팅 훅이 불일치를 감지해 로드를 거부하고 이유를
 로그에 남깁니다.
+
+</details>
+
+<details>
+<summary><b>커널 4.4(550) 패키지에서 CUDA 13 애플리케이션 실행 — 비공식</b></summary>
+
+<br>
+
+550 커널 모듈 자체는 CUDA 12.4를 보고합니다. 그래도 CUDA 13.0용으로 빌드된
+애플리케이션은 컨테이너 안에서 NVIDIA의 forward-compatibility 라이브러리
+(`cuda-compat-13-0`, 사용자 공간 드라이버 580.x)를 550 커널 모듈 위에 얹어
+실행할 수 있습니다. **공식 지원 조합은 아닙니다**: NVIDIA는 forward
+compatibility를 데이터센터 GPU와 일부 NGC-ready RTX 제품으로 한정하며, R550은
+더 이상 대상 브랜치로 표기되지 않습니다. 드라이버 패키지는 그대로 두고 컨테이너
+단위로 적용하는 우회 방법입니다.
+
+RS820+(denverton, DSM 7.2, 4.4.302+)와 RTX A1000, compat 라이브러리
+580.65.06으로 확인: `cuInit` 성공, 드라이버가 CUDA `13000`을 보고하고 컨텍스트
+생성도 됩니다. 더 새로운 compat 패키지(13.2+)는 R550에서 오류 803으로 실패한다는
+보고가 있습니다. forward compatibility로는 CUDA–OpenGL/Vulkan 연동을 쓸 수
+없습니다.
+
+1. `nvidia/cuda:13.0.0-*` 이미지에는 compat 라이브러리가 이미
+   `/usr/local/cuda/compat/`에 들어 있습니다. 이 이미지 기반이라면 3단계의
+   `LD_LIBRARY_PATH`만 있으면 되고, 다른 이미지에서는 라이브러리를 NAS의 폴더에
+   한 번 복사합니다:
+
+   ```sh
+   docker run --rm -v /volume1/docker/cuda-compat:/out nvidia/cuda:13.0.0-base-ubuntu24.04 \
+     cp -a /usr/local/cuda/compat/. /out/
+   ```
+
+2. CUDA 13이 필요한 컨테이너에 마운트하고 라이브러리 경로 맨 앞에 둡니다
+   (이미지가 이미 설정한 `LD_LIBRARY_PATH` 항목은 유지하세요):
+
+   ```yaml
+   runtime: nvidia
+   volumes:
+     - /volume1/docker/cuda-compat:/cuda-compat:ro
+   environment:
+     NVIDIA_VISIBLE_DEVICES: all
+     NVIDIA_DRIVER_CAPABILITIES: compute,utility
+     LD_LIBRARY_PATH: /cuda-compat
+   ```
+
+3. 확인 (기대값: `cuInit: 0`, `driver CUDA: 13000`, `context: 0`;
+   `LD_LIBRARY_PATH` 없이는 `12040`):
+
+   ```sh
+   docker run --rm --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all \
+     -e NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+     nvidia/cuda:13.0.0-base-ubuntu24.04 bash -c '
+     ls /usr/local/cuda/compat/
+     apt-get update -qq && apt-get install -y -qq python3 >/dev/null 2>&1
+     LD_LIBRARY_PATH=/usr/local/cuda/compat python3 -c "
+   import ctypes
+   c=ctypes.CDLL(\"libcuda.so.1\")
+   print(\"cuInit:\", c.cuInit(0))
+   v=ctypes.c_int(); c.cuDriverGetVersion(ctypes.byref(v)); print(\"driver CUDA:\", v.value)
+   d=ctypes.c_int(); c.cuDeviceGet(ctypes.byref(d),0)
+   ctx=ctypes.c_void_p(); print(\"context:\", c.cuCtxCreate_v2(ctypes.byref(ctx),0,d))
+   "'
+   ```
+
+CUDA 12.x에서 잘 동작하는 소프트웨어(예: Ollama)에는 필요 없습니다.
 
 </details>
 
