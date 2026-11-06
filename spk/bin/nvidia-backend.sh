@@ -158,15 +158,17 @@ nvidia_modules_loaded() {
 
 module_vermagic() {
   module=$1
-  if command -v modinfo >/dev/null 2>&1; then
-    modinfo -F vermagic "$module" 2>/dev/null
-  elif [ -x /usr/bin/kmod ]; then
-    /usr/bin/kmod modinfo -F vermagic "$module" 2>/dev/null
-  elif [ -x /bin/kmod ]; then
-    /bin/kmod modinfo -F vermagic "$module" 2>/dev/null
-  else
-    return 1
+  # Read vermagic= straight from the module's .modinfo section first. DSM 7.2
+  # on kver4 platforms (verified on denverton/RS820+) ships no modinfo, and its
+  # /bin/kmod prints its usage text to stdout for 'kmod modinfo' and exits
+  # non-zero - the ABI check below then saw 'kmod' as the module release and
+  # refused every bundle. tr/sed are always present on DSM.
+  vm=$(tr '\000' '\n' < "$module" 2>/dev/null | sed -n 's/^vermagic=//p' | head -1)
+  if [ -z "$vm" ] && command -v modinfo >/dev/null 2>&1; then
+    vm=$(modinfo -F vermagic "$module" 2>/dev/null) || vm=""
   fi
+  [ -n "$vm" ] || return 1
+  printf '%s\n' "$vm"
 }
 
 platform_modules_match() {
